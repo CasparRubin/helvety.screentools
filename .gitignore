@@ -1,0 +1,15 @@
+.vs/
+bin/
+obj/
+
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Windows thumbnail cache files
+Thumbs.db
+ehthumbs.db
+
+# Build logs
+*.log

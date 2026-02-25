@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "helvety.screenshots (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "helvety.screenshots (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}
