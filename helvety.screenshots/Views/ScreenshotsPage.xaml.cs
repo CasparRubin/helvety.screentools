@@ -8,8 +8,6 @@ namespace helvety.screenshots.Views
 {
     public sealed partial class ScreenshotsPage : Page
     {
-        private const string DefaultHotkeyDisplay = "Shift+S";
-
         public ScreenshotsPage()
         {
             InitializeComponent();
@@ -36,13 +34,24 @@ namespace helvety.screenshots.Views
 
         private void RefreshEmptyStateMessage()
         {
-            var settings = SettingsService.Load();
-            var folderPath = !string.IsNullOrWhiteSpace(settings.SaveFolderPath)
-                ? settings.SaveFolderPath
-                : SettingsService.GetDefaultDesktopFolderPath();
-            var hotkeyDisplay = settings.Hotkey?.Display ?? DefaultHotkeyDisplay;
+            var hasSaveFolder = SettingsService.TryGetEffectiveSaveFolderPath(out var folderPath);
+            var hasHotkey = SettingsService.TryGetEffectiveHotkey(out var hotkey);
 
-            EmptyStateMessageText.Text = $"Press {hotkeyDisplay} to create your first screenshot.";
+            if (!hasSaveFolder)
+            {
+                EmptyStateMessageText.Text = "Set a save location to enable screenshots.";
+                EmptyFolderCallout.Visibility = Visibility.Visible;
+                return;
+            }
+
+            if (!hasHotkey)
+            {
+                EmptyStateMessageText.Text = "Set a key-binding to enable screenshots.";
+                EmptyFolderCallout.Visibility = Visibility.Visible;
+                return;
+            }
+
+            EmptyStateMessageText.Text = $"Press {hotkey.Display} to create your first screenshot.";
 
             var isEmptyFolder = Directory.Exists(folderPath) &&
                                 !Directory.EnumerateFileSystemEntries(folderPath).Any();

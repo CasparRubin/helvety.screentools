@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="helvety.screenshots.Views.SettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <ScrollViewer>
+        <StackPanel Padding="24" Spacing="16">
+            <TextBlock FontSize="28" FontWeight="SemiBold" Text="Settings" />
+
+            <Border
+                Padding="16"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="12">
+                <StackPanel Spacing="12">
+                    <Grid ColumnSpacing="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0" Spacing="4">
+                            <TextBlock FontSize="20" FontWeight="SemiBold" Text="Save Location" />
+                            <TextBlock
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Text="Choose where screenshots are stored."
+                                TextWrapping="WrapWholeWords" />
+                            <TextBlock
+                                x:Name="SaveFolderText"
+                                Text="Save Folder: (loading...)"
+                                TextWrapping="WrapWholeWords" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <Button
+                                x:Name="ChooseSaveFolderButton"
+                                Click="ChooseSaveFolderButton_Click"
+                                Content="Choose Folder" />
+                            <Button
+                                x:Name="UseDefaultSaveFolderButton"
+                                Click="UseDefaultSaveFolderButton_Click"
+                                Content="Use Default" />
+                            <Button
+                                x:Name="RemoveSaveFolderButton"
+                                Click="RemoveSaveFolderButton_Click"
+                                Content="Remove Save Location" />
+                        </StackPanel>
+                    </Grid>
+
+                    <TextBlock
+                        x:Name="SaveFolderStatusText"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Text=""
+                        TextWrapping="WrapWholeWords" />
+                </StackPanel>
+            </Border>
+
+            <Border
+                Padding="16"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="12">
+                <StackPanel Spacing="12">
+                    <TextBlock FontSize="20" FontWeight="SemiBold" Text="Key-Bindings" />
+                    <TextBlock
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Text="Set modifiers and capture 1-5 sequence keys."
+                        TextWrapping="WrapWholeWords" />
+                    <TextBlock
+                        x:Name="CurrentBindingText"
+                        Text="Current Binding: Shift+S+S+S"
+                        TextWrapping="WrapWholeWords" />
+
+                    <StackPanel Orientation="Horizontal" Spacing="16">
+                        <CheckBox
+                            x:Name="CtrlModifierCheckBox"
+                            Checked="ModifierCheckBox_Changed"
+                            Content="Ctrl"
+                            Unchecked="ModifierCheckBox_Changed" />
+                        <CheckBox
+                            x:Name="AltModifierCheckBox"
+                            Checked="ModifierCheckBox_Changed"
+                            Content="Alt"
+                            Unchecked="ModifierCheckBox_Changed" />
+                        <CheckBox
+                            x:Name="ShiftModifierCheckBox"
+                            Checked="ModifierCheckBox_Changed"
+                            Content="Shift"
+                            Unchecked="ModifierCheckBox_Changed" />
+                    </StackPanel>
+
+                    <Grid ColumnSpacing="12" RowSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="Step 1" />
+                        <TextBlock x:Name="Step1KeyText" Grid.Row="0" Grid.Column="1" VerticalAlignment="Center" Text="(not set)" />
+                        <Button Grid.Row="0" Grid.Column="2" Click="ListenStep1Button_Click" Content="Listen" />
+                        <Button Grid.Row="0" Grid.Column="3" Click="ClearStep1Button_Click" Content="Clear" />
+
+                        <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Text="Step 2" />
+                        <TextBlock x:Name="Step2KeyText" Grid.Row="1" Grid.Column="1" VerticalAlignment="Center" Text="(not set)" />
+                        <Button Grid.Row="1" Grid.Column="2" Click="ListenStep2Button_Click" Content="Listen" />
+                        <Button Grid.Row="1" Grid.Column="3" Click="ClearStep2Button_Click" Content="Clear" />
+
+                        <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Text="Step 3" />
+                        <TextBlock x:Name="Step3KeyText" Grid.Row="2" Grid.Column="1" VerticalAlignment="Center" Text="(not set)" />
+                        <Button Grid.Row="2" Grid.Column="2" Click="ListenStep3Button_Click" Content="Listen" />
+                        <Button Grid.Row="2" Grid.Column="3" Click="ClearStep3Button_Click" Content="Clear" />
+
+                        <TextBlock Grid.Row="3" Grid.Column="0" VerticalAlignment="Center" Text="Step 4" />
+                        <TextBlock x:Name="Step4KeyText" Grid.Row="3" Grid.Column="1" VerticalAlignment="Center" Text="(not set)" />
+                        <Button Grid.Row="3" Grid.Column="2" Click="ListenStep4Button_Click" Content="Listen" />
+                        <Button Grid.Row="3" Grid.Column="3" Click="ClearStep4Button_Click" Content="Clear" />
+
+                        <TextBlock Grid.Row="4" Grid.Column="0" VerticalAlignment="Center" Text="Step 5" />
+                        <TextBlock x:Name="Step5KeyText" Grid.Row="4" Grid.Column="1" VerticalAlignment="Center" Text="(not set)" />
+                        <Button Grid.Row="4" Grid.Column="2" Click="ListenStep5Button_Click" Content="Listen" />
+                        <Button Grid.Row="4" Grid.Column="3" Click="ClearStep5Button_Click" Content="Clear" />
+                    </Grid>
+
+                    <InfoBar
+                        x:Name="ListeningInfoBar"
+                        IsClosable="False"
+                        IsOpen="False"
+                        Message="Click Listen on a step, then press a key."
+                        Severity="Informational"
+                        Title="Listening for key" />
+                    <TextBlock
+                        x:Name="CaptureInstructionText"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Text=""
+                        TextWrapping="WrapWholeWords" />
+                    <TextBlock
+                        x:Name="CapturePreviewText"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Text=""
+                        TextWrapping="WrapWholeWords" />
+                    <TextBlock
+                        x:Name="BindingStatusText"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Text=""
+                        TextWrapping="WrapWholeWords" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button
+                            x:Name="ApplyHotkeyButton"
+                            Click="ApplyHotkeyButton_Click"
+                            Content="Apply Hotkey" />
+                        <Button
+                            x:Name="UseDefaultHotkeyButton"
+                            Click="UseDefaultHotkeyButton_Click"
+                            Content="Use Default" />
+                        <Button
+                            x:Name="RemoveHotkeyButton"
+                            Click="RemoveHotkeyButton_Click"
+                            Content="Remove Hotkey" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <Border
+                Padding="16"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="12">
+                <StackPanel Spacing="8">
+                    <TextBlock FontSize="18" FontWeight="SemiBold" Text="Hotkey Press Messages" />
+                    <TextBlock
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Text="Recent shortcut triggers."
+                        TextWrapping="WrapWholeWords" />
+                    <ListView
+                        x:Name="MessageListView"
+                        Height="300"
+                        IsItemClickEnabled="False"
+                        SelectionMode="None" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</Page>

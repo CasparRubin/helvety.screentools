@@ -7,6 +7,8 @@ namespace helvety.screenshots
 {
     public sealed partial class MainWindow : Window
     {
+        private const string UseDefaultSaveFolderActionTag = "use-default-save-folder";
+        private const string UseDefaultHotkeyActionTag = "use-default-hotkey";
         private readonly ObservableCollection<GlobalSetupIssue> _globalIssues = new();
 
         public MainWindow()
@@ -40,8 +42,7 @@ namespace helvety.screenshots
             var targetPage = tag switch
             {
                 "screenshots" => typeof(ScreenshotsPage),
-                "keybindings" => typeof(KeyBindingsPage),
-                "save-location" => typeof(SaveLocationPage),
+                "settings" => typeof(SettingsPage),
                 _ => typeof(ScreenshotsPage)
             };
 
@@ -68,6 +69,23 @@ namespace helvety.screenshots
         {
             if (sender is not HyperlinkButton button || button.Tag is not string tag)
             {
+                return;
+            }
+
+            if (tag == UseDefaultSaveFolderActionTag)
+            {
+                var defaultPath = SettingsService.GetDefaultDesktopFolderPath();
+                if (SettingsService.TryValidateWritableFolder(defaultPath, out _))
+                {
+                    SettingsService.SaveFolderPath(defaultPath);
+                }
+                return;
+            }
+
+            if (tag == UseDefaultHotkeyActionTag)
+            {
+                var defaultHotkey = SettingsService.GetDefaultHotkey();
+                SettingsService.SaveHotkey(defaultHotkey.Modifiers, defaultHotkey.Sequence, defaultHotkey.Display);
                 return;
             }
 

@@ -24,13 +24,9 @@
                 Icon="Pictures"
                 Tag="screenshots" />
             <NavigationViewItem
-                Content="Key-Bindings"
-                Icon="Keyboard"
-                Tag="keybindings" />
-            <NavigationViewItem
-                Content="Save Location"
-                Icon="Folder"
-                Tag="save-location" />
+                Content="Settings"
+                Icon="Setting"
+                Tag="settings" />
         </NavigationView.MenuItems>
 
         <Grid>
@@ -52,11 +48,18 @@
                             Message="{Binding Message}"
                             Severity="{Binding Severity}"
                             Title="{Binding Title}">
+                            <InfoBar.Content>
+                                <HyperlinkButton
+                                    HorizontalAlignment="Left"
+                                    Click="GlobalIssueActionButton_Click"
+                                    Content="{Binding SecondaryActionText}"
+                                    Tag="{Binding SecondaryActionTag}" />
+                            </InfoBar.Content>
                             <InfoBar.ActionButton>
                                 <HyperlinkButton
                                     Click="GlobalIssueActionButton_Click"
-                                    Content="{Binding ActionText}"
-                                    Tag="{Binding RouteTag}" />
+                                    Content="{Binding PrimaryActionText}"
+                                    Tag="{Binding PrimaryActionTag}" />
                             </InfoBar.ActionButton>
                         </InfoBar>
                     </DataTemplate>
