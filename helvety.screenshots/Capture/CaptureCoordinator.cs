@@ -45,6 +45,7 @@ namespace helvety.screenshots.Capture
                     return;
                 }
 
+                var captureSettings = SettingsService.Load();
                 FreezeFrame freezeFrame;
                 try
                 {
@@ -56,7 +57,7 @@ namespace helvety.screenshots.Capture
                     return;
                 }
 
-                var showInstructions = SettingsService.Load().ShowScreenshotOverlayInstructions;
+                var showInstructions = captureSettings.ShowScreenshotOverlayInstructions;
                 var overlay = await EnqueueAsync(() => new SelectionOverlayWindow(freezeFrame, _windowSnapHitTester, showInstructions));
 
                 while (true)
@@ -193,5 +194,6 @@ namespace helvety.screenshots.Capture
             Clipboard.SetContent(dataPackage);
             Clipboard.Flush();
         }
+
     }
 }

@@ -14,6 +14,8 @@ namespace helvety.screenshots
         private const uint DefaultHotkeyModifiers = 0x0004; // Shift
         private const string DefaultHotkeyDisplay = "Shift+S+S+S";
         private const string DefaultHotkeySequence = "83,83,83";
+        private const ScreenshotBorderIntensity DefaultScreenshotBorderIntensity = ScreenshotBorderIntensity.Balanced;
+        private const bool DefaultShowScreenshotOverlayInstructions = true;
 
         internal static event Action? SaveFolderPathChanged;
         internal static event Action? SettingsChanged;
@@ -30,6 +32,19 @@ namespace helvety.screenshots
         private const string SaveFolderClearedKey = "SaveFolderCleared";
         private const string ScreenshotBorderIntensityKey = "ScreenshotBorderIntensity";
         private const string ShowScreenshotOverlayInstructionsKey = "ShowScreenshotOverlayInstructions";
+        private static readonly string[] ManagedSettingKeys =
+        {
+            SettingsVersionKey,
+            SaveFolderPathKey,
+            SaveFolderClearedKey,
+            HotkeyModifiersKey,
+            HotkeyVirtualKeyKey,
+            HotkeySequenceKey,
+            HotkeyDisplayKey,
+            HotkeyClearedKey,
+            ScreenshotBorderIntensityKey,
+            ShowScreenshotOverlayInstructionsKey
+        };
 
         internal static AppSettings Load()
         {
@@ -49,11 +64,11 @@ namespace helvety.screenshots
                                             borderIntensityValue is int borderIntensityInt &&
                                             Enum.IsDefined(typeof(ScreenshotBorderIntensity), borderIntensityInt)
                 ? (ScreenshotBorderIntensity)borderIntensityInt
-                : ScreenshotBorderIntensity.Balanced;
+                : DefaultScreenshotBorderIntensity;
             var showScreenshotOverlayInstructions = values.TryGetValue(ShowScreenshotOverlayInstructionsKey, out var showOverlayValue) &&
                                                     showOverlayValue is bool showOverlayInstructions
                 ? showOverlayInstructions
-                : true;
+                : DefaultShowScreenshotOverlayInstructions;
 
             HotkeySettings? hotkey = null;
             if (!isHotkeyCleared &&
@@ -166,6 +181,20 @@ namespace helvety.screenshots
             SettingsChanged?.Invoke();
         }
 
+        internal static void ResetAllSettingsToDefaults()
+        {
+            var values = ApplicationData.Current.LocalSettings.Values;
+
+            foreach (var key in ManagedSettingKeys)
+            {
+                values.Remove(key);
+            }
+
+            ApplyDefaultSettings(values);
+            SaveFolderPathChanged?.Invoke();
+            SettingsChanged?.Invoke();
+        }
+
         internal static HotkeySettings GetDefaultHotkey()
         {
             return new HotkeySettings(DefaultHotkeyModifiers, ParseSequence(DefaultHotkeySequence), DefaultHotkeyDisplay);
@@ -217,6 +246,50 @@ namespace helvety.screenshots
             return false;
         }
 
+        internal static void InitializeSaveFolderOnStartup()
+        {
+            var values = ApplicationData.Current.LocalSettings.Values;
+            EnsureSettingsVersion(values);
+
+            var isSaveFolderCleared = values.TryGetValue(SaveFolderClearedKey, out var saveFolderClearedValue) &&
+                                      saveFolderClearedValue is bool saveFolderCleared &&
+                                      saveFolderCleared;
+            if (isSaveFolderCleared)
+            {
+                return;
+            }
+
+            var defaultPath = GetDefaultDesktopFolderPath();
+            var persistedPath = values.TryGetValue(SaveFolderPathKey, out var folderValue)
+                ? folderValue as string
+                : null;
+            var hasPersistedPath = !string.IsNullOrWhiteSpace(persistedPath);
+
+            if (hasPersistedPath)
+            {
+                if (!PathsEqual(persistedPath!, defaultPath))
+                {
+                    return;
+                }
+
+                if (TryEnsureFolderExists(defaultPath, shouldNotifyOnCreate: true))
+                {
+                    values[SaveFolderPathKey] = defaultPath;
+                    values[SaveFolderClearedKey] = false;
+                }
+
+                return;
+            }
+
+            if (!TryEnsureFolderExists(defaultPath, shouldNotifyOnCreate: true))
+            {
+                return;
+            }
+
+            values[SaveFolderPathKey] = defaultPath;
+            values[SaveFolderClearedKey] = false;
+        }
+
         internal static IReadOnlyList<GlobalSetupIssue> GetGlobalSetupIssues()
         {
             var issues = new List<GlobalSetupIssue>();
@@ -254,19 +327,16 @@ namespace helvety.screenshots
             var desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
             if (string.IsNullOrWhiteSpace(desktopPath))
             {
-                return Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
             }
 
-            var screenshotsSubfolder = Path.Combine(desktopPath, DefaultScreenshotsFolderName);
-            try
-            {
-                Directory.CreateDirectory(screenshotsSubfolder);
-                return screenshotsSubfolder;
-            }
-            catch
-            {
-                return desktopPath;
-            }
+            return Path.Combine(desktopPath, DefaultScreenshotsFolderName);
+        }
+
+        internal static bool TryEnsureDefaultDesktopFolder(out string folderPath)
+        {
+            folderPath = GetDefaultDesktopFolderPath();
+            return TryEnsureFolderExists(folderPath, shouldNotifyOnCreate: true);
         }
 
         internal static bool TryValidateWritableFolder(string? folderPath, out string errorMessage)
@@ -317,6 +387,28 @@ namespace helvety.screenshots
             values[SettingsVersionKey] = CurrentSettingsVersion;
         }
 
+        private static void ApplyDefaultSettings(IPropertySet values)
+        {
+            values[SettingsVersionKey] = CurrentSettingsVersion;
+
+            var defaultSaveFolderPath = GetDefaultDesktopFolderPath();
+            values[SaveFolderPathKey] = defaultSaveFolderPath;
+            values[SaveFolderClearedKey] = false;
+
+            var defaultHotkey = GetDefaultHotkey();
+            values[HotkeyModifiersKey] = (int)defaultHotkey.Modifiers;
+            values[HotkeySequenceKey] = SerializeSequence(defaultHotkey.Sequence);
+            if (defaultHotkey.Sequence.Count > 0)
+            {
+                values[HotkeyVirtualKeyKey] = (int)defaultHotkey.Sequence[0];
+            }
+            values[HotkeyDisplayKey] = defaultHotkey.Display;
+            values[HotkeyClearedKey] = false;
+
+            values[ScreenshotBorderIntensityKey] = (int)DefaultScreenshotBorderIntensity;
+            values[ShowScreenshotOverlayInstructionsKey] = DefaultShowScreenshotOverlayInstructions;
+        }
+
         private static bool IsValidHotkey(HotkeySettings hotkey)
         {
             return hotkey.Sequence.Count > 0 &&
@@ -358,6 +450,55 @@ namespace helvety.screenshots
             }
 
             return string.Join(',', sequence.Where(key => key > 0).Take(MaxHotkeySequenceLength));
+        }
+
+        private static bool TryEnsureFolderExists(string folderPath, bool shouldNotifyOnCreate)
+        {
+            try
+            {
+                var existedBefore = Directory.Exists(folderPath);
+                Directory.CreateDirectory(folderPath);
+                if (!existedBefore && shouldNotifyOnCreate)
+                {
+                    InAppToastService.Show($"Created save folder: {folderPath}", InAppToastSeverity.Success);
+                }
+
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static bool PathsEqual(string left, string right)
+        {
+            var normalizedLeft = NormalizePath(left);
+            var normalizedRight = NormalizePath(right);
+            if (string.IsNullOrWhiteSpace(normalizedLeft) || string.IsNullOrWhiteSpace(normalizedRight))
+            {
+                return false;
+            }
+
+            return string.Equals(normalizedLeft, normalizedRight, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string NormalizePath(string? path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return string.Empty;
+            }
+
+            try
+            {
+                var fullPath = Path.GetFullPath(path);
+                return fullPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            }
+            catch
+            {
+                return path.Trim().TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            }
         }
     }
 

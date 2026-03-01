@@ -20,6 +20,8 @@ namespace helvety.screenshots
 
         protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
         {
+            SettingsService.InitializeSaveFolderOnStartup();
+
             _window = new MainWindow();
             MainAppWindow = _window;
             _window.Activate();

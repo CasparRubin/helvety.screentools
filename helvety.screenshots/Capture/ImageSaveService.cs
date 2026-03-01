@@ -71,8 +71,8 @@ namespace helvety.screenshots.Capture
 
         private static string BuildOutputPath(string outputFolderPath)
         {
-            var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss_fff");
-            var baseName = $"Helvety_{timestamp}";
+            var timestamp = DateTime.Now.ToString("yyMMdd_HHmm_ss_fff");
+            var baseName = $"{timestamp}-Screenshot";
             var candidatePath = Path.Combine(outputFolderPath, $"{baseName}.png");
             var duplicateCounter = 1;
             while (File.Exists(candidatePath))

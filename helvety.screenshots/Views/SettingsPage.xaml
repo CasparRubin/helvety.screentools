@@ -11,12 +11,8 @@
         <StackPanel Padding="24" Spacing="16">
             <TextBlock FontSize="28" FontWeight="SemiBold" Text="Settings" />
 
-            <Border
-                Padding="16"
-                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                BorderThickness="1"
-                CornerRadius="12">
+            <!-- Save Location -->
+            <Border Style="{StaticResource SettingsCardBorderStyle}">
                 <StackPanel Spacing="12">
                     <Grid ColumnSpacing="16">
                         <Grid.ColumnDefinitions>
@@ -25,11 +21,11 @@
                         </Grid.ColumnDefinitions>
 
                         <StackPanel Grid.Column="0" Spacing="4">
-                            <TextBlock FontSize="20" FontWeight="SemiBold" Text="Save Location" />
+                            <TextBlock Style="{StaticResource SettingsSectionTitleTextStyle}" Text="Save Location" />
                             <TextBlock
-                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Style="{StaticResource SettingsSectionDescriptionTextStyle}"
                                 Text="Choose where screenshots are stored."
-                                TextWrapping="WrapWholeWords" />
+                                />
                             <TextBlock
                                 x:Name="SaveFolderText"
                                 Text="Save Folder: (loading...)"
@@ -54,59 +50,22 @@
 
                     <TextBlock
                         x:Name="SaveFolderStatusText"
-                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Style="{StaticResource SettingsSectionDescriptionTextStyle}"
                         Text=""
-                        TextWrapping="WrapWholeWords" />
+                        />
                 </StackPanel>
             </Border>
 
-            <Border
-                Padding="16"
-                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                BorderThickness="1"
-                CornerRadius="12">
+            <!-- Key-Bindings / Hotkeys -->
+            <Border Style="{StaticResource SettingsCardBorderStyle}">
                 <StackPanel Spacing="12">
-                    <TextBlock FontSize="20" FontWeight="SemiBold" Text="Screenshot Border Effects" />
                     <TextBlock
-                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                        Text="Control the visual intensity of screenshot border animations."
-                        TextWrapping="WrapWholeWords" />
-                    <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                        <TextBlock VerticalAlignment="Center" Text="Intensity" />
-                        <ComboBox
-                            x:Name="BorderIntensityComboBox"
-                            MinWidth="170"
-                            SelectionChanged="BorderIntensityComboBox_SelectionChanged">
-                            <ComboBoxItem Content="Subtle" Tag="Subtle" />
-                            <ComboBoxItem Content="Balanced" Tag="Balanced" />
-                            <ComboBoxItem Content="Bold" Tag="Bold" />
-                        </ComboBox>
-                    </StackPanel>
-                    <CheckBox
-                        x:Name="ShowOverlayInstructionsCheckBox"
-                        Checked="ShowOverlayInstructionsCheckBox_Changed"
-                        Content="Show screenshot mode overlay instructions"
-                        Unchecked="ShowOverlayInstructionsCheckBox_Changed" />
+                        Style="{StaticResource SettingsSectionTitleTextStyle}"
+                        Text="Key-Bindings / Hotkeys" />
                     <TextBlock
-                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                        Text="Changes apply to the next screenshot session. Palette rotation and chase-speed adaptation are automatic."
-                        TextWrapping="WrapWholeWords" />
-                </StackPanel>
-            </Border>
-
-            <Border
-                Padding="16"
-                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                BorderThickness="1"
-                CornerRadius="12">
-                <StackPanel Spacing="12">
-                    <TextBlock FontSize="20" FontWeight="SemiBold" Text="Key-Bindings" />
-                    <TextBlock
-                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Style="{StaticResource SettingsSectionDescriptionTextStyle}"
                         Text="Set modifiers and capture 1-5 sequence keys."
-                        TextWrapping="WrapWholeWords" />
+                        />
                     <TextBlock
                         x:Name="CurrentBindingText"
                         Text="Current Binding: Shift+S+S+S"
@@ -180,19 +139,19 @@
                         Title="Listening for key" />
                     <TextBlock
                         x:Name="CaptureInstructionText"
-                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Style="{StaticResource SettingsSectionDescriptionTextStyle}"
                         Text=""
-                        TextWrapping="WrapWholeWords" />
+                        />
                     <TextBlock
                         x:Name="CapturePreviewText"
-                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Style="{StaticResource SettingsSectionDescriptionTextStyle}"
                         Text=""
-                        TextWrapping="WrapWholeWords" />
+                        />
                     <TextBlock
                         x:Name="BindingStatusText"
-                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Style="{StaticResource SettingsSectionDescriptionTextStyle}"
                         Text=""
-                        TextWrapping="WrapWholeWords" />
+                        />
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <Button
                             x:Name="ApplyHotkeyButton"
@@ -210,23 +169,66 @@
                 </StackPanel>
             </Border>
 
-            <Border
-                Padding="16"
-                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                BorderThickness="1"
-                CornerRadius="12">
-                <StackPanel Spacing="8">
-                    <TextBlock FontSize="18" FontWeight="SemiBold" Text="Hotkey Press Messages" />
+            <!-- Screenshot Mode -->
+            <Border Style="{StaticResource SettingsCardBorderStyle}">
+                <StackPanel Spacing="12">
+                    <TextBlock Style="{StaticResource SettingsSectionTitleTextStyle}" Text="Screenshot Mode" />
                     <TextBlock
-                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                        Text="Recent shortcut triggers."
-                        TextWrapping="WrapWholeWords" />
-                    <ListView
-                        x:Name="MessageListView"
-                        Height="300"
-                        IsItemClickEnabled="False"
-                        SelectionMode="None" />
+                        Style="{StaticResource SettingsSectionDescriptionTextStyle}"
+                        Text="Capture behavior is fixed: left-click saves and exits, right-click saves and continues."
+                        />
+
+                    <Border
+                        Height="1"
+                        Margin="0,4,0,4"
+                        Background="{ThemeResource CardStrokeColorDefaultBrush}" />
+                    <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Border Effects" />
+                    <TextBlock
+                        Style="{StaticResource SettingsSectionDescriptionTextStyle}"
+                        Text="Control the visual intensity of screenshot border animations."
+                        />
+                    <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                        <TextBlock VerticalAlignment="Center" Text="Intensity" />
+                        <ComboBox
+                            x:Name="BorderIntensityComboBox"
+                            IsTextSearchEnabled="False"
+                            MinWidth="170"
+                            SelectionChanged="BorderIntensityComboBox_SelectionChanged">
+                            <ComboBoxItem Content="Subtle" Tag="Subtle" />
+                            <ComboBoxItem Content="Balanced" Tag="Balanced" />
+                            <ComboBoxItem Content="Bold" Tag="Bold" />
+                        </ComboBox>
+                    </StackPanel>
+
+                    <Border
+                        Height="1"
+                        Margin="0,4,0,4"
+                        Background="{ThemeResource CardStrokeColorDefaultBrush}" />
+                    <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Overlay Checkbox" />
+                    <TextBlock
+                        Style="{StaticResource SettingsSectionDescriptionTextStyle}"
+                        Text="Choose whether helper instructions appear in the screenshot overlay."
+                        />
+                    <CheckBox
+                        x:Name="ShowOverlayInstructionsCheckBox"
+                        Checked="ShowOverlayInstructionsCheckBox_Changed"
+                        Content="Show screenshot mode overlay instructions"
+                        Unchecked="ShowOverlayInstructionsCheckBox_Changed" />
+                </StackPanel>
+            </Border>
+
+            <!-- Danger Zone -->
+            <Border Style="{StaticResource SettingsCardBorderStyle}">
+                <StackPanel Spacing="12">
+                    <TextBlock Style="{StaticResource SettingsSectionTitleTextStyle}" Text="Danger Zone" />
+                    <TextBlock
+                        Style="{StaticResource SettingsSectionDescriptionTextStyle}"
+                        Text="Reset all app settings to defaults. This removes saved app configuration (save location, hotkeys, border effects, and related preferences) but does not delete screenshots."
+                        />
+                    <Button
+                        x:Name="ResetSettingsButton"
+                        Click="ResetSettingsButton_Click"
+                        Content="Reset to Defaults" />
                 </StackPanel>
             </Border>
         </StackPanel>

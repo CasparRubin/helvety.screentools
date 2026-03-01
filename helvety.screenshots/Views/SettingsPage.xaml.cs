@@ -3,7 +3,6 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 using System;
-using System.Collections.ObjectModel;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -36,7 +35,6 @@ namespace helvety.screenshots.Views
         private const string DefaultCaptureInstructionText = "Click Listen for a step, then press any non-modifier key.";
         private const string CaptureBlockedInstructionText = "Choose a save location first.";
 
-        private readonly ObservableCollection<string> _messages = new();
         private string _saveFolderPath = string.Empty;
         private bool _hasValidSaveFolder;
         private HotkeyBinding? _currentBinding;
@@ -59,13 +57,11 @@ namespace helvety.screenshots.Views
             InitializeComponent();
             NavigationCacheMode = NavigationCacheMode.Required;
 
-            MessageListView.ItemsSource = _messages;
             InitializeSettings();
             InitializeHotkeyInfrastructure();
             RegisterInitialBinding();
 
             SettingsService.SaveFolderPathChanged += SettingsService_SaveFolderPathChanged;
-            App.CaptureStatusPublished += App_CaptureStatusPublished;
             if (App.MainAppWindow is not null)
             {
                 App.MainAppWindow.Closed += MainWindow_Closed;
@@ -83,7 +79,6 @@ namespace helvety.screenshots.Views
         private void SettingsPage_Unloaded(object sender, RoutedEventArgs e)
         {
             SettingsService.SaveFolderPathChanged -= SettingsService_SaveFolderPathChanged;
-            App.CaptureStatusPublished -= App_CaptureStatusPublished;
             if (App.MainAppWindow is not null)
             {
                 App.MainAppWindow.Closed -= MainWindow_Closed;
@@ -95,15 +90,6 @@ namespace helvety.screenshots.Views
         private void SettingsService_SaveFolderPathChanged()
         {
             DispatcherQueue.TryEnqueue(RefreshSaveFolderState);
-        }
-
-        private void App_CaptureStatusPublished(string message)
-        {
-            DispatcherQueue.TryEnqueue(() =>
-            {
-                var timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
-                AddMessage($"{message} ({timestamp})");
-            });
         }
 
         private void InitializeSettings()
@@ -270,7 +256,12 @@ namespace helvety.screenshots.Views
 
         private void UseDefaultSaveFolderButton_Click(object sender, RoutedEventArgs e)
         {
-            var defaultPath = SettingsService.GetDefaultDesktopFolderPath();
+            if (!SettingsService.TryEnsureDefaultDesktopFolder(out var defaultPath))
+            {
+                SaveFolderStatusText.Text = "Could not create default folder.";
+                return;
+            }
+
             if (!SettingsService.TryValidateWritableFolder(defaultPath, out var validationError))
             {
                 SaveFolderStatusText.Text = $"Default folder not writable ({validationError}).";
@@ -563,6 +554,31 @@ namespace helvety.screenshots.Views
             SettingsService.SaveShowScreenshotOverlayInstructions(shouldShowOverlayInstructions);
         }
 
+        private async void ResetSettingsButton_Click(object sender, RoutedEventArgs e)
+        {
+            var confirmationDialog = new ContentDialog
+            {
+                XamlRoot = XamlRoot,
+                Title = "Reset all settings to defaults?",
+                Content = "This clears all saved app settings and restores defaults. Screenshots and image files are not deleted.",
+                PrimaryButtonText = "Reset",
+                CloseButtonText = "Cancel",
+                DefaultButton = ContentDialogButton.Close
+            };
+
+            var dialogResult = await confirmationDialog.ShowAsync();
+            if (dialogResult != ContentDialogResult.Primary)
+            {
+                return;
+            }
+
+            StopStepCapture();
+            SettingsService.ResetAllSettingsToDefaults();
+            InitializeSettings();
+            RegisterInitialBinding();
+            InAppToastService.Show("All settings were reset to defaults.", InAppToastSeverity.Success);
+        }
+
         private void ListenStep1Button_Click(object sender, RoutedEventArgs e) => StartStepCapture(0);
         private void ListenStep2Button_Click(object sender, RoutedEventArgs e) => StartStepCapture(1);
         private void ListenStep3Button_Click(object sender, RoutedEventArgs e) => StartStepCapture(2);
@@ -693,7 +709,7 @@ namespace helvety.screenshots.Views
 
         private static string BuildModifierPreview(uint modifiers)
         {
-            var parts = new Collection<string>();
+            var parts = new List<string>();
 
             if ((modifiers & ModControl) != 0)
             {
@@ -942,11 +958,7 @@ namespace helvety.screenshots.Views
 
         private void AddMessage(string message)
         {
-            _messages.Insert(0, message);
-            if (_messages.Count > 100)
-            {
-                _messages.RemoveAt(_messages.Count - 1);
-            }
+            InAppToastService.Show(message);
         }
 
         private void MainWindow_Closed(object sender, WindowEventArgs args)
