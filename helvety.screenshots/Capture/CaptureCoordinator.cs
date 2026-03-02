@@ -97,7 +97,8 @@ namespace helvety.screenshots.Capture
                         saveResult = await _imageSaveService.SaveSelectionAsync(
                             freezeFrame,
                             action.Bounds.Value,
-                            outputFolderPath);
+                            outputFolderPath,
+                            captureSettings.ScreenshotQualityMode);
                     }
                     catch (Exception ex)
                     {

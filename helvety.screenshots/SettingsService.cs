@@ -15,6 +15,7 @@ namespace helvety.screenshots
         private const string DefaultHotkeyDisplay = "Shift+S+S+S";
         private const string DefaultHotkeySequence = "83,83,83";
         private const ScreenshotBorderIntensity DefaultScreenshotBorderIntensity = ScreenshotBorderIntensity.Balanced;
+        private const ScreenshotQualityMode DefaultScreenshotQualityMode = ScreenshotQualityMode.Fast;
         private const bool DefaultShowScreenshotOverlayInstructions = true;
         private const bool DefaultMinimizeToTrayOnClose = true;
         private const string DefaultEditorPrimaryColor = "#FFD81B60";
@@ -25,24 +26,19 @@ namespace helvety.screenshots
         private const string DefaultEditorTextBorderColor = "#FFFFFFFF";
         private const int DefaultEditorTextBorderThickness = 1;
         private const bool DefaultEditorTextShadowEnabled = true;
-        private const string DefaultEditorTextShadowColor = "#66000000";
-        private const int DefaultEditorTextShadowOffset = 2;
         private const bool DefaultEditorBorderShadowEnabled = true;
-        private const string DefaultEditorBorderShadowColor = "#66000000";
-        private const int DefaultEditorBorderShadowOffset = 2;
         private const bool DefaultEditorArrowBorderEnabled = false;
         private const string DefaultEditorArrowBorderColor = "#FF000000";
         private const int DefaultEditorArrowBorderThickness = 1;
         private const bool DefaultEditorArrowShadowEnabled = true;
-        private const string DefaultEditorArrowShadowColor = "#66000000";
-        private const int DefaultEditorArrowShadowOffset = 2;
-        private const string DefaultEditorArrowHeadStyle = "Triangle";
+        private const string DefaultEditorArrowFormStyle = "Tapered";
         private const int DefaultEditorBlurRadius = 6;
         private const bool DefaultEditorBlurInvertMode = false;
         private const int DefaultEditorHighlightDimPercent = 35;
         private const bool DefaultEditorHighlightInvertMode = false;
         private const int DefaultEditorRegionCornerRadius = 8;
-        private const bool DefaultEditorPerformanceModeEnabled = false;
+        private const bool DefaultEditorPerformanceModeEnabled = true;
+        private const bool DefaultEditorGpuEffectsEnabled = true;
 
         internal static event Action? SaveFolderPathChanged;
         internal static event Action? SettingsChanged;
@@ -58,6 +54,7 @@ namespace helvety.screenshots
         private const string HotkeyClearedKey = "HotkeyCleared";
         private const string SaveFolderClearedKey = "SaveFolderCleared";
         private const string ScreenshotBorderIntensityKey = "ScreenshotBorderIntensity";
+        private const string ScreenshotQualityModeKey = "ScreenshotQualityMode";
         private const string ShowScreenshotOverlayInstructionsKey = "ShowScreenshotOverlayInstructions";
         private const string MinimizeToTrayOnCloseKey = "MinimizeToTrayOnClose";
         private const string EditorPrimaryColorKey = "EditorPrimaryColor";
@@ -79,13 +76,14 @@ namespace helvety.screenshots
         private const string EditorArrowShadowEnabledKey = "EditorArrowShadowEnabled";
         private const string EditorArrowShadowColorKey = "EditorArrowShadowColor";
         private const string EditorArrowShadowOffsetKey = "EditorArrowShadowOffset";
-        private const string EditorArrowHeadStyleKey = "EditorArrowHeadStyle";
+        private const string EditorArrowFormStyleKey = "EditorArrowFormStyle";
         private const string EditorBlurRadiusKey = "EditorBlurRadius";
         private const string EditorBlurInvertModeKey = "EditorBlurInvertMode";
         private const string EditorHighlightDimPercentKey = "EditorHighlightDimPercent";
         private const string EditorHighlightInvertModeKey = "EditorHighlightInvertMode";
         private const string EditorRegionCornerRadiusKey = "EditorRegionCornerRadius";
         private const string EditorPerformanceModeEnabledKey = "EditorPerformanceModeEnabled";
+        private const string EditorGpuEffectsEnabledKey = "EditorGpuEffectsEnabled";
         private static readonly string[] ManagedSettingKeys =
         {
             SettingsVersionKey,
@@ -97,6 +95,7 @@ namespace helvety.screenshots
             HotkeyDisplayKey,
             HotkeyClearedKey,
             ScreenshotBorderIntensityKey,
+            ScreenshotQualityModeKey,
             ShowScreenshotOverlayInstructionsKey,
             MinimizeToTrayOnCloseKey,
             EditorPrimaryColorKey,
@@ -118,13 +117,14 @@ namespace helvety.screenshots
             EditorArrowShadowEnabledKey,
             EditorArrowShadowColorKey,
             EditorArrowShadowOffsetKey,
-            EditorArrowHeadStyleKey,
+            EditorArrowFormStyleKey,
             EditorBlurRadiusKey,
             EditorBlurInvertModeKey,
             EditorHighlightDimPercentKey,
             EditorHighlightInvertModeKey,
             EditorRegionCornerRadiusKey,
-            EditorPerformanceModeEnabledKey
+            EditorPerformanceModeEnabledKey,
+            EditorGpuEffectsEnabledKey
         };
 
         internal static AppSettings Load()
@@ -146,6 +146,11 @@ namespace helvety.screenshots
                                             Enum.IsDefined(typeof(ScreenshotBorderIntensity), borderIntensityInt)
                 ? (ScreenshotBorderIntensity)borderIntensityInt
                 : DefaultScreenshotBorderIntensity;
+            var screenshotQualityMode = values.TryGetValue(ScreenshotQualityModeKey, out var qualityModeValue) &&
+                                        qualityModeValue is int qualityModeInt &&
+                                        Enum.IsDefined(typeof(ScreenshotQualityMode), qualityModeInt)
+                ? (ScreenshotQualityMode)qualityModeInt
+                : DefaultScreenshotQualityMode;
             var showScreenshotOverlayInstructions = values.TryGetValue(ShowScreenshotOverlayInstructionsKey, out var showOverlayValue) &&
                                                     showOverlayValue is bool showOverlayInstructions
                 ? showOverlayInstructions
@@ -185,6 +190,7 @@ namespace helvety.screenshots
                 isHotkeyCleared,
                 isSaveFolderCleared,
                 screenshotBorderIntensity,
+                screenshotQualityMode,
                 showScreenshotOverlayInstructions,
                 minimizeToTrayOnClose);
         }
@@ -259,6 +265,14 @@ namespace helvety.screenshots
             SettingsChanged?.Invoke();
         }
 
+        internal static void SaveScreenshotQualityMode(ScreenshotQualityMode qualityMode)
+        {
+            var values = ApplicationData.Current.LocalSettings.Values;
+            EnsureSettingsVersion(values);
+            values[ScreenshotQualityModeKey] = (int)qualityMode;
+            SettingsChanged?.Invoke();
+        }
+
         internal static void SaveShowScreenshotOverlayInstructions(bool showInstructions)
         {
             var values = ApplicationData.Current.LocalSettings.Values;
@@ -275,6 +289,12 @@ namespace helvety.screenshots
             SettingsChanged?.Invoke();
         }
 
+        internal static void SaveEditorPerformanceModeEnabled(bool enabled)
+        {
+            var settings = LoadEditorUiSettings();
+            SaveEditorUiSettings(settings with { PerformanceModeEnabled = enabled });
+        }
+
         internal static EditorUiSettings LoadEditorUiSettings()
         {
             var values = ApplicationData.Current.LocalSettings.Values;
@@ -289,24 +309,19 @@ namespace helvety.screenshots
                 ReadString(values, EditorTextBorderColorKey, DefaultEditorTextBorderColor),
                 ReadInt(values, EditorTextBorderThicknessKey, DefaultEditorTextBorderThickness, 1, 24),
                 ReadBool(values, EditorTextShadowEnabledKey, DefaultEditorTextShadowEnabled),
-                ReadString(values, EditorTextShadowColorKey, DefaultEditorTextShadowColor),
-                ReadInt(values, EditorTextShadowOffsetKey, DefaultEditorTextShadowOffset, 1, 24),
                 ReadBool(values, EditorBorderShadowEnabledKey, DefaultEditorBorderShadowEnabled),
-                ReadString(values, EditorBorderShadowColorKey, DefaultEditorBorderShadowColor),
-                ReadInt(values, EditorBorderShadowOffsetKey, DefaultEditorBorderShadowOffset, 1, 24),
                 ReadBool(values, EditorArrowBorderEnabledKey, DefaultEditorArrowBorderEnabled),
                 ReadString(values, EditorArrowBorderColorKey, DefaultEditorArrowBorderColor),
                 ReadInt(values, EditorArrowBorderThicknessKey, DefaultEditorArrowBorderThickness, 1, 24),
                 ReadBool(values, EditorArrowShadowEnabledKey, DefaultEditorArrowShadowEnabled),
-                ReadString(values, EditorArrowShadowColorKey, DefaultEditorArrowShadowColor),
-                ReadInt(values, EditorArrowShadowOffsetKey, DefaultEditorArrowShadowOffset, 1, 24),
-                ReadString(values, EditorArrowHeadStyleKey, DefaultEditorArrowHeadStyle),
+                ReadString(values, EditorArrowFormStyleKey, DefaultEditorArrowFormStyle),
                 ReadInt(values, EditorBlurRadiusKey, DefaultEditorBlurRadius, 1, 25),
                 ReadBool(values, EditorBlurInvertModeKey, DefaultEditorBlurInvertMode),
                 ReadInt(values, EditorHighlightDimPercentKey, DefaultEditorHighlightDimPercent, 0, 80),
                 ReadBool(values, EditorHighlightInvertModeKey, DefaultEditorHighlightInvertMode),
                 ReadInt(values, EditorRegionCornerRadiusKey, DefaultEditorRegionCornerRadius, 0, 24),
-                ReadBool(values, EditorPerformanceModeEnabledKey, DefaultEditorPerformanceModeEnabled));
+                ReadBool(values, EditorPerformanceModeEnabledKey, DefaultEditorPerformanceModeEnabled),
+                ReadBool(values, EditorGpuEffectsEnabledKey, DefaultEditorGpuEffectsEnabled));
         }
 
         internal static void SaveEditorUiSettings(EditorUiSettings settings)
@@ -322,24 +337,19 @@ namespace helvety.screenshots
             values[EditorTextBorderColorKey] = settings.TextBorderColorHex;
             values[EditorTextBorderThicknessKey] = Clamp(settings.TextBorderThickness, 1, 24);
             values[EditorTextShadowEnabledKey] = settings.TextShadowEnabled;
-            values[EditorTextShadowColorKey] = settings.TextShadowColorHex;
-            values[EditorTextShadowOffsetKey] = Clamp(settings.TextShadowOffset, 1, 24);
             values[EditorBorderShadowEnabledKey] = settings.BorderShadowEnabled;
-            values[EditorBorderShadowColorKey] = settings.BorderShadowColorHex;
-            values[EditorBorderShadowOffsetKey] = Clamp(settings.BorderShadowOffset, 1, 24);
             values[EditorArrowBorderEnabledKey] = settings.ArrowBorderEnabled;
             values[EditorArrowBorderColorKey] = settings.ArrowBorderColorHex;
             values[EditorArrowBorderThicknessKey] = Clamp(settings.ArrowBorderThickness, 1, 24);
             values[EditorArrowShadowEnabledKey] = settings.ArrowShadowEnabled;
-            values[EditorArrowShadowColorKey] = settings.ArrowShadowColorHex;
-            values[EditorArrowShadowOffsetKey] = Clamp(settings.ArrowShadowOffset, 1, 24);
-            values[EditorArrowHeadStyleKey] = settings.ArrowHeadStyle;
+            values[EditorArrowFormStyleKey] = settings.ArrowFormStyle;
             values[EditorBlurRadiusKey] = Clamp(settings.BlurRadius, 1, 25);
             values[EditorBlurInvertModeKey] = settings.BlurInvertMode;
             values[EditorHighlightDimPercentKey] = Clamp(settings.HighlightDimPercent, 0, 80);
             values[EditorHighlightInvertModeKey] = settings.HighlightInvertMode;
             values[EditorRegionCornerRadiusKey] = Clamp(settings.RegionCornerRadius, 0, 24);
             values[EditorPerformanceModeEnabledKey] = settings.PerformanceModeEnabled;
+            values[EditorGpuEffectsEnabledKey] = settings.GpuEffectsEnabled;
             SettingsChanged?.Invoke();
         }
 
@@ -568,6 +578,7 @@ namespace helvety.screenshots
             values[HotkeyClearedKey] = false;
 
             values[ScreenshotBorderIntensityKey] = (int)DefaultScreenshotBorderIntensity;
+            values[ScreenshotQualityModeKey] = (int)DefaultScreenshotQualityMode;
             values[ShowScreenshotOverlayInstructionsKey] = DefaultShowScreenshotOverlayInstructions;
             values[MinimizeToTrayOnCloseKey] = DefaultMinimizeToTrayOnClose;
             values[EditorPrimaryColorKey] = DefaultEditorPrimaryColor;
@@ -578,24 +589,19 @@ namespace helvety.screenshots
             values[EditorTextBorderColorKey] = DefaultEditorTextBorderColor;
             values[EditorTextBorderThicknessKey] = DefaultEditorTextBorderThickness;
             values[EditorTextShadowEnabledKey] = DefaultEditorTextShadowEnabled;
-            values[EditorTextShadowColorKey] = DefaultEditorTextShadowColor;
-            values[EditorTextShadowOffsetKey] = DefaultEditorTextShadowOffset;
             values[EditorBorderShadowEnabledKey] = DefaultEditorBorderShadowEnabled;
-            values[EditorBorderShadowColorKey] = DefaultEditorBorderShadowColor;
-            values[EditorBorderShadowOffsetKey] = DefaultEditorBorderShadowOffset;
             values[EditorArrowBorderEnabledKey] = DefaultEditorArrowBorderEnabled;
             values[EditorArrowBorderColorKey] = DefaultEditorArrowBorderColor;
             values[EditorArrowBorderThicknessKey] = DefaultEditorArrowBorderThickness;
             values[EditorArrowShadowEnabledKey] = DefaultEditorArrowShadowEnabled;
-            values[EditorArrowShadowColorKey] = DefaultEditorArrowShadowColor;
-            values[EditorArrowShadowOffsetKey] = DefaultEditorArrowShadowOffset;
-            values[EditorArrowHeadStyleKey] = DefaultEditorArrowHeadStyle;
+            values[EditorArrowFormStyleKey] = DefaultEditorArrowFormStyle;
             values[EditorBlurRadiusKey] = DefaultEditorBlurRadius;
             values[EditorBlurInvertModeKey] = DefaultEditorBlurInvertMode;
             values[EditorHighlightDimPercentKey] = DefaultEditorHighlightDimPercent;
             values[EditorHighlightInvertModeKey] = DefaultEditorHighlightInvertMode;
             values[EditorRegionCornerRadiusKey] = DefaultEditorRegionCornerRadius;
             values[EditorPerformanceModeEnabledKey] = DefaultEditorPerformanceModeEnabled;
+            values[EditorGpuEffectsEnabledKey] = DefaultEditorGpuEffectsEnabled;
         }
 
         private static bool IsValidHotkey(HotkeySettings hotkey)
@@ -725,6 +731,7 @@ namespace helvety.screenshots
         bool IsHotkeyCleared,
         bool IsSaveFolderCleared,
         ScreenshotBorderIntensity ScreenshotBorderIntensity,
+        ScreenshotQualityMode ScreenshotQualityMode,
         bool ShowScreenshotOverlayInstructions,
         bool MinimizeToTrayOnClose);
 
@@ -739,30 +746,32 @@ namespace helvety.screenshots
         string TextBorderColorHex,
         int TextBorderThickness,
         bool TextShadowEnabled,
-        string TextShadowColorHex,
-        int TextShadowOffset,
         bool BorderShadowEnabled,
-        string BorderShadowColorHex,
-        int BorderShadowOffset,
         bool ArrowBorderEnabled,
         string ArrowBorderColorHex,
         int ArrowBorderThickness,
         bool ArrowShadowEnabled,
-        string ArrowShadowColorHex,
-        int ArrowShadowOffset,
-        string ArrowHeadStyle,
+        string ArrowFormStyle,
         int BlurRadius,
         bool BlurInvertMode,
         int HighlightDimPercent,
         bool HighlightInvertMode,
         int RegionCornerRadius,
-        bool PerformanceModeEnabled);
+        bool PerformanceModeEnabled,
+        bool GpuEffectsEnabled);
 
     internal enum ScreenshotBorderIntensity
     {
         Subtle = 0,
         Balanced = 1,
         Bold = 2
+    }
+
+    internal enum ScreenshotQualityMode
+    {
+        Fast = 0,
+        Optimized = 1,
+        Heavy = 2
     }
 
     internal sealed record GlobalSetupIssue(

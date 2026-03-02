@@ -50,8 +50,10 @@ namespace helvety.screenshots.Views
         private readonly uint?[] _editorSequence = new uint?[MaxSequenceLength];
         private uint _editorModifiers;
         private bool _isUpdatingBorderIntensitySelection;
+        private bool _isUpdatingScreenshotQualitySelection;
         private bool _isUpdatingOverlayInstructionSelection;
         private bool _isUpdatingMinimizeToTraySelection;
+        private bool _isUpdatingEditorPerformanceModeSelection;
 
         public SettingsPage()
         {
@@ -96,8 +98,10 @@ namespace helvety.screenshots.Views
         private void InitializeSettings()
         {
             InitializeBorderIntensitySelection();
+            InitializeScreenshotQualitySelection();
             InitializeOverlayInstructionSelection();
             InitializeMinimizeToTraySelection();
+            InitializeEditorPerformanceModeSelection();
 
             if (SettingsService.TryGetEffectiveSaveFolderPath(out var effectiveSaveFolderPath))
             {
@@ -151,6 +155,25 @@ namespace helvety.screenshots.Views
             }
         }
 
+        private void InitializeScreenshotQualitySelection()
+        {
+            var settings = SettingsService.Load();
+            _isUpdatingScreenshotQualitySelection = true;
+            try
+            {
+                ScreenshotQualityModeComboBox.SelectedIndex = settings.ScreenshotQualityMode switch
+                {
+                    ScreenshotQualityMode.Optimized => 1,
+                    ScreenshotQualityMode.Heavy => 2,
+                    _ => 0
+                };
+            }
+            finally
+            {
+                _isUpdatingScreenshotQualitySelection = false;
+            }
+        }
+
         private void InitializeMinimizeToTraySelection()
         {
             var settings = SettingsService.Load();
@@ -162,6 +185,20 @@ namespace helvety.screenshots.Views
             finally
             {
                 _isUpdatingMinimizeToTraySelection = false;
+            }
+        }
+
+        private void InitializeEditorPerformanceModeSelection()
+        {
+            var settings = SettingsService.LoadEditorUiSettings();
+            _isUpdatingEditorPerformanceModeSelection = true;
+            try
+            {
+                EditorPerformanceModeCheckBox.IsChecked = settings.PerformanceModeEnabled;
+            }
+            finally
+            {
+                _isUpdatingEditorPerformanceModeSelection = false;
             }
         }
 
@@ -570,6 +607,23 @@ namespace helvety.screenshots.Views
             SettingsService.SaveShowScreenshotOverlayInstructions(shouldShowOverlayInstructions);
         }
 
+        private void ScreenshotQualityModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_isUpdatingScreenshotQualitySelection)
+            {
+                return;
+            }
+
+            var selectedQualityMode = ScreenshotQualityModeComboBox.SelectedIndex switch
+            {
+                1 => ScreenshotQualityMode.Optimized,
+                2 => ScreenshotQualityMode.Heavy,
+                _ => ScreenshotQualityMode.Fast
+            };
+
+            SettingsService.SaveScreenshotQualityMode(selectedQualityMode);
+        }
+
         private void MinimizeToTrayOnCloseCheckBox_Changed(object sender, RoutedEventArgs e)
         {
             if (_isUpdatingMinimizeToTraySelection)
@@ -579,6 +633,17 @@ namespace helvety.screenshots.Views
 
             var shouldMinimizeToTray = MinimizeToTrayOnCloseCheckBox.IsChecked != false;
             SettingsService.SaveMinimizeToTrayOnClose(shouldMinimizeToTray);
+        }
+
+        private void EditorPerformanceModeCheckBox_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_isUpdatingEditorPerformanceModeSelection)
+            {
+                return;
+            }
+
+            var isEnabled = EditorPerformanceModeCheckBox.IsChecked != false;
+            SettingsService.SaveEditorPerformanceModeEnabled(isEnabled);
         }
 
         private async void ResetSettingsButton_Click(object sender, RoutedEventArgs e)

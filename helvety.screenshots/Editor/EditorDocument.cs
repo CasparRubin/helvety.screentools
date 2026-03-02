@@ -23,11 +23,10 @@ namespace helvety.screenshots.Editor
         Highlight = 4
     }
 
-    internal enum ArrowHeadStyle
+    internal enum ArrowFormStyle
     {
-        Triangle = 0,
-        Open = 1,
-        Diamond = 2
+        Tapered = 0,
+        Straight = 1
     }
 
     internal sealed class EditorDocument
@@ -364,7 +363,7 @@ namespace helvety.screenshots.Editor
 
     internal sealed class ArrowLayer : EditorLayer
     {
-        internal ArrowLayer(double startX, double startY, double endX, double endY, double thickness, string colorHex, ArrowHeadStyle headStyle)
+        internal ArrowLayer(double startX, double startY, double endX, double endY, double thickness, string colorHex, ArrowFormStyle formStyle)
             : base("Arrow", EditorLayerType.Arrow)
         {
             StartX = startX;
@@ -373,7 +372,7 @@ namespace helvety.screenshots.Editor
             EndY = endY;
             Thickness = Math.Max(1, thickness);
             ColorHex = colorHex;
-            HeadStyle = headStyle;
+            FormStyle = formStyle;
         }
 
         internal double StartX { get; set; }
@@ -388,7 +387,7 @@ namespace helvety.screenshots.Editor
 
         internal string ColorHex { get; set; }
 
-        internal ArrowHeadStyle HeadStyle { get; set; }
+        internal ArrowFormStyle FormStyle { get; set; }
 
         internal bool HasBorder { get; set; } = true;
 
@@ -409,6 +408,10 @@ namespace helvety.screenshots.Editor
             var maxX = (int)Math.Ceiling(Math.Max(StartX, EndX));
             var maxY = (int)Math.Ceiling(Math.Max(StartY, EndY));
             var padding = Math.Max(8, (int)Math.Ceiling(Thickness * 2.5));
+            if (FormStyle == ArrowFormStyle.Tapered)
+            {
+                padding = Math.Max(padding, (int)Math.Ceiling(Thickness * 3.2));
+            }
             return new EditorRect(
                 Math.Max(0, minX - padding),
                 Math.Max(0, minY - padding),
@@ -425,7 +428,13 @@ namespace helvety.screenshots.Editor
             }
 
             var distance = DistanceToSegment(x, y, StartX, StartY, EndX, EndY);
-            return distance <= Math.Max(6.0, Thickness + 3.0);
+            var selectionRadius = Math.Max(6.0, Thickness + 3.0);
+            if (FormStyle == ArrowFormStyle.Tapered)
+            {
+                selectionRadius = Math.Max(selectionRadius, (Thickness * 2.6) + 3.0);
+            }
+
+            return distance <= selectionRadius;
         }
 
         internal override void MoveBy(double deltaX, double deltaY, int maxWidth, int maxHeight)

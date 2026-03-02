@@ -204,6 +204,28 @@
                         Height="1"
                         Margin="0,4,0,4"
                         Background="{ThemeResource CardStrokeColorDefaultBrush}" />
+                    <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Capture Quality Mode" />
+                    <TextBlock
+                        Style="{StaticResource SettingsSectionDescriptionTextStyle}"
+                        Text="Choose screenshot enhancement level. Fast is quickest, Optimized improves text readability, Heavy applies stronger processing."
+                        />
+                    <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                        <TextBlock VerticalAlignment="Center" Text="Mode" />
+                        <ComboBox
+                            x:Name="ScreenshotQualityModeComboBox"
+                            IsTextSearchEnabled="False"
+                            MinWidth="190"
+                            SelectionChanged="ScreenshotQualityModeComboBox_SelectionChanged">
+                            <ComboBoxItem Content="Fast" Tag="Fast" />
+                            <ComboBoxItem Content="Optimized" Tag="Optimized" />
+                            <ComboBoxItem Content="Heavy" Tag="Heavy" />
+                        </ComboBox>
+                    </StackPanel>
+
+                    <Border
+                        Height="1"
+                        Margin="0,4,0,4"
+                        Background="{ThemeResource CardStrokeColorDefaultBrush}" />
                     <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Overlay Checkbox" />
                     <TextBlock
                         Style="{StaticResource SettingsSectionDescriptionTextStyle}"
@@ -230,6 +252,21 @@
                         Checked="MinimizeToTrayOnCloseCheckBox_Changed"
                         Content="Keep app running in notification area when window is closed"
                         Unchecked="MinimizeToTrayOnCloseCheckBox_Changed" />
+
+                    <Border
+                        Height="1"
+                        Margin="0,4,0,4"
+                        Background="{ThemeResource CardStrokeColorDefaultBrush}" />
+                    <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Editor Performance Mode" />
+                    <TextBlock
+                        Style="{StaticResource SettingsSectionDescriptionTextStyle}"
+                        Text="Enabled (recommended): keeps editing interactions smoother by temporarily reducing expensive visual effects while dragging or resizing. Disable only if you need to always preview full shadows/borders during movement."
+                        TextWrapping="WrapWholeWords" />
+                    <CheckBox
+                        x:Name="EditorPerformanceModeCheckBox"
+                        Checked="EditorPerformanceModeCheckBox_Changed"
+                        Content="Enable Editor Performance Mode"
+                        Unchecked="EditorPerformanceModeCheckBox_Changed" />
                 </StackPanel>
             </Border>
 
@@ -239,7 +276,7 @@
                     <TextBlock Style="{StaticResource SettingsSectionTitleTextStyle}" Text="Danger Zone" />
                     <TextBlock
                         Style="{StaticResource SettingsSectionDescriptionTextStyle}"
-                        Text="Reset all app settings to defaults. This removes saved app configuration (save location, hotkeys, border effects, and related preferences) but does not delete screenshots."
+                        Text="Reset all app settings to defaults. This removes saved app configuration (save location, hotkeys, border effects, capture quality mode, and related preferences) but does not delete screenshots."
                         />
                     <Button
                         x:Name="ResetSettingsButton"

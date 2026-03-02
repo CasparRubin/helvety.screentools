@@ -72,6 +72,7 @@ namespace helvety.screenshots.Capture
         private readonly GradientStop[] _snapBorderGlowGradientStops;
         private readonly SolidColorBrush _crosshairBaseBrush = new(Color.FromArgb(255, 186, 92, 126));
         private readonly SolidColorBrush _crosshairAccentBrush = new(Color.FromArgb(255, 216, 27, 96));
+        private readonly SolidColorBrush _crosshairAnimatedBrush = new(Color.FromArgb(255, 186, 92, 126));
         private TaskCompletionSource<SelectionAction> _selectionCompletionSource = new();
         private readonly nint _windowHandle;
         private readonly DispatcherQueueTimer _colorDriftTimer;
@@ -125,8 +126,8 @@ namespace helvety.screenshots.Capture
             SnapBorderChaseRectangle.StrokeThickness = _borderFxProfile.ChaseStrokeThickness;
             SnapBorderCornerGlowRectangle.StrokeThickness = _borderFxProfile.CornerGlowStrokeThickness;
             SnapBorderGlowRectangle.StrokeThickness = _borderFxProfile.OuterGlowStrokeThickness;
-            VerticalCursorGuide.Stroke = _crosshairBaseBrush;
-            HorizontalCursorGuide.Stroke = _crosshairBaseBrush;
+            VerticalCursorGuide.Stroke = _crosshairAnimatedBrush;
+            HorizontalCursorGuide.Stroke = _crosshairAnimatedBrush;
             EnsureArrowCursor();
             _colorDriftTimer = DispatcherQueue.CreateTimer();
             _colorDriftTimer.Interval = TimeSpan.FromMilliseconds(BorderFxTickMilliseconds);
@@ -472,10 +473,11 @@ namespace helvety.screenshots.Capture
 
         private RectInt32 BuildScreenRectFromLocalPoints(Point a, Point b)
         {
-            var localLeft = (int)Math.Round(Math.Min(a.X, b.X));
-            var localTop = (int)Math.Round(Math.Min(a.Y, b.Y));
-            var localRight = (int)Math.Round(Math.Max(a.X, b.X));
-            var localBottom = (int)Math.Round(Math.Max(a.Y, b.Y));
+            // Floor start coordinates and ceil end coordinates so tiny drags don't clip text edges.
+            var localLeft = (int)Math.Floor(Math.Min(a.X, b.X));
+            var localTop = (int)Math.Floor(Math.Min(a.Y, b.Y));
+            var localRight = (int)Math.Ceiling(Math.Max(a.X, b.X));
+            var localBottom = (int)Math.Ceiling(Math.Max(a.Y, b.Y));
             return new RectInt32(
                 _freezeFrame.VirtualBounds.X + localLeft,
                 _freezeFrame.VirtualBounds.Y + localTop,
@@ -768,9 +770,7 @@ namespace helvety.screenshots.Capture
 
             var crosshairBlend = (Math.Sin(_crosshairAccentElapsedSeconds * 1.75) + 1.0) / 2.0;
             var crosshairColor = LerpColor(_crosshairBaseBrush.Color, _crosshairAccentBrush.Color, crosshairBlend);
-            var crosshairBrush = new SolidColorBrush(crosshairColor);
-            VerticalCursorGuide.Stroke = crosshairBrush;
-            HorizontalCursorGuide.Stroke = crosshairBrush;
+            _crosshairAnimatedBrush.Color = crosshairColor;
         }
 
         private void UpdateSnapBorderLayers(int localX, int localY, int width, int height)
