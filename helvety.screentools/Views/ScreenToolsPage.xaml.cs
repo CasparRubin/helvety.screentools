@@ -14,13 +14,14 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
+using helvety.screentools.Capture;
 using Windows.Storage;
 using Windows.Storage.FileProperties;
 using Windows.Storage.Streams;
 
 namespace helvety.screentools.Views
 {
-    public sealed partial class ScreenshotsPage : Page
+    public sealed partial class ScreenToolsPage : Page
     {
         // Core Windows-native decoders reliably cover these formats.
         private static readonly string[] CommonImageExtensions =
@@ -34,34 +35,48 @@ namespace helvety.screentools.Views
             ".webp"
         };
 
-        private readonly ObservableCollection<ScreenshotFileItem> _imageFiles = new();
-        private readonly ObservableCollection<ScreenshotFileItem> _otherFiles = new();
+        private readonly ObservableCollection<GalleryFileItem> _imageFiles = new();
+        private readonly ObservableCollection<GalleryFileItem> _otherFiles = new();
         private CancellationTokenSource? _refreshTokenSource;
         private FileSystemWatcher? _saveFolderWatcher;
         private string? _watchedFolderPath;
         private readonly DispatcherQueueTimer _watcherRefreshTimer;
 
-        public ScreenshotsPage()
+        public ScreenToolsPage()
         {
             InitializeComponent();
             ImageFilesGridView.ItemsSource = _imageFiles;
             OtherFilesListView.ItemsSource = _otherFiles;
             _watcherRefreshTimer = DispatcherQueue.CreateTimer();
-            _watcherRefreshTimer.Interval = TimeSpan.FromMilliseconds(250);
+            _watcherRefreshTimer.Interval = TimeSpan.FromMilliseconds(120);
             _watcherRefreshTimer.IsRepeating = false;
-            // Debounce clustered file-system notifications from screenshot writes.
+            // Debounce clustered file-system notifications from capture writes.
             _watcherRefreshTimer.Tick += WatcherRefreshTimer_Tick;
             SettingsService.SaveFolderPathChanged += SettingsService_SaveFolderPathChanged;
-            Unloaded += ScreenshotsPage_Unloaded;
+            SettingsService.SettingsChanged += SettingsService_SettingsChanged;
+            Unloaded += ScreenToolsPage_Unloaded;
         }
 
         protected override void OnNavigatedTo(NavigationEventArgs e)
         {
+            CaptureGalleryNotifier.CaptureSavedToPath -= CaptureGalleryNotifier_CaptureSavedToPath;
+            CaptureGalleryNotifier.CaptureSavedToPath += CaptureGalleryNotifier_CaptureSavedToPath;
             base.OnNavigatedTo(e);
             _ = RefreshPageAsync();
         }
 
+        protected override void OnNavigatedFrom(NavigationEventArgs e)
+        {
+            CaptureGalleryNotifier.CaptureSavedToPath -= CaptureGalleryNotifier_CaptureSavedToPath;
+            base.OnNavigatedFrom(e);
+        }
+
         private void SettingsService_SaveFolderPathChanged()
+        {
+            DispatcherQueue.TryEnqueue(() => _ = RefreshPageAsync());
+        }
+
+        private void SettingsService_SettingsChanged()
         {
             DispatcherQueue.TryEnqueue(() => _ = RefreshPageAsync());
         }
@@ -72,7 +87,97 @@ namespace helvety.screentools.Views
             _ = RefreshPageAsync();
         }
 
-        private void ScreenshotsPage_Unloaded(object sender, RoutedEventArgs e)
+        private void CaptureGalleryNotifier_CaptureSavedToPath(string path)
+        {
+            _ = ApplyImmediateCaptureSavedAsync(path);
+        }
+
+        private async Task ApplyImmediateCaptureSavedAsync(string path)
+        {
+            if (!SettingsService.TryGetEffectiveSaveFolderPath(out var folderPath))
+            {
+                return;
+            }
+
+            if (!string.Equals(Path.GetDirectoryName(path), folderPath, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            if (!IsEditableImage(Path.GetExtension(path)))
+            {
+                return;
+            }
+
+            for (var attempt = 0; attempt < 25; attempt++)
+            {
+                if (File.Exists(path))
+                {
+                    break;
+                }
+
+                await Task.Delay(20).ConfigureAwait(true);
+            }
+
+            if (!File.Exists(path))
+            {
+                return;
+            }
+
+            FileInfo file;
+            try
+            {
+                file = new FileInfo(path);
+            }
+            catch
+            {
+                return;
+            }
+
+            if (_imageFiles.Count > 0 && string.Equals(_imageFiles[0].Path, path, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            for (var i = _imageFiles.Count - 1; i >= 0; i--)
+            {
+                if (string.Equals(_imageFiles[i].Path, path, StringComparison.OrdinalIgnoreCase))
+                {
+                    _imageFiles.RemoveAt(i);
+                }
+            }
+
+            var item = new GalleryFileItem(
+                file.FullName,
+                file.Name,
+                BuildFileInfoText(file),
+                true,
+                "🖼",
+                file.LastWriteTimeUtc.Ticks,
+                file.Length);
+            _imageFiles.Insert(0, item);
+            EmptyFolderCallout.Visibility = Visibility.Collapsed;
+            GalleryScrollViewer.Visibility = Visibility.Visible;
+
+            if (SettingsService.TryGetEffectiveHotkey(out var hk))
+            {
+                var hasLive = SettingsService.TryGetEffectiveLiveDrawHotkey(out var live);
+                HotkeysHintText.Text = hasLive
+                    ? $"Capture: {hk.Display} · Live Draw: {live.Display}"
+                    : $"Capture: {hk.Display}";
+                HotkeysHintText.Visibility = Visibility.Visible;
+            }
+
+            SaveFolderPathText.Text = folderPath;
+            _ = LoadThumbnailAsync(item, CancellationToken.None);
+        }
+
+        private static bool GalleryItemMatchesFile(GalleryFileItem item, FileInfo file)
+        {
+            return item.LastWriteTimeUtcTicks == file.LastWriteTimeUtc.Ticks && item.FileLengthBytes == file.Length;
+        }
+
+        private void ScreenToolsPage_Unloaded(object sender, RoutedEventArgs e)
         {
             _refreshTokenSource?.Cancel();
             _refreshTokenSource?.Dispose();
@@ -81,39 +186,53 @@ namespace helvety.screentools.Views
             _watcherRefreshTimer.Stop();
             _watcherRefreshTimer.Tick -= WatcherRefreshTimer_Tick;
             SettingsService.SaveFolderPathChanged -= SettingsService_SaveFolderPathChanged;
-            Unloaded -= ScreenshotsPage_Unloaded;
+            SettingsService.SettingsChanged -= SettingsService_SettingsChanged;
+            Unloaded -= ScreenToolsPage_Unloaded;
         }
 
         private async Task RefreshPageAsync()
         {
             var hasSaveFolder = SettingsService.TryGetEffectiveSaveFolderPath(out var folderPath);
             var hasHotkey = SettingsService.TryGetEffectiveHotkey(out var hotkey);
-            _imageFiles.Clear();
-            _otherFiles.Clear();
-            GalleryScrollViewer.Visibility = Visibility.Collapsed;
+            var hasLiveDrawHotkey = SettingsService.TryGetEffectiveLiveDrawHotkey(out var liveHotkey);
             SaveFolderPathText.Text = hasSaveFolder
                 ? folderPath
                 : "No save folder selected.";
 
+            HotkeysHintText.Visibility = Visibility.Collapsed;
+            HotkeysHintText.Text = string.Empty;
+
             if (!hasSaveFolder)
             {
+                _imageFiles.Clear();
+                _otherFiles.Clear();
                 DisposeSaveFolderWatcher();
-                EmptyStateMessageText.Text = "Set a save location to enable screenshots.";
+                GalleryScrollViewer.Visibility = Visibility.Collapsed;
+                EmptyStateMessageText.Text = "Set a save location to store captures.";
                 EmptyFolderCallout.Visibility = Visibility.Visible;
                 return;
             }
 
             if (!hasHotkey)
             {
+                _imageFiles.Clear();
+                _otherFiles.Clear();
                 DisposeSaveFolderWatcher();
-                EmptyStateMessageText.Text = "Set a key-binding to enable screenshots.";
+                GalleryScrollViewer.Visibility = Visibility.Collapsed;
+                var liveHint = hasLiveDrawHotkey
+                    ? $" You can still use Live Draw with {liveHotkey.Display} (no save folder required for that hotkey)."
+                    : string.Empty;
+                EmptyStateMessageText.Text = $"Set a capture hotkey to save files to this folder.{liveHint}";
                 EmptyFolderCallout.Visibility = Visibility.Visible;
                 return;
             }
 
             if (!Directory.Exists(folderPath))
             {
+                _imageFiles.Clear();
+                _otherFiles.Clear();
                 DisposeSaveFolderWatcher();
+                GalleryScrollViewer.Visibility = Visibility.Collapsed;
                 EmptyStateMessageText.Text = "Save folder is missing. Reconfigure it in Settings.";
                 EmptyFolderCallout.Visibility = Visibility.Visible;
                 return;
@@ -127,10 +246,21 @@ namespace helvety.screentools.Views
 
             if (allFiles.Length == 0)
             {
-                EmptyStateMessageText.Text = $"Press {hotkey.Display} to create your first screenshot.";
+                _imageFiles.Clear();
+                _otherFiles.Clear();
+                GalleryScrollViewer.Visibility = Visibility.Collapsed;
+                var liveLine = hasLiveDrawHotkey
+                    ? $" Live Draw: {liveHotkey.Display}."
+                    : string.Empty;
+                EmptyStateMessageText.Text = $"Press {hotkey.Display} to create your first capture.{liveLine}";
                 EmptyFolderCallout.Visibility = Visibility.Visible;
                 return;
             }
+
+            var previousImagesByPath = _imageFiles.ToDictionary(x => x.Path, StringComparer.OrdinalIgnoreCase);
+            var previousOthersByPath = _otherFiles.ToDictionary(x => x.Path, StringComparer.OrdinalIgnoreCase);
+            _imageFiles.Clear();
+            _otherFiles.Clear();
 
             _refreshTokenSource?.Cancel();
             _refreshTokenSource?.Dispose();
@@ -146,21 +276,54 @@ namespace helvety.screentools.Views
 
                 if (IsEditableImage(file.Extension))
                 {
-                    var imageItem = new ScreenshotFileItem(file.FullName, file.Name, BuildFileInfoText(file), true, "🖼");
-                    _imageFiles.Add(imageItem);
-                    _ = LoadThumbnailAsync(imageItem, token);
+                    if (previousImagesByPath.TryGetValue(file.FullName, out var reusedImage) && GalleryItemMatchesFile(reusedImage, file))
+                    {
+                        _imageFiles.Add(reusedImage);
+                    }
+                    else
+                    {
+                        var imageItem = new GalleryFileItem(
+                            file.FullName,
+                            file.Name,
+                            BuildFileInfoText(file),
+                            true,
+                            "🖼",
+                            file.LastWriteTimeUtc.Ticks,
+                            file.Length);
+                        _imageFiles.Add(imageItem);
+                        _ = LoadThumbnailAsync(imageItem, token);
+                    }
                 }
                 else
                 {
-                    _otherFiles.Add(new ScreenshotFileItem(file.FullName, file.Name, BuildFileInfoText(file), false, "📄"));
+                    if (previousOthersByPath.TryGetValue(file.FullName, out var reusedOther) && GalleryItemMatchesFile(reusedOther, file))
+                    {
+                        _otherFiles.Add(reusedOther);
+                    }
+                    else
+                    {
+                        _otherFiles.Add(new GalleryFileItem(
+                            file.FullName,
+                            file.Name,
+                            BuildFileInfoText(file),
+                            false,
+                            "📄",
+                            file.LastWriteTimeUtc.Ticks,
+                            file.Length));
+                    }
                 }
             }
 
             EmptyFolderCallout.Visibility = Visibility.Collapsed;
             GalleryScrollViewer.Visibility = Visibility.Visible;
+
+            HotkeysHintText.Text = hasLiveDrawHotkey
+                ? $"Capture: {hotkey.Display} · Live Draw: {liveHotkey.Display}"
+                : $"Capture: {hotkey.Display}";
+            HotkeysHintText.Visibility = Visibility.Visible;
         }
 
-        private async Task LoadThumbnailAsync(ScreenshotFileItem item, CancellationToken token)
+        private async Task LoadThumbnailAsync(GalleryFileItem item, CancellationToken token)
         {
             try
             {
@@ -179,11 +342,11 @@ namespace helvety.screentools.Views
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ScreenshotsPage] Thumbnail load failed for '{item.Path}': {ex.Message}");
+                Debug.WriteLine($"[ScreenToolsPage] Thumbnail load failed for '{item.Path}': {ex.Message}");
             }
         }
 
-        private Task TryAssignThumbnailOnUiThreadAsync(ScreenshotFileItem item, BitmapImage thumbnail, CancellationToken token)
+        private Task TryAssignThumbnailOnUiThreadAsync(GalleryFileItem item, BitmapImage thumbnail, CancellationToken token)
         {
             if (token.IsCancellationRequested)
             {
@@ -210,7 +373,7 @@ namespace helvety.screentools.Views
 
             if (!queued)
             {
-                Debug.WriteLine($"[ScreenshotsPage] DispatcherQueue enqueue failed for '{item.Path}'.");
+                Debug.WriteLine($"[ScreenToolsPage] DispatcherQueue enqueue failed for '{item.Path}'.");
                 completion.TrySetResult(null);
             }
 
@@ -219,12 +382,12 @@ namespace helvety.screentools.Views
 
         private static void LogPreviewFailure(string stage, StorageFile file, Exception ex)
         {
-            Debug.WriteLine($"[ScreenshotsPage] {stage} preview failed for '{file.Path}': {ex.Message}");
+            Debug.WriteLine($"[ScreenToolsPage] {stage} preview failed for '{file.Path}': {ex.Message}");
         }
 
         private static void LogPreviewMiss(string stage, StorageFile file)
         {
-            Debug.WriteLine($"[ScreenshotsPage] {stage} preview unavailable for '{file.Path}'.");
+            Debug.WriteLine($"[ScreenToolsPage] {stage} preview unavailable for '{file.Path}'.");
         }
 
         private static bool IsFileLocked(IOException ex)
@@ -319,7 +482,7 @@ namespace helvety.screentools.Views
 
         private void ImageFilesGridView_ItemClick(object sender, ItemClickEventArgs e)
         {
-            if (e.ClickedItem is not ScreenshotFileItem item || !item.IsEditableImage)
+            if (e.ClickedItem is not GalleryFileItem item || !item.IsEditableImage)
             {
                 return;
             }
@@ -358,7 +521,7 @@ namespace helvety.screentools.Views
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ScreenshotsPage] Failed to watch save folder '{folderPath}': {ex.Message}");
+                Debug.WriteLine($"[ScreenToolsPage] Failed to watch save folder '{folderPath}': {ex.Message}");
                 DisposeSaveFolderWatcher();
             }
         }
@@ -465,17 +628,26 @@ namespace helvety.screentools.Views
         }
     }
 
-    internal sealed class ScreenshotFileItem : INotifyPropertyChanged
+    internal sealed class GalleryFileItem : INotifyPropertyChanged
     {
         private ImageSource? _thumbnail;
 
-        public ScreenshotFileItem(string path, string name, string fileInfoText, bool isEditableImage, string fileGlyph)
+        public GalleryFileItem(
+            string path,
+            string name,
+            string fileInfoText,
+            bool isEditableImage,
+            string fileGlyph,
+            long lastWriteTimeUtcTicks,
+            long fileLengthBytes)
         {
             Path = path;
             Name = name;
             FileInfoText = fileInfoText;
             IsEditableImage = isEditableImage;
             FileGlyph = fileGlyph;
+            LastWriteTimeUtcTicks = lastWriteTimeUtcTicks;
+            FileLengthBytes = fileLengthBytes;
         }
 
         public string Path { get; }
@@ -487,6 +659,10 @@ namespace helvety.screentools.Views
         public bool IsEditableImage { get; }
 
         public string FileGlyph { get; }
+
+        public long LastWriteTimeUtcTicks { get; }
+
+        public long FileLengthBytes { get; }
 
         public ImageSource? Thumbnail
         {

@@ -1,5 +1,5 @@
 using System;
-using System.Linq;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 
 namespace helvety.screentools.Capture
@@ -26,12 +26,13 @@ namespace helvety.screentools.Capture
         private KeyboardHookProc? _keyboardHookProc;
         private bool _isKeyboardHookInstalled;
         private bool _hasValidSaveFolder;
-        private HotkeyBinding? _currentBinding;
-        private int _sequenceMatchIndex;
-        private uint? _runtimePressedKey;
-        private long _lastMatchedStepAt;
+        private HotkeyBinding? _captureBinding;
+        private HotkeyBinding? _liveDrawBinding;
 
-        public event Action<string>? HotkeyPressed;
+        private HotkeySequenceRuntimeState _captureState;
+        private HotkeySequenceRuntimeState _liveDrawState;
+
+        public event Action<HotkeySessionKind, string>? HotkeyPressed;
 
         public void Start()
         {
@@ -65,50 +66,84 @@ namespace helvety.screentools.Capture
         private void ReloadConfiguration()
         {
             _hasValidSaveFolder = SettingsService.TryGetEffectiveSaveFolderPath(out _);
-            if (!SettingsService.TryGetEffectiveHotkey(out var hotkey) || !_hasValidSaveFolder)
+
+            if (!SettingsService.TryGetEffectiveHotkey(out var captureHotkey) || !_hasValidSaveFolder)
             {
-                _currentBinding = null;
-                ResetRuntimeSequenceState();
-                return;
+                _captureBinding = null;
+            }
+            else
+            {
+                _captureBinding = new HotkeyBinding(captureHotkey.Modifiers, CopySequence(captureHotkey.Sequence), captureHotkey.Display);
             }
 
-            _currentBinding = new HotkeyBinding(hotkey.Modifiers, hotkey.Sequence.ToArray(), hotkey.Display);
-            ResetRuntimeSequenceState();
+            _liveDrawBinding = SettingsService.TryGetEffectiveLiveDrawHotkey(out var liveHotkey)
+                ? new HotkeyBinding(liveHotkey.Modifiers, CopySequence(liveHotkey.Sequence), liveHotkey.Display)
+                : null;
+
+            ResetCaptureSequenceState();
+            ResetLiveDrawSequenceState();
         }
 
         private nint KeyboardHookCallback(int nCode, nuint wParam, nint lParam)
         {
-            if (nCode >= 0 && _currentBinding is not null && _hasValidSaveFolder)
+            if (nCode >= 0)
             {
                 var message = (uint)wParam;
                 var keyData = Marshal.PtrToStructure<KbdLlHookStruct>(lParam);
-                HandleRuntimeKeyEvent(message, keyData.VkCode, _currentBinding.Value);
+
+                if (message is WmKeydown or WmSyskeydown)
+                {
+                    if (_captureBinding is not null)
+                    {
+                        HandleRuntimeKeyDown(keyData.VkCode, _captureBinding.Value, ref _captureState);
+                    }
+
+                    if (_liveDrawBinding is not null)
+                    {
+                        HandleRuntimeKeyDown(keyData.VkCode, _liveDrawBinding.Value, ref _liveDrawState);
+                    }
+                }
+                else if (message is WmKeyup or WmSyskeyup)
+                {
+                    var captureCompleted = false;
+                    var liveCompleted = false;
+
+                    if (_captureBinding is not null)
+                    {
+                        captureCompleted = TryCompleteSequenceStepOnKeyUp(keyData.VkCode, _captureBinding.Value, ref _captureState);
+                    }
+
+                    if (_liveDrawBinding is not null)
+                    {
+                        liveCompleted = TryCompleteSequenceStepOnKeyUp(keyData.VkCode, _liveDrawBinding.Value, ref _liveDrawState);
+                    }
+
+                    if (captureCompleted && liveCompleted && BindingsEqual(_captureBinding, _liveDrawBinding))
+                    {
+                        ResetLiveDrawSequenceState();
+                        HotkeyPressed?.Invoke(HotkeySessionKind.Screenshot, _captureBinding!.Value.Display);
+                    }
+                    else if (captureCompleted)
+                    {
+                        HotkeyPressed?.Invoke(HotkeySessionKind.Screenshot, _captureBinding!.Value.Display);
+                    }
+                    else if (liveCompleted)
+                    {
+                        HotkeyPressed?.Invoke(HotkeySessionKind.LiveDraw, _liveDrawBinding!.Value.Display);
+                    }
+                }
             }
 
             return CallNextHookEx(_keyboardHookHandle, nCode, wParam, lParam);
         }
 
-        private void HandleRuntimeKeyEvent(uint message, uint virtualKey, HotkeyBinding binding)
+        private void HandleRuntimeKeyDown(uint virtualKey, HotkeyBinding binding, ref HotkeySequenceRuntimeState state)
         {
             if (binding.Sequence.Length == 0)
             {
                 return;
             }
 
-            if (message is WmKeydown or WmSyskeydown)
-            {
-                HandleRuntimeKeyDown(virtualKey, binding);
-                return;
-            }
-
-            if (message is WmKeyup or WmSyskeyup)
-            {
-                HandleRuntimeKeyUp(virtualKey, binding);
-            }
-        }
-
-        private void HandleRuntimeKeyDown(uint virtualKey, HotkeyBinding binding)
-        {
             if (IsModifierKey(virtualKey))
             {
                 return;
@@ -116,79 +151,118 @@ namespace helvety.screentools.Capture
 
             if (!ModifiersMatch(binding.Modifiers))
             {
-                ResetRuntimeSequenceState();
+                ResetSequenceState(ref state);
                 return;
             }
 
-            var expectedKey = binding.Sequence[Math.Min(_sequenceMatchIndex, binding.Sequence.Length - 1)];
-            if (_runtimePressedKey == virtualKey)
+            var expectedKey = binding.Sequence[Math.Min(state.SequenceMatchIndex, binding.Sequence.Length - 1)];
+            if (state.RuntimePressedKey == virtualKey)
             {
                 return;
             }
 
-            if (_runtimePressedKey is null && virtualKey == expectedKey)
+            if (state.RuntimePressedKey is null && virtualKey == expectedKey)
             {
-                _runtimePressedKey = virtualKey;
+                state.RuntimePressedKey = virtualKey;
                 return;
             }
 
-            ResetRuntimeSequenceState();
+            ResetSequenceState(ref state);
         }
 
-        private void HandleRuntimeKeyUp(uint virtualKey, HotkeyBinding binding)
+        private bool TryCompleteSequenceStepOnKeyUp(uint virtualKey, HotkeyBinding binding, ref HotkeySequenceRuntimeState state)
         {
+            if (binding.Sequence.Length == 0)
+            {
+                return false;
+            }
+
             if (IsModifierKey(virtualKey))
             {
                 if (!ModifiersMatch(binding.Modifiers))
                 {
-                    ResetRuntimeSequenceState();
+                    ResetSequenceState(ref state);
                 }
-                return;
+
+                return false;
             }
 
-            if (_runtimePressedKey is null || _runtimePressedKey.Value != virtualKey)
+            if (state.RuntimePressedKey is null || state.RuntimePressedKey.Value != virtualKey)
             {
-                return;
+                return false;
             }
 
             if (!ModifiersMatch(binding.Modifiers))
             {
-                ResetRuntimeSequenceState();
-                return;
+                ResetSequenceState(ref state);
+                return false;
             }
 
             var now = Environment.TickCount64;
-            if (_sequenceMatchIndex > 0 && now - _lastMatchedStepAt > SequenceStepTimeoutMilliseconds)
+            if (state.SequenceMatchIndex > 0 && now - state.LastMatchedStepAt > SequenceStepTimeoutMilliseconds)
             {
-                ResetRuntimeSequenceState();
-                return;
+                ResetSequenceState(ref state);
+                return false;
             }
 
-            var expectedKey = binding.Sequence[_sequenceMatchIndex];
+            var expectedKey = binding.Sequence[state.SequenceMatchIndex];
             if (virtualKey != expectedKey)
             {
-                ResetRuntimeSequenceState();
-                return;
+                ResetSequenceState(ref state);
+                return false;
             }
 
-            _runtimePressedKey = null;
-            _sequenceMatchIndex++;
-            _lastMatchedStepAt = now;
+            state.RuntimePressedKey = null;
+            state.SequenceMatchIndex++;
+            state.LastMatchedStepAt = now;
 
-            if (_sequenceMatchIndex < binding.Sequence.Length)
+            if (state.SequenceMatchIndex < binding.Sequence.Length)
             {
-                return;
+                return false;
             }
 
-            ResetRuntimeSequenceState();
-            HotkeyPressed?.Invoke(binding.Display);
+            ResetSequenceState(ref state);
+            return true;
         }
 
-        private void ResetRuntimeSequenceState()
+        private static bool BindingsEqual(HotkeyBinding? a, HotkeyBinding? b)
         {
-            _sequenceMatchIndex = 0;
-            _runtimePressedKey = null;
-            _lastMatchedStepAt = 0;
+            if (a is null || b is null)
+            {
+                return false;
+            }
+
+            if (a.Value.Modifiers != b.Value.Modifiers || a.Value.Sequence.Length != b.Value.Sequence.Length)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < a.Value.Sequence.Length; i++)
+            {
+                if (a.Value.Sequence[i] != b.Value.Sequence[i])
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private void ResetCaptureSequenceState()
+        {
+            ResetSequenceState(ref _captureState);
+        }
+
+        private void ResetLiveDrawSequenceState()
+        {
+            ResetSequenceState(ref _liveDrawState);
+        }
+
+        private static void ResetSequenceState(ref HotkeySequenceRuntimeState state)
+        {
+            state.SequenceMatchIndex = 0;
+            state.RuntimePressedKey = null;
+            state.LastMatchedStepAt = 0;
         }
 
         private static bool ModifiersMatch(uint requiredModifiers)
@@ -245,6 +319,24 @@ namespace helvety.screentools.Capture
         private static bool IsKeyDown(int virtualKey)
         {
             return (GetAsyncKeyState(virtualKey) & 0x8000) != 0;
+        }
+
+        private struct HotkeySequenceRuntimeState
+        {
+            internal int SequenceMatchIndex;
+            internal uint? RuntimePressedKey;
+            internal long LastMatchedStepAt;
+        }
+
+        private static uint[] CopySequence(IReadOnlyList<uint> sequence)
+        {
+            var copy = new uint[sequence.Count];
+            for (var i = 0; i < sequence.Count; i++)
+            {
+                copy[i] = sequence[i];
+            }
+
+            return copy;
         }
 
         private readonly record struct HotkeyBinding(uint Modifiers, uint[] Sequence, string Display);

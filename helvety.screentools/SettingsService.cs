@@ -14,8 +14,11 @@ namespace helvety.screentools
         private const uint DefaultHotkeyModifiers = 0x0004; // Shift
         private const string DefaultHotkeyDisplay = "Shift+S+S+S";
         private const string DefaultHotkeySequence = "83,83,83";
-        private const ScreenshotBorderIntensity DefaultScreenshotBorderIntensity = ScreenshotBorderIntensity.Balanced;
-        private const ScreenshotQualityMode DefaultScreenshotQualityMode = ScreenshotQualityMode.Fast;
+        private const uint DefaultLiveDrawHotkeyModifiers = 0x0004; // Shift
+        private const string DefaultLiveDrawHotkeyDisplay = "Shift+D+D+D";
+        private const string DefaultLiveDrawHotkeySequence = "68,68,68";
+        private const ScreenshotBorderIntensity DefaultScreenshotBorderIntensity = ScreenshotBorderIntensity.Bold;
+        private const ScreenshotQualityMode DefaultScreenshotQualityMode = ScreenshotQualityMode.Heavy;
         private const bool DefaultShowScreenshotOverlayInstructions = true;
         private const bool DefaultMinimizeToTrayOnClose = true;
         private const string DefaultEditorPrimaryColor = "#FFD81B60";
@@ -38,14 +41,14 @@ namespace helvety.screentools
         private const int DefaultEditorHighlightDimPercent = 35;
         private const bool DefaultEditorHighlightInvertMode = false;
         private const int DefaultEditorRegionCornerRadius = 8;
-        private const bool DefaultEditorPerformanceModeEnabled = true;
+        private const bool DefaultEditorPerformanceModeEnabled = false;
         private const bool DefaultEditorGpuEffectsEnabled = true;
 
         internal static event Action? SaveFolderPathChanged;
         internal static event Action? SettingsChanged;
 
-        private const int CurrentSettingsVersion = 1;
-        private const string DefaultScreenshotsFolderName = "Screenshots (Helvety Screen Tools)";
+        private const int CurrentSettingsVersion = 2;
+        private const string DefaultCaptureFolderName = "Helvety Screen Tools captures";
         private const string SettingsVersionKey = "SettingsVersion";
         private const string SaveFolderPathKey = "SaveFolderPath";
         private const string HotkeyModifiersKey = "HotkeyModifiers";
@@ -53,6 +56,12 @@ namespace helvety.screentools
         private const string HotkeySequenceKey = "HotkeySequence";
         private const string HotkeyDisplayKey = "HotkeyDisplay";
         private const string HotkeyClearedKey = "HotkeyCleared";
+        private const string LiveDrawHotkeyModifiersKey = "LiveDrawHotkeyModifiers";
+        private const string LiveDrawHotkeyVirtualKeyKey = "LiveDrawHotkeyVirtualKey";
+        private const string LiveDrawHotkeySequenceKey = "LiveDrawHotkeySequence";
+        private const string LiveDrawHotkeyDisplayKey = "LiveDrawHotkeyDisplay";
+        private const string LiveDrawHotkeyClearedKey = "LiveDrawHotkeyCleared";
+        private const string LiveDrawRectangleModifierKey = "LiveDrawRectangleModifier";
         private const string SaveFolderClearedKey = "SaveFolderCleared";
         private const string ScreenshotBorderIntensityKey = "ScreenshotBorderIntensity";
         private const string ScreenshotQualityModeKey = "ScreenshotQualityMode";
@@ -96,6 +105,12 @@ namespace helvety.screentools
             HotkeySequenceKey,
             HotkeyDisplayKey,
             HotkeyClearedKey,
+            LiveDrawHotkeyModifiersKey,
+            LiveDrawHotkeyVirtualKeyKey,
+            LiveDrawHotkeySequenceKey,
+            LiveDrawHotkeyDisplayKey,
+            LiveDrawHotkeyClearedKey,
+            LiveDrawRectangleModifierKey,
             ScreenshotBorderIntensityKey,
             ScreenshotQualityModeKey,
             ShowScreenshotOverlayInstructionsKey,
@@ -377,6 +392,184 @@ namespace helvety.screentools
             return new HotkeySettings(DefaultHotkeyModifiers, ParseSequence(DefaultHotkeySequence), DefaultHotkeyDisplay);
         }
 
+        internal static HotkeySettings GetDefaultLiveDrawHotkey()
+        {
+            return new HotkeySettings(DefaultLiveDrawHotkeyModifiers, ParseSequence(DefaultLiveDrawHotkeySequence), DefaultLiveDrawHotkeyDisplay);
+        }
+
+        internal static bool HotkeysEqual(HotkeySettings? a, HotkeySettings? b)
+        {
+            if (a is null || b is null)
+            {
+                return false;
+            }
+
+            if (a.Modifiers != b.Modifiers || !string.Equals(a.Display, b.Display, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            if (a.Sequence.Count != b.Sequence.Count)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < a.Sequence.Count; i++)
+            {
+                if (a.Sequence[i] != b.Sequence[i])
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        internal static bool HotkeyModifiersAndSequenceEqual(HotkeySettings? a, HotkeySettings? b)
+        {
+            if (a is null || b is null)
+            {
+                return false;
+            }
+
+            if (a.Modifiers != b.Modifiers || a.Sequence.Count != b.Sequence.Count)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < a.Sequence.Count; i++)
+            {
+                if (a.Sequence[i] != b.Sequence[i])
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        internal static void SaveLiveDrawHotkey(uint modifiers, IReadOnlyList<uint> sequence, string display)
+        {
+            var values = ApplicationData.Current.LocalSettings.Values;
+            EnsureSettingsVersion(values);
+            var normalizedSequence = sequence.Where(key => key > 0).Take(MaxHotkeySequenceLength).ToArray();
+
+            values[LiveDrawHotkeyModifiersKey] = (int)modifiers;
+            values[LiveDrawHotkeySequenceKey] = SerializeSequence(normalizedSequence);
+            if (normalizedSequence.Length > 0)
+            {
+                values[LiveDrawHotkeyVirtualKeyKey] = (int)normalizedSequence[0];
+            }
+
+            values[LiveDrawHotkeyDisplayKey] = display;
+            values[LiveDrawHotkeyClearedKey] = false;
+            SettingsChanged?.Invoke();
+        }
+
+        internal static void ClearLiveDrawHotkey()
+        {
+            var values = ApplicationData.Current.LocalSettings.Values;
+            EnsureSettingsVersion(values);
+
+            values.Remove(LiveDrawHotkeyModifiersKey);
+            values.Remove(LiveDrawHotkeyVirtualKeyKey);
+            values.Remove(LiveDrawHotkeySequenceKey);
+            values.Remove(LiveDrawHotkeyDisplayKey);
+            values[LiveDrawHotkeyClearedKey] = true;
+            SettingsChanged?.Invoke();
+        }
+
+        internal static void SaveLiveDrawRectangleModifier(LiveDrawRectangleModifier modifier)
+        {
+            var values = ApplicationData.Current.LocalSettings.Values;
+            EnsureSettingsVersion(values);
+            values[LiveDrawRectangleModifierKey] = (int)modifier;
+            SettingsChanged?.Invoke();
+        }
+
+        internal static LiveDrawRectangleModifier LoadLiveDrawRectangleModifier()
+        {
+            var values = ApplicationData.Current.LocalSettings.Values;
+            EnsureSettingsVersion(values);
+            if (values.TryGetValue(LiveDrawRectangleModifierKey, out var raw) && raw is int i &&
+                Enum.IsDefined(typeof(LiveDrawRectangleModifier), i))
+            {
+                return (LiveDrawRectangleModifier)i;
+            }
+
+            return LiveDrawRectangleModifier.Shift;
+        }
+
+        internal static bool IsLiveDrawHotkeyExplicitlyCleared()
+        {
+            var values = ApplicationData.Current.LocalSettings.Values;
+            EnsureSettingsVersion(values);
+            return values.TryGetValue(LiveDrawHotkeyClearedKey, out var clearedValue) &&
+                   clearedValue is bool c &&
+                   c;
+        }
+
+        internal static bool TryGetEffectiveLiveDrawHotkey(out HotkeySettings hotkey)
+        {
+            var values = ApplicationData.Current.LocalSettings.Values;
+            EnsureSettingsVersion(values);
+
+            var isCleared = values.TryGetValue(LiveDrawHotkeyClearedKey, out var clearedValue) &&
+                            clearedValue is bool c && c;
+
+            HotkeySettings? parsed = null;
+            if (!isCleared &&
+                values.TryGetValue(LiveDrawHotkeyModifiersKey, out var modifiersValue) &&
+                values.TryGetValue(LiveDrawHotkeyDisplayKey, out var displayValue) &&
+                modifiersValue is int modifiersInt &&
+                displayValue is string display &&
+                !string.IsNullOrWhiteSpace(display) &&
+                modifiersInt >= 0)
+            {
+                var seq = ReadLiveDrawSequence(values);
+                if (seq.Count == 0 &&
+                    values.TryGetValue(LiveDrawHotkeyVirtualKeyKey, out var liveVk) &&
+                    liveVk is int liveVkInt && liveVkInt > 0)
+                {
+                    seq = new[] { (uint)liveVkInt };
+                }
+
+                if (seq.Count > 0)
+                {
+                    parsed = new HotkeySettings((uint)modifiersInt, seq, display);
+                }
+            }
+
+            if (parsed is not null && IsValidHotkey(parsed))
+            {
+                hotkey = parsed;
+                return true;
+            }
+
+            if (!isCleared)
+            {
+                var fallback = GetDefaultLiveDrawHotkey();
+                if (IsValidHotkey(fallback))
+                {
+                    hotkey = fallback;
+                    return true;
+                }
+            }
+
+            hotkey = new HotkeySettings(0, Array.Empty<uint>(), string.Empty);
+            return false;
+        }
+
+        private static IReadOnlyList<uint> ReadLiveDrawSequence(IPropertySet values)
+        {
+            if (!values.TryGetValue(LiveDrawHotkeySequenceKey, out var sequenceValue) || sequenceValue is not string serialized)
+            {
+                return Array.Empty<uint>();
+            }
+
+            return ParseSequence(serialized);
+        }
+
         internal static bool TryGetEffectiveHotkey(out HotkeySettings hotkey)
         {
             var settings = Load();
@@ -476,7 +669,7 @@ namespace helvety.screentools
                 issues.Add(new GlobalSetupIssue(
                     InfoBarSeverity.Error,
                     "Save location required",
-                    "Choose a writable folder to enable screenshot features.",
+                    "Choose a writable folder to save and open captures in Screen Tools.",
                     $"Use Default ({defaultSaveFolderPath})",
                     "use-default-save-folder",
                     "Open Settings",
@@ -488,10 +681,23 @@ namespace helvety.screentools
                 var defaultHotkey = GetDefaultHotkey();
                 issues.Add(new GlobalSetupIssue(
                     InfoBarSeverity.Error,
-                    "Hotkey required",
-                    "Set a key-binding before using screenshot features.",
+                    "Capture hotkey required",
+                    "Set a capture hotkey before capturing and saving to your folder.",
                     $"Use Default ({defaultHotkey.Display})",
                     "use-default-hotkey",
+                    "Open Settings",
+                    "settings"));
+            }
+
+            if (IsLiveDrawHotkeyExplicitlyCleared())
+            {
+                var defaultLive = GetDefaultLiveDrawHotkey();
+                issues.Add(new GlobalSetupIssue(
+                    InfoBarSeverity.Informational,
+                    "Live Draw hotkey removed",
+                    "Restore the default Live Draw shortcut or set a new one in Settings.",
+                    $"Use Default ({defaultLive.Display})",
+                    "use-default-live-draw-hotkey",
                     "Open Settings",
                     "settings"));
             }
@@ -507,7 +713,7 @@ namespace helvety.screentools
                 desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
             }
 
-            return Path.Combine(desktopPath, DefaultScreenshotsFolderName);
+            return Path.Combine(desktopPath, DefaultCaptureFolderName);
         }
 
         internal static bool TryEnsureDefaultDesktopFolder(out string folderPath)
@@ -554,14 +760,44 @@ namespace helvety.screentools
 
         private static void EnsureSettingsVersion(IPropertySet values)
         {
-            if (values.TryGetValue(SettingsVersionKey, out var versionValue) &&
-                versionValue is int version &&
-                version >= CurrentSettingsVersion)
+            var storedVersion = values.TryGetValue(SettingsVersionKey, out var versionValue) && versionValue is int v
+                ? v
+                : 0;
+
+            if (storedVersion >= CurrentSettingsVersion)
             {
                 return;
             }
 
+            if (storedVersion < 2)
+            {
+                ApplyLiveDrawDefaultsIfMissing(values);
+            }
+
             values[SettingsVersionKey] = CurrentSettingsVersion;
+        }
+
+        private static void ApplyLiveDrawDefaultsIfMissing(IPropertySet values)
+        {
+            if (!values.ContainsKey(LiveDrawHotkeyClearedKey) &&
+                !values.ContainsKey(LiveDrawHotkeyModifiersKey))
+            {
+                var defaultLive = GetDefaultLiveDrawHotkey();
+                values[LiveDrawHotkeyModifiersKey] = (int)defaultLive.Modifiers;
+                values[LiveDrawHotkeySequenceKey] = SerializeSequence(defaultLive.Sequence);
+                if (defaultLive.Sequence.Count > 0)
+                {
+                    values[LiveDrawHotkeyVirtualKeyKey] = (int)defaultLive.Sequence[0];
+                }
+
+                values[LiveDrawHotkeyDisplayKey] = defaultLive.Display;
+                values[LiveDrawHotkeyClearedKey] = false;
+            }
+
+            if (!values.ContainsKey(LiveDrawRectangleModifierKey))
+            {
+                values[LiveDrawRectangleModifierKey] = (int)LiveDrawRectangleModifier.Shift;
+            }
         }
 
         private static void ApplyDefaultSettings(IPropertySet values)
@@ -581,6 +817,18 @@ namespace helvety.screentools
             }
             values[HotkeyDisplayKey] = defaultHotkey.Display;
             values[HotkeyClearedKey] = false;
+
+            var defaultLiveDrawHotkey = GetDefaultLiveDrawHotkey();
+            values[LiveDrawHotkeyModifiersKey] = (int)defaultLiveDrawHotkey.Modifiers;
+            values[LiveDrawHotkeySequenceKey] = SerializeSequence(defaultLiveDrawHotkey.Sequence);
+            if (defaultLiveDrawHotkey.Sequence.Count > 0)
+            {
+                values[LiveDrawHotkeyVirtualKeyKey] = (int)defaultLiveDrawHotkey.Sequence[0];
+            }
+
+            values[LiveDrawHotkeyDisplayKey] = defaultLiveDrawHotkey.Display;
+            values[LiveDrawHotkeyClearedKey] = false;
+            values[LiveDrawRectangleModifierKey] = (int)LiveDrawRectangleModifier.Shift;
 
             values[ScreenshotBorderIntensityKey] = (int)DefaultScreenshotBorderIntensity;
             values[ScreenshotQualityModeKey] = (int)DefaultScreenshotQualityMode;
@@ -779,6 +1027,14 @@ namespace helvety.screentools
         Fast = 0,
         Optimized = 1,
         Heavy = 2
+    }
+
+    internal enum LiveDrawRectangleModifier
+    {
+        Shift = 0,
+        Control = 1,
+        Win = 2,
+        Alt = 3
     }
 
     internal sealed record GlobalSetupIssue(

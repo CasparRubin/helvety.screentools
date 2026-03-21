@@ -1,9 +1,10 @@
 using System;
 using System.IO;
+using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.UI.Dispatching;
-using System.Runtime.InteropServices.WindowsRuntime;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Graphics;
 using Windows.Storage.Streams;
@@ -16,7 +17,6 @@ namespace helvety.screentools.Capture
         private readonly WindowSnapHitTester _windowSnapHitTester;
         private readonly ImageSaveService _imageSaveService;
         private readonly DispatcherQueue _dispatcherQueue;
-        private readonly SemaphoreSlim _captureGate = new(1, 1);
 
         public CaptureCoordinator(
             IFreezeFrameProvider freezeFrameProvider,
@@ -32,7 +32,7 @@ namespace helvety.screentools.Capture
 
         public async Task<CaptureSessionResult> StartSelectionAsync(Action<string> publishStatus)
         {
-            if (!await _captureGate.WaitAsync(0))
+            if (!await OverlaySessionGate.Gate.WaitAsync(0))
             {
                 return new CaptureSessionResult(0, WasCanceled: false);
             }
@@ -50,7 +50,8 @@ namespace helvety.screentools.Capture
                 FreezeFrame freezeFrame;
                 try
                 {
-                    freezeFrame = _freezeFrameProvider.CaptureVirtualScreen();
+                    // GDI BitBlt + GetDIBits can stall the UI thread for large virtual desktops; run off the dispatcher.
+                    freezeFrame = await Task.Run(() => _freezeFrameProvider.CaptureVirtualScreen()).ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {
@@ -84,7 +85,7 @@ namespace helvety.screentools.Capture
                         await EnqueueAsync(() =>
                         {
                             overlay.UpdateInstructionStatus("Capture canceled.");
-                            overlay.ShowSessionToast("Capture canceled", "No screenshot was saved.");
+                            overlay.ShowSessionToast("Capture canceled", "No capture was saved.");
                             return true;
                         });
                         publishStatus("Capture canceled.");
@@ -94,11 +95,12 @@ namespace helvety.screentools.Capture
                     SavedSelectionResult saveResult;
                     try
                     {
-                        saveResult = await _imageSaveService.SaveSelectionAsync(
+                        // Crop + quality modes do large CPU work before the first await; keep the UI thread free.
+                        saveResult = await Task.Run(() => _imageSaveService.SaveSelectionAsync(
                             freezeFrame,
                             action.Bounds.Value,
                             outputFolderPath,
-                            captureSettings.ScreenshotQualityMode);
+                            captureSettings.ScreenshotQualityMode)).ConfigureAwait(true);
                     }
                     catch (Exception ex)
                     {
@@ -107,6 +109,7 @@ namespace helvety.screentools.Capture
                     }
 
                     savedScreenshotCount++;
+                    CaptureGalleryNotifier.NotifyCaptureSaved(saveResult.OutputPath);
 
                     if (action.Mode == SelectionCommitMode.RightCommitContinue)
                     {
@@ -117,34 +120,35 @@ namespace helvety.screentools.Capture
                             overlay.ShowSessionToast($"Saved {filename}", saveResult.OutputPath);
                             return true;
                         });
-                        publishStatus($"Saved screenshot (staying in capture mode): {saveResult.OutputPath}");
+                        publishStatus($"Saved capture (staying in capture mode): {saveResult.OutputPath}");
                         continue;
                     }
 
                     try
                     {
                         var filename = Path.GetFileName(saveResult.OutputPath);
-                        await EnqueueAsync(() =>
+                        // Single dispatcher async block: clipboard APIs require the UI thread; continuations must stay on it.
+                        await EnqueueAsync(async () =>
                         {
                             overlay.UpdateInstructionStatus("Saved and copied to clipboard.");
                             overlay.ShowSessionToast($"Saved {filename}", saveResult.OutputPath);
+                            await CopyBitmapToClipboardAsync(saveResult.PngBytes).ConfigureAwait(true);
                             return true;
                         });
-                        await CopyBitmapToClipboardAsync(saveResult.PngBytes);
                     }
                     catch (Exception ex)
                     {
-                        publishStatus($"Saved screenshot but failed to copy clipboard ({ex.Message}).");
+                        publishStatus($"Saved capture but failed to copy clipboard ({DescribeException(ex)}).");
                         return new CaptureSessionResult(savedScreenshotCount, WasCanceled: false);
                     }
 
-                    publishStatus($"Saved screenshot and copied to clipboard: {saveResult.OutputPath}");
+                    publishStatus($"Saved capture and copied to clipboard: {saveResult.OutputPath}");
                     return new CaptureSessionResult(savedScreenshotCount, WasCanceled: false);
                 }
             }
             finally
             {
-                _captureGate.Release();
+                OverlaySessionGate.Gate.Release();
             }
         }
 
@@ -186,17 +190,50 @@ namespace helvety.screentools.Capture
 
         private static async Task CopyBitmapToClipboardAsync(byte[] pngBytes)
         {
-            var stream = new InMemoryRandomAccessStream();
-            await stream.WriteAsync(pngBytes.AsBuffer());
-            stream.Seek(0);
-
-            var dataPackage = new DataPackage
+            Exception? last = null;
+            for (var attempt = 0; attempt < 2; attempt++)
             {
-                RequestedOperation = DataPackageOperation.Copy
-            };
-            dataPackage.SetBitmap(RandomAccessStreamReference.CreateFromStream(stream));
-            Clipboard.SetContent(dataPackage);
-            Clipboard.Flush();
+                try
+                {
+                    var stream = new InMemoryRandomAccessStream();
+                    await stream.WriteAsync(pngBytes.AsBuffer()).AsTask().ConfigureAwait(true);
+                    stream.Seek(0);
+
+                    var dataPackage = new DataPackage
+                    {
+                        RequestedOperation = DataPackageOperation.Copy
+                    };
+                    dataPackage.SetBitmap(RandomAccessStreamReference.CreateFromStream(stream));
+                    Clipboard.SetContent(dataPackage);
+                    Clipboard.Flush();
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    last = ex;
+                    if (attempt == 0)
+                    {
+                        await Task.Delay(50).ConfigureAwait(true);
+                    }
+                }
+            }
+
+            throw last ?? new InvalidOperationException("Clipboard copy failed.");
+        }
+
+        private static string DescribeException(Exception ex)
+        {
+            if (!string.IsNullOrWhiteSpace(ex.Message))
+            {
+                return ex.Message;
+            }
+
+            if (ex is COMException com && com.HResult != 0)
+            {
+                return $"HRESULT 0x{com.HResult:X8}";
+            }
+
+            return ex.GetType().Name;
         }
 
     }

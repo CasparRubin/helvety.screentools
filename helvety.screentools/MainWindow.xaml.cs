@@ -19,6 +19,7 @@ namespace helvety.screentools
     {
         private const string UseDefaultSaveFolderActionTag = "use-default-save-folder";
         private const string UseDefaultHotkeyActionTag = "use-default-hotkey";
+        private const string UseDefaultLiveDrawHotkeyActionTag = "use-default-live-draw-hotkey";
         private const int MaxVisibleToasts = 6;
         private static readonly TimeSpan ToastDuration = TimeSpan.FromSeconds(5.2);
         private static readonly TimeSpan ToastFadeOutDuration = TimeSpan.FromMilliseconds(220);
@@ -32,10 +33,10 @@ namespace helvety.screentools
             ApplyWindowIcon();
             GlobalIssuesItemsControl.ItemsSource = _globalIssues;
             SettingsService.SettingsChanged += SettingsService_SettingsChanged;
-            App.CaptureStatusPublished += App_CaptureStatusPublished;
+            App.SessionStatusPublished += App_SessionStatusPublished;
             InAppToastService.ToastRequested += InAppToastService_ToastRequested;
             Closed += MainWindow_Closed;
-            NavigateToTag("screenshots");
+            NavigateToTag("home");
             AppNavigationView.SelectedItem = AppNavigationView.MenuItems[0];
             RefreshGlobalIssues();
         }
@@ -71,7 +72,7 @@ namespace helvety.screentools
             }
 
             SettingsService.SettingsChanged -= SettingsService_SettingsChanged;
-            App.CaptureStatusPublished -= App_CaptureStatusPublished;
+            App.SessionStatusPublished -= App_SessionStatusPublished;
             InAppToastService.ToastRequested -= InAppToastService_ToastRequested;
             Closed -= MainWindow_Closed;
         }
@@ -110,7 +111,7 @@ namespace helvety.screentools
             DispatcherQueue.TryEnqueue(RefreshGlobalIssues);
         }
 
-        private void App_CaptureStatusPublished(string message)
+        private void App_SessionStatusPublished(string message)
         {
             DispatcherQueue.TryEnqueue(() => ShowInAppToast(message, InAppToastSeverity.Informational));
         }
@@ -293,9 +294,9 @@ namespace helvety.screentools
         {
             var targetPage = tag switch
             {
-                "screenshots" => typeof(ScreenshotsPage),
+                "home" => typeof(ScreenToolsPage),
                 "settings" => typeof(SettingsPage),
-                _ => typeof(ScreenshotsPage)
+                _ => typeof(ScreenToolsPage)
             };
 
             if (ContentFrame.CurrentSourcePageType != targetPage)
@@ -343,6 +344,13 @@ namespace helvety.screentools
             {
                 var defaultHotkey = SettingsService.GetDefaultHotkey();
                 SettingsService.SaveHotkey(defaultHotkey.Modifiers, defaultHotkey.Sequence, defaultHotkey.Display);
+                return;
+            }
+
+            if (tag == UseDefaultLiveDrawHotkeyActionTag)
+            {
+                var defaultLiveDraw = SettingsService.GetDefaultLiveDrawHotkey();
+                SettingsService.SaveLiveDrawHotkey(defaultLiveDraw.Modifiers, defaultLiveDraw.Sequence, defaultLiveDraw.Display);
                 return;
             }
 

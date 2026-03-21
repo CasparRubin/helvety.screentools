@@ -11,24 +11,17 @@ namespace helvety.screentools.Capture
 
     internal sealed class GdiFreezeFrameProvider : IFreezeFrameProvider
     {
-        private const int SmXvirtualscreen = 76;
-        private const int SmYvirtualscreen = 77;
-        private const int SmCxvirtualscreen = 78;
-        private const int SmCyvirtualscreen = 79;
         private const int Srccopy = 0x00CC0020;
         private const uint DibRgbColors = 0;
         private const int BiRgb = 0;
 
         public FreezeFrame CaptureVirtualScreen()
         {
-            var left = GetSystemMetrics(SmXvirtualscreen);
-            var top = GetSystemMetrics(SmYvirtualscreen);
-            var width = GetSystemMetrics(SmCxvirtualscreen);
-            var height = GetSystemMetrics(SmCyvirtualscreen);
-            if (width <= 0 || height <= 0)
-            {
-                throw new InvalidOperationException("Unable to determine virtual screen bounds.");
-            }
+            var bounds = VirtualScreenBounds.Get();
+            var left = bounds.X;
+            var top = bounds.Y;
+            var width = bounds.Width;
+            var height = bounds.Height;
 
             var screenDc = GetDC(nint.Zero);
             if (screenDc == nint.Zero)
@@ -96,7 +89,7 @@ namespace helvety.screentools.Capture
                     throw new InvalidOperationException("Failed to copy bitmap data from captured frame.");
                 }
 
-                return new FreezeFrame(new RectInt32(left, top, width, height), stride, pixelData);
+                return new FreezeFrame(bounds, stride, pixelData);
             }
             finally
             {
@@ -121,9 +114,6 @@ namespace helvety.screentools.Capture
                 }
             }
         }
-
-        [DllImport("user32.dll")]
-        private static extern int GetSystemMetrics(int nIndex);
 
         [DllImport("user32.dll")]
         private static extern nint GetDC(nint hWnd);

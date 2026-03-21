@@ -20,9 +20,9 @@
         SelectionChanged="AppNavigationView_SelectionChanged">
         <NavigationView.MenuItems>
             <NavigationViewItem
-                Content="Screenshots"
+                Content="Screen Tools"
                 Icon="Pictures"
-                Tag="screenshots" />
+                Tag="home" />
             <NavigationViewItem
                 Content="Settings"
                 Icon="Setting"

@@ -24,7 +24,7 @@
                             <TextBlock Style="{StaticResource SettingsSectionTitleTextStyle}" Text="Save Location" />
                             <TextBlock
                                 Style="{StaticResource SettingsSectionDescriptionTextStyle}"
-                                Text="Choose where screenshots are stored."
+                                Text="Choose where captures are stored."
                                 />
                             <TextBlock
                                 x:Name="SaveFolderText"
@@ -42,7 +42,7 @@
                                 x:Name="UseDefaultSaveFolderButton"
                                 Style="{StaticResource SettingsInlineButtonStyle}"
                                 Click="UseDefaultSaveFolderButton_Click"
-                                Content="Use Default" />
+                                Content="Use default" />
                             <Button
                                 x:Name="RemoveSaveFolderButton"
                                 Style="{StaticResource SettingsInlineButtonStyle}"
@@ -64,14 +64,14 @@
                 <StackPanel Spacing="12">
                     <TextBlock
                         Style="{StaticResource SettingsSectionTitleTextStyle}"
-                        Text="Key-Bindings / Hotkeys" />
+                        Text="Capture hotkey" />
                     <TextBlock
                         Style="{StaticResource SettingsSectionDescriptionTextStyle}"
-                        Text="Set modifiers and capture 1-5 sequence keys."
-                        />
+                        Text="Starts frozen-screen capture. Set modifiers and one to five keys in order. A writable save folder is required to apply, use default, or use Listen."
+                        TextWrapping="WrapWholeWords" />
                     <TextBlock
                         x:Name="CurrentBindingText"
-                        Text="Current Binding: Shift+S+S+S"
+                        Text="Capture hotkey: (loading…)"
                         TextWrapping="WrapWholeWords" />
 
                     <StackPanel Style="{StaticResource SettingsInlineRowStackPanelStyle}">
@@ -163,28 +163,137 @@
                             x:Name="ApplyHotkeyButton"
                             Style="{StaticResource SettingsInlineButtonStyle}"
                             Click="ApplyHotkeyButton_Click"
-                            Content="Apply Hotkey" />
+                            Content="Apply capture hotkey" />
                         <Button
                             x:Name="UseDefaultHotkeyButton"
                             Style="{StaticResource SettingsInlineButtonStyle}"
                             Click="UseDefaultHotkeyButton_Click"
-                            Content="Use Default" />
+                            Content="Use default" />
                         <Button
                             x:Name="RemoveHotkeyButton"
                             Style="{StaticResource SettingsInlineButtonStyle}"
                             Click="RemoveHotkeyButton_Click"
-                            Content="Remove Hotkey" />
+                            Content="Remove capture hotkey" />
                     </StackPanel>
                 </StackPanel>
             </Border>
 
-            <!-- Screenshot Mode -->
+            <!-- Live Draw hotkey -->
             <Border Style="{StaticResource SettingsCardBorderStyle}">
                 <StackPanel Spacing="12">
-                    <TextBlock Style="{StaticResource SettingsSectionTitleTextStyle}" Text="Screenshot Mode" />
+                    <TextBlock Style="{StaticResource SettingsSectionTitleTextStyle}" Text="Live Draw" />
                     <TextBlock
                         Style="{StaticResource SettingsSectionDescriptionTextStyle}"
-                        Text="Capture behavior is fixed: left-click saves, copies to clipboard, and exits screenshot mode; right-click saves and keeps screenshot mode active."
+                        Text="Full-screen overlay with a GDI bitmap of the desktop behind your drawing. On Windows 10 version 2004 and later, the background may refresh periodically when this window is excluded from GDI screen capture; if not, the background stays a static snapshot (as on older Windows). No save folder. Default rectangle modifier is Shift: Shift+drag draws rectangles; Ctrl+Shift, Alt, or Shift+Alt (without Ctrl)+drag draws arrows. If the rectangle modifier is Alt, Alt alone selects rectangles—use Shift for arrows. Use Rectangle modifier (below) to change which keys select rectangles vs arrows. Any other drag is freehand."
+                        TextWrapping="WrapWholeWords" />
+                    <TextBlock
+                        x:Name="LiveDrawCurrentBindingText"
+                        Text="Live Draw: Shift+D+D+D"
+                        TextWrapping="WrapWholeWords" />
+                    <TextBlock Style="{StaticResource SettingsSectionDescriptionTextStyle}" Text="Rectangle modifier (while drawing)" />
+                    <ComboBox
+                        x:Name="LiveDrawRectangleModifierComboBox"
+                        SelectionChanged="LiveDrawRectangleModifierComboBox_SelectionChanged">
+                        <ComboBoxItem Content="Shift" Tag="Shift" />
+                        <ComboBoxItem Content="Ctrl" Tag="Control" />
+                        <ComboBoxItem Content="Alt" Tag="Alt" />
+                        <ComboBoxItem Content="Win" Tag="Win" />
+                    </ComboBox>
+                    <StackPanel Style="{StaticResource SettingsInlineRowStackPanelStyle}">
+                        <CheckBox
+                            x:Name="LiveDrawCtrlModifierCheckBox"
+                            Style="{StaticResource SettingsInlineControlStyle}"
+                            Checked="LiveDrawModifierCheckBox_Changed"
+                            Content="Ctrl"
+                            Unchecked="LiveDrawModifierCheckBox_Changed" />
+                        <CheckBox
+                            x:Name="LiveDrawAltModifierCheckBox"
+                            Style="{StaticResource SettingsInlineControlStyle}"
+                            Checked="LiveDrawModifierCheckBox_Changed"
+                            Content="Alt"
+                            Unchecked="LiveDrawModifierCheckBox_Changed" />
+                        <CheckBox
+                            x:Name="LiveDrawShiftModifierCheckBox"
+                            Style="{StaticResource SettingsInlineControlStyle}"
+                            Checked="LiveDrawModifierCheckBox_Changed"
+                            Content="Shift"
+                            Unchecked="LiveDrawModifierCheckBox_Changed" />
+                    </StackPanel>
+                    <Grid ColumnSpacing="12" RowSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="Step 1" />
+                        <TextBlock x:Name="LiveDrawStep1KeyText" Grid.Row="0" Grid.Column="1" VerticalAlignment="Center" Text="(not set)" />
+                        <Button Grid.Row="0" Grid.Column="2" Click="LiveDrawListenStep1Button_Click" Content="Listen" />
+                        <Button Grid.Row="0" Grid.Column="3" Click="LiveDrawClearStep1Button_Click" Content="Clear" />
+                        <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Text="Step 2" />
+                        <TextBlock x:Name="LiveDrawStep2KeyText" Grid.Row="1" Grid.Column="1" VerticalAlignment="Center" Text="(not set)" />
+                        <Button Grid.Row="1" Grid.Column="2" Click="LiveDrawListenStep2Button_Click" Content="Listen" />
+                        <Button Grid.Row="1" Grid.Column="3" Click="LiveDrawClearStep2Button_Click" Content="Clear" />
+                        <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Text="Step 3" />
+                        <TextBlock x:Name="LiveDrawStep3KeyText" Grid.Row="2" Grid.Column="1" VerticalAlignment="Center" Text="(not set)" />
+                        <Button Grid.Row="2" Grid.Column="2" Click="LiveDrawListenStep3Button_Click" Content="Listen" />
+                        <Button Grid.Row="2" Grid.Column="3" Click="LiveDrawClearStep3Button_Click" Content="Clear" />
+                        <TextBlock Grid.Row="3" Grid.Column="0" VerticalAlignment="Center" Text="Step 4" />
+                        <TextBlock x:Name="LiveDrawStep4KeyText" Grid.Row="3" Grid.Column="1" VerticalAlignment="Center" Text="(not set)" />
+                        <Button Grid.Row="3" Grid.Column="2" Click="LiveDrawListenStep4Button_Click" Content="Listen" />
+                        <Button Grid.Row="3" Grid.Column="3" Click="LiveDrawClearStep4Button_Click" Content="Clear" />
+                        <TextBlock Grid.Row="4" Grid.Column="0" VerticalAlignment="Center" Text="Step 5" />
+                        <TextBlock x:Name="LiveDrawStep5KeyText" Grid.Row="4" Grid.Column="1" VerticalAlignment="Center" Text="(not set)" />
+                        <Button Grid.Row="4" Grid.Column="2" Click="LiveDrawListenStep5Button_Click" Content="Listen" />
+                        <Button Grid.Row="4" Grid.Column="3" Click="LiveDrawClearStep5Button_Click" Content="Clear" />
+                    </Grid>
+                    <TextBlock
+                        x:Name="LiveDrawCaptureInstructionText"
+                        Style="{StaticResource SettingsSectionDescriptionTextStyle}"
+                        Text="" />
+                    <TextBlock
+                        x:Name="LiveDrawCapturePreviewText"
+                        Style="{StaticResource SettingsSectionDescriptionTextStyle}"
+                        Text="" />
+                    <TextBlock
+                        x:Name="LiveDrawBindingStatusText"
+                        Style="{StaticResource SettingsSectionDescriptionTextStyle}"
+                        Text="" />
+                    <StackPanel Style="{StaticResource SettingsInlineRowStackPanelStyle}">
+                        <Button
+                            x:Name="ApplyLiveDrawHotkeyButton"
+                            Style="{StaticResource SettingsInlineButtonStyle}"
+                            Click="ApplyLiveDrawHotkeyButton_Click"
+                            Content="Apply Live Draw hotkey" />
+                        <Button
+                            x:Name="UseDefaultLiveDrawHotkeyButton"
+                            Style="{StaticResource SettingsInlineButtonStyle}"
+                            Click="UseDefaultLiveDrawHotkeyButton_Click"
+                            Content="Use default" />
+                        <Button
+                            x:Name="RemoveLiveDrawHotkeyButton"
+                            Style="{StaticResource SettingsInlineButtonStyle}"
+                            Click="RemoveLiveDrawHotkeyButton_Click"
+                            Content="Remove Live Draw hotkey" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Capture mode (frozen overlay) -->
+            <Border Style="{StaticResource SettingsCardBorderStyle}">
+                <StackPanel Spacing="12">
+                    <TextBlock Style="{StaticResource SettingsSectionTitleTextStyle}" Text="Capture Mode" />
+                    <TextBlock
+                        Style="{StaticResource SettingsSectionDescriptionTextStyle}"
+                        TextWrapping="WrapWholeWords"
+                        Text="Click without dragging saves the snapped window (or the full virtual screen if nothing snaps); drag to draw a rectangle. Left-click saves, copies to clipboard, and exits capture mode; right-click saves and keeps capture mode active."
                         />
 
                     <Border
@@ -194,7 +303,7 @@
                     <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Border Effects" />
                     <TextBlock
                         Style="{StaticResource SettingsSectionDescriptionTextStyle}"
-                        Text="Control the visual intensity of screenshot border animations."
+                        Text="Control the visual intensity of capture border animations."
                         />
                     <StackPanel Style="{StaticResource SettingsInlineRowStackPanelStyle}">
                         <TextBlock Style="{StaticResource SettingsInlineLabelTextStyle}" Text="Intensity" />
@@ -218,7 +327,7 @@
                     <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Capture Quality Mode" />
                     <TextBlock
                         Style="{StaticResource SettingsSectionDescriptionTextStyle}"
-                        Text="Choose screenshot enhancement level. Fast is quickest, Optimized improves text readability, Heavy applies stronger processing."
+                        Text="Choose capture enhancement level. Fast is quickest, Optimized improves text readability, Heavy applies stronger processing."
                         />
                     <StackPanel Style="{StaticResource SettingsInlineRowStackPanelStyle}">
                         <TextBlock Style="{StaticResource SettingsInlineLabelTextStyle}" Text="Mode" />
@@ -242,13 +351,13 @@
                     <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Overlay Checkbox" />
                     <TextBlock
                         Style="{StaticResource SettingsSectionDescriptionTextStyle}"
-                        Text="Choose whether helper instructions appear in the screenshot overlay."
+                        Text="Choose whether helper instructions appear in the capture overlay."
                         />
                     <CheckBox
                         x:Name="ShowOverlayInstructionsCheckBox"
                         Style="{StaticResource SettingsInlineControlStyle}"
                         Checked="ShowOverlayInstructionsCheckBox_Changed"
-                        Content="Show screenshot mode overlay instructions"
+                        Content="Show capture mode overlay instructions"
                         Unchecked="ShowOverlayInstructionsCheckBox_Changed" />
                 </StackPanel>
             </Border>
@@ -292,7 +401,8 @@
                     <TextBlock Style="{StaticResource SettingsSectionTitleTextStyle}" Text="Danger Zone" />
                     <TextBlock
                         Style="{StaticResource SettingsSectionDescriptionTextStyle}"
-                        Text="Reset all app settings to defaults. This removes saved app configuration (save location, hotkeys, border effects, capture quality mode, and related preferences) but does not delete screenshots."
+                        Text="Reset all app settings to defaults. This clears saved configuration (save location, capture and Live Draw hotkeys, editor preferences, border effects, capture quality, and related options). Your image files and captures on disk are not deleted."
+                        TextWrapping="WrapWholeWords"
                         />
                     <Button
                         x:Name="ResetSettingsButton"

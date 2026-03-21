@@ -10,10 +10,11 @@ namespace helvety.screentools
     {
         private MainWindow? _window;
         private CaptureCoordinator? _captureCoordinator;
+        private LiveDrawCoordinator? _liveDrawCoordinator;
         private TrayIconService? _trayIconService;
         internal static Window? MainAppWindow { get; private set; }
         internal static HotkeyService? HotkeyService { get; private set; }
-        internal static event Action<string>? CaptureStatusPublished;
+        internal static event Action<string>? SessionStatusPublished;
 
         public App()
         {
@@ -36,6 +37,8 @@ namespace helvety.screentools
                 windowSnapHitTester,
                 imageSaveService,
                 _window.DispatcherQueue);
+
+            _liveDrawCoordinator = new LiveDrawCoordinator(_window.DispatcherQueue);
 
             HotkeyService = new HotkeyService();
             HotkeyService.HotkeyPressed += HotkeyService_HotkeyPressed;
@@ -64,23 +67,56 @@ namespace helvety.screentools
             _trayIconService = null;
         }
 
-        private void HotkeyService_HotkeyPressed(string hotkeyDisplay)
+        private void HotkeyService_HotkeyPressed(HotkeySessionKind kind, string hotkeyDisplay)
         {
-            MainAppWindow?.DispatcherQueue.TryEnqueue(() => _ = RunCaptureAsync(hotkeyDisplay));
+            MainAppWindow?.DispatcherQueue.TryEnqueue(() => _ = RunHotkeySessionAsync(kind, hotkeyDisplay));
         }
 
-        private async Task RunCaptureAsync(string hotkeyDisplay)
+        private async Task RunHotkeySessionAsync(HotkeySessionKind kind, string hotkeyDisplay)
         {
-            CaptureStatusPublished?.Invoke($"Hotkey {hotkeyDisplay} pressed.");
+            var sessionLabel = kind switch
+            {
+                HotkeySessionKind.Screenshot => "Screenshot",
+                HotkeySessionKind.LiveDraw => "Live Draw",
+                _ => kind.ToString()
+            };
+            SessionStatusPublished?.Invoke($"{sessionLabel} hotkey {hotkeyDisplay} pressed.");
+            if (kind == HotkeySessionKind.Screenshot)
+            {
+                await RunCaptureAsync();
+                return;
+            }
+
+            await RunLiveDrawAsync();
+        }
+
+        private async Task RunCaptureAsync()
+        {
             if (_captureCoordinator is null)
             {
-                CaptureStatusPublished?.Invoke("Capture failed: capture coordinator is not initialized.");
+                SessionStatusPublished?.Invoke("Screenshot capture failed: capture coordinator is not initialized.");
                 return;
             }
 
             var restoreWindowAfterCapture = _window?.IsHiddenToTray == true;
-            var sessionResult = await _captureCoordinator.StartSelectionAsync(message => CaptureStatusPublished?.Invoke(message));
+            var sessionResult = await _captureCoordinator.StartSelectionAsync(message => SessionStatusPublished?.Invoke(message));
             if (restoreWindowAfterCapture && sessionResult.SavedScreenshotCount > 0)
+            {
+                _window?.DispatcherQueue.TryEnqueue(RestoreMainWindowFromTray);
+            }
+        }
+
+        private async Task RunLiveDrawAsync()
+        {
+            if (_liveDrawCoordinator is null)
+            {
+                SessionStatusPublished?.Invoke("Live Draw failed: coordinator is not initialized.");
+                return;
+            }
+
+            var restoreWindow = _window?.IsHiddenToTray == true;
+            await _liveDrawCoordinator.RunLiveDrawAsync(message => SessionStatusPublished?.Invoke(message));
+            if (restoreWindow)
             {
                 _window?.DispatcherQueue.TryEnqueue(RestoreMainWindowFromTray);
             }

@@ -1,3 +1,4 @@
+using helvety.screentools;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -120,6 +121,7 @@ namespace helvety.screentools.Views
                 : null;
 
             RefreshSaveFolderState();
+            InitializeLiveDrawHotkeyUi();
         }
 
         private void InitializeBorderIntensitySelection()
@@ -335,7 +337,8 @@ namespace helvety.screentools.Views
 
         private void UpdateFeatureAvailability()
         {
-            ApplyHotkeyButton.IsEnabled = _hasValidSaveFolder && !_isCaptureMode && BuildEditorSequence().Count > 0;
+            ApplyHotkeyButton.IsEnabled = _hasValidSaveFolder && !_isCaptureMode && BuildEditorSequence().Count > 0 &&
+                !TryScreenshotEditorConflictsWithLiveHotkey();
             UseDefaultHotkeyButton.IsEnabled = _hasValidSaveFolder && !_isCaptureMode;
             RemoveHotkeyButton.IsEnabled = !_isCaptureMode && _currentBinding is not null;
             CaptureInstructionText.Text = _hasValidSaveFolder
@@ -345,10 +348,8 @@ namespace helvety.screentools.Views
             if (_hasValidSaveFolder && BindingStatusText.Text.StartsWith("Save location needed", StringComparison.Ordinal))
             {
                 BindingStatusText.Text = string.Empty;
-                return;
             }
-
-            if (!_hasValidSaveFolder)
+            else if (!_hasValidSaveFolder)
             {
                 if (string.IsNullOrWhiteSpace(_saveFolderPath))
                 {
@@ -363,6 +364,8 @@ namespace helvety.screentools.Views
                     BindingStatusText.Text = $"Save location needed: {validationError}";
                 }
             }
+
+            UpdateLiveDrawFeatureAvailability();
         }
 
         private void InitializeHotkeyInfrastructure()
@@ -379,8 +382,8 @@ namespace helvety.screentools.Views
                 _currentBinding = null;
                 ResetRuntimeSequenceState();
                 ResetEditor();
-                CurrentBindingText.Text = "Current Binding: (none)";
-                BindingStatusText.Text = "No hotkey set.";
+                CurrentBindingText.Text = "Capture hotkey: (none)";
+                BindingStatusText.Text = "No capture hotkey set.";
                 UpdateFeatureAvailability();
                 return;
             }
@@ -513,7 +516,7 @@ namespace helvety.screentools.Views
 
             _currentBinding = requestedBinding;
             ResetRuntimeSequenceState();
-            CurrentBindingText.Text = $"Current Binding: {requestedBinding.Display}";
+            CurrentBindingText.Text = $"Capture hotkey: {requestedBinding.Display}";
             SettingsService.SaveHotkey(requestedBinding.Modifiers, requestedBinding.Sequence, requestedBinding.Display);
             UpdateFeatureAvailability();
             SetEditorFromBinding(requestedBinding);
@@ -531,8 +534,8 @@ namespace helvety.screentools.Views
             ResetRuntimeSequenceState();
             SettingsService.ClearHotkey();
             ResetEditor();
-            CurrentBindingText.Text = "Current Binding: (none)";
-            BindingStatusText.Text = "No hotkey set.";
+            CurrentBindingText.Text = "Capture hotkey: (none)";
+            BindingStatusText.Text = "No capture hotkey set.";
             UpdateFeatureAvailability();
         }
 
@@ -568,8 +571,34 @@ namespace helvety.screentools.Views
             }
 
             var display = BuildBindingDisplay(_editorModifiers, sequence.Select(GetKeyDisplayName).ToArray());
+            var candidate = new HotkeySettings(_editorModifiers, sequence, display);
+            if (SettingsService.TryGetEffectiveLiveDrawHotkey(out var live) &&
+                SettingsService.HotkeyModifiersAndSequenceEqual(candidate, live))
+            {
+                statusMessage = "Capture hotkey must differ from the Live Draw hotkey.";
+                return false;
+            }
+
             var binding = new HotkeyBinding(_editorModifiers, sequence.ToArray(), display);
             return TryApplyBinding(binding, out statusMessage);
+        }
+
+        private bool TryScreenshotEditorConflictsWithLiveHotkey()
+        {
+            var sequence = BuildEditorSequence();
+            if (sequence.Count == 0)
+            {
+                return false;
+            }
+
+            if (!SettingsService.TryGetEffectiveLiveDrawHotkey(out var live))
+            {
+                return false;
+            }
+
+            var display = BuildBindingDisplay(_editorModifiers, sequence.Select(GetKeyDisplayName).ToArray());
+            var candidate = new HotkeySettings(_editorModifiers, sequence, display);
+            return SettingsService.HotkeyModifiersAndSequenceEqual(candidate, live);
         }
 
         private void ModifierCheckBox_Changed(object sender, RoutedEventArgs e)
@@ -577,6 +606,7 @@ namespace helvety.screentools.Views
             _editorModifiers = BuildModifiersFromEditor();
             UpdateCapturePreview();
             UpdateFeatureAvailability();
+            UpdateLiveDrawFeatureAvailability();
         }
 
         private void BorderIntensityComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -652,7 +682,7 @@ namespace helvety.screentools.Views
             {
                 XamlRoot = XamlRoot,
                 Title = "Reset all settings to defaults?",
-                Content = "This clears all saved app settings and restores defaults. Screenshots and image files are not deleted.",
+                Content = "This clears all saved app settings and restores defaults. Files on disk (captures and exports) are not deleted.",
                 PrimaryButtonText = "Reset",
                 CloseButtonText = "Cancel",
                 DefaultButton = ContentDialogButton.Close
@@ -685,7 +715,12 @@ namespace helvety.screentools.Views
 
         private void StartStepCapture(int stepIndex)
         {
-            if (!_hasValidSaveFolder)
+            StartStepCapture(stepIndex, HotkeyCaptureKind.Screenshot);
+        }
+
+        private void StartStepCapture(int stepIndex, HotkeyCaptureKind kind)
+        {
+            if (kind == HotkeyCaptureKind.Screenshot && !_hasValidSaveFolder)
             {
                 const string blockedMessage = "Set a save location before changing hotkeys.";
                 BindingStatusText.Text = blockedMessage;
@@ -693,12 +728,16 @@ namespace helvety.screentools.Views
                 return;
             }
 
+            _hotkeyCaptureKind = kind;
             _isCaptureMode = true;
             _activeCaptureStepIndex = stepIndex;
-            ListeningInfoBar.Title = $"Listening for step {stepIndex + 1}";
+            ListeningInfoBar.Title = kind == HotkeyCaptureKind.LiveDraw
+                ? $"Live Draw — listening for step {stepIndex + 1}"
+                : $"Listening for step {stepIndex + 1}";
             ListeningInfoBar.Message = "Press a non-modifier key. Esc cancels.";
             ListeningInfoBar.IsOpen = true;
             UpdateFeatureAvailability();
+            UpdateLiveDrawFeatureAvailability();
         }
 
         private void StopStepCapture()
@@ -706,7 +745,9 @@ namespace helvety.screentools.Views
             _isCaptureMode = false;
             _activeCaptureStepIndex = null;
             ListeningInfoBar.IsOpen = false;
+            _hotkeyCaptureKind = HotkeyCaptureKind.Screenshot;
             UpdateFeatureAvailability();
+            UpdateLiveDrawFeatureAvailability();
         }
 
         private void ClearStep(int stepIndex)
@@ -760,10 +801,18 @@ namespace helvety.screentools.Views
             {
                 if (virtualKey == VkEscape)
                 {
+                    var escapeCaptureKind = _hotkeyCaptureKind;
                     DispatcherQueue.TryEnqueue(() =>
                     {
                         StopStepCapture();
-                        BindingStatusText.Text = "Capture canceled.";
+                        if (escapeCaptureKind == HotkeyCaptureKind.Screenshot)
+                        {
+                            BindingStatusText.Text = "Capture canceled.";
+                        }
+                        else
+                        {
+                            LiveDrawBindingStatusText.Text = "Capture canceled.";
+                        }
                     });
                     return;
                 }
@@ -774,13 +823,21 @@ namespace helvety.screentools.Views
                 }
 
                 var stepIndex = _activeCaptureStepIndex.Value;
+                var stepCaptureKind = _hotkeyCaptureKind;
                 DispatcherQueue.TryEnqueue(() =>
                 {
-                    _editorSequence[stepIndex] = virtualKey;
-                    StopStepCapture();
-                    UpdateStepTexts();
-                    UpdateCapturePreview();
-                    BindingStatusText.Text = $"Step {stepIndex + 1} set to {GetKeyDisplayName(virtualKey)}.";
+                    if (stepCaptureKind == HotkeyCaptureKind.Screenshot)
+                    {
+                        _editorSequence[stepIndex] = virtualKey;
+                        StopStepCapture();
+                        UpdateStepTexts();
+                        UpdateCapturePreview();
+                        BindingStatusText.Text = $"Step {stepIndex + 1} set to {GetKeyDisplayName(virtualKey)}.";
+                    }
+                    else
+                    {
+                        HandleLiveDrawCaptureKey(virtualKey, stepIndex);
+                    }
                 });
                 return;
             }
@@ -1045,7 +1102,7 @@ namespace helvety.screentools.Views
         {
             var binding = _currentBinding?.Display ?? "Unknown";
             var timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
-            AddMessage($"Hotkey {binding} pressed at {timestamp}");
+            AddMessage($"Capture hotkey ({binding}) pressed at {timestamp}");
         }
 
         private void AddMessage(string message)

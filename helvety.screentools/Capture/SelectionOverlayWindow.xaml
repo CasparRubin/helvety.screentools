@@ -48,24 +48,24 @@
             <Rectangle
                 x:Name="SnapBorderRectangle"
                 Stroke="#FFD81B60"
-                StrokeThickness="3"
+                StrokeThickness="4"
                 Visibility="Collapsed" />
             <Rectangle
                 x:Name="SnapBorderChaseRectangle"
                 Stroke="White"
                 StrokeDashArray="26,180"
-                StrokeThickness="2"
+                StrokeThickness="3"
                 Visibility="Collapsed" />
             <Rectangle
                 x:Name="SnapBorderCornerGlowRectangle"
                 Stroke="#66FFFFFF"
                 StrokeDashArray="18,68,18,220"
-                StrokeThickness="5"
+                StrokeThickness="6"
                 Visibility="Collapsed" />
             <Rectangle
                 x:Name="SnapBorderGlowRectangle"
                 Stroke="#44FFFFFF"
-                StrokeThickness="7"
+                StrokeThickness="8"
                 Visibility="Collapsed" />
             <Rectangle
                 x:Name="DragRectangle"
@@ -87,10 +87,10 @@
                             FontSize="18"
                             FontWeight="SemiBold"
                             Foreground="White"
-                            Text="Screenshot Mode" />
+                            Text="Capture mode" />
                         <TextBlock
                             Foreground="#FFE6E6E6"
-                            Text="Fast capture with snap and free selection."
+                            Text="Click to capture the snapped window or the full screen; drag to select a rectangle."
                             TextWrapping="WrapWholeWords" />
                     </StackPanel>
 
@@ -124,7 +124,7 @@
                             Foreground="White"
                             TextWrapping="WrapWholeWords">
                             <Run FontWeight="SemiBold" Text="Left click" />
-                            <Run Text=" saves, copies to clipboard, and exits mode." />
+                            <Run Text=" saves the snapped area (or full screen if nothing snaps), copies to clipboard, and exits. Drag for a custom rectangle." />
                         </TextBlock>
 
                         <Border
@@ -168,7 +168,7 @@
                             Foreground="White"
                             TextWrapping="WrapWholeWords">
                             <Run FontWeight="SemiBold" Text="Esc" />
-                            <Run Text=" cancels screenshot mode." />
+                            <Run Text=" cancels capture mode." />
                         </TextBlock>
                     </Grid>
 
@@ -197,7 +197,7 @@
                         CornerRadius="0">
                         <TextBlock
                             Foreground="#FFDCDCDC"
-                            Text="Note: This panel is never included in saved screenshots."
+                            Text="Note: This panel is never included in saved captures."
                             TextWrapping="WrapWholeWords" />
                     </Border>
                 </StackPanel>
@@ -217,7 +217,7 @@
                         x:Name="SessionToastTitleText"
                         FontWeight="SemiBold"
                         Foreground="White"
-                        Text="Screenshot saved" />
+                        Text="Capture saved" />
                     <TextBlock
                         x:Name="SessionToastDetailText"
                         Foreground="#FFDCDCDC"
