@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "helvety.screentools (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "helvety.screentools (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

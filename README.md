@@ -1,4 +1,4 @@
-# Helvety Screenshots
+# Helvety Screen Tools
 
 WinUI 3 desktop screenshot tool for fast, keyboard-driven capture workflows on Windows.
 
@@ -43,8 +43,8 @@ Expect rapid changes, incomplete features, and occasional breaking behavior whil
 
 ## Run Locally
 
-1. Open the solution in Visual Studio 2022 (with WinUI/.NET desktop workloads).
-2. Build and run the `helvety.screenshots` project.
+1. Open `helvety.screentools.slnx` in Visual Studio 2022 (with WinUI/.NET desktop workloads).
+2. Build and run the `helvety.screentools` project.
 3. Configure save folder and hotkey in the app settings.
 4. (Optional) Tune screenshot border intensity in `Settings > Screenshot Mode > Border Effects`.
 5. (Optional) Choose screenshot quality mode in `Settings > Screenshot Mode > Capture Quality Mode`.
