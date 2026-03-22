@@ -18,7 +18,7 @@ namespace helvety.screentools
         private const string DefaultLiveDrawHotkeyDisplay = "Shift+D+D+D";
         private const string DefaultLiveDrawHotkeySequence = "68,68,68";
         private const ScreenshotBorderIntensity DefaultScreenshotBorderIntensity = ScreenshotBorderIntensity.Bold;
-        private const ScreenshotQualityMode DefaultScreenshotQualityMode = ScreenshotQualityMode.Heavy;
+        private const ScreenshotQualityMode DefaultScreenshotQualityMode = ScreenshotQualityMode.Fast;
         private const bool DefaultShowScreenshotOverlayInstructions = true;
         private const bool DefaultMinimizeToTrayOnClose = true;
         private const string DefaultEditorPrimaryColor = "#FFD81B60";

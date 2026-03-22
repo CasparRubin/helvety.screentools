@@ -16,8 +16,8 @@ namespace helvety.screentools.Capture
     /// <summary>
     /// Live Draw vector overlay: full virtual-screen <see cref="UserControl"/> with a transparent root so the host
     /// can key out the GDI chroma fill from <see cref="LiveDrawNativeHost"/>; ink renders above the desktop.
-    /// Left mouse: freehand and shape tools (rectangle / arrow / straight line per Settings). Right mouse: sparkle
-    /// (no modifiers), Shift+drag circle, Alt+drag ellipse (no Ctrl); right-button shortcuts are fixed and ignore
+    /// Left mouse: freehand and shape tools (rectangle / arrow / straight line per Settings). Right mouse: pulsing sparkle
+    /// while held (no modifiers; follows the pointer), Shift+drag circle, Alt+drag ellipse (no Ctrl); right-button shortcuts are fixed and ignore
     /// the rectangle modifier setting.
     /// </summary>
     internal sealed partial class LiveDrawOverlayContent : UserControl
@@ -121,6 +121,7 @@ namespace helvety.screentools.Capture
 
             _driftTimer?.Stop();
             _driftTimer = null;
+            _snapBorderChrome.StopClickSparkleHold();
         }
 
         internal async Task PrepareVisibleSessionAsync()
@@ -387,6 +388,10 @@ namespace helvety.screentools.Capture
                     }
 
                     break;
+
+                case LiveDrawTool.ClickSparkle:
+                    _snapBorderChrome.UpdateClickSparkleHoldPosition(DrawCanvas, local);
+                    break;
             }
         }
 
@@ -403,7 +408,13 @@ namespace helvety.screentools.Capture
             }
             else
             {
-                _snapBorderChrome.PlayClickSparkle(DrawCanvas, pos);
+                _activeTool = LiveDrawTool.ClickSparkle;
+                _isPointerDown = true;
+                _activePointerKind = ActivePointerKind.Right;
+                _pointerDownLocal = pos;
+                _ = RootGrid.CapturePointer(e.Pointer);
+                _host?.EnsureFocusedForKeyboard();
+                _snapBorderChrome.StartClickSparkleHold(DrawCanvas, pos);
                 return;
             }
 
@@ -446,6 +457,10 @@ namespace helvety.screentools.Capture
 
             switch (_activeTool)
             {
+                case LiveDrawTool.ClickSparkle:
+                    _snapBorderChrome.StopClickSparkleHold();
+                    break;
+
                 case LiveDrawTool.Rectangle:
                     FinishRectangleDrag(local);
                     break;
@@ -560,11 +575,17 @@ namespace helvety.screentools.Capture
                         break;
                 }
             }
-            else if (_activePointerKind == ActivePointerKind.Right &&
-                     (_activeTool == LiveDrawTool.Circle || _activeTool == LiveDrawTool.Ellipse))
+            else if (_activePointerKind == ActivePointerKind.Right)
             {
-                _snapBorderChrome.StopSnapBorderEllipseAnimations();
-                _snapBorderChrome.SetSnapBorderEllipseLayersVisible(false);
+                if (_activeTool == LiveDrawTool.Circle || _activeTool == LiveDrawTool.Ellipse)
+                {
+                    _snapBorderChrome.StopSnapBorderEllipseAnimations();
+                    _snapBorderChrome.SetSnapBorderEllipseLayersVisible(false);
+                }
+                else if (_activeTool == LiveDrawTool.ClickSparkle)
+                {
+                    _snapBorderChrome.StopClickSparkleHold();
+                }
             }
 
             _isPointerDown = false;
@@ -839,7 +860,8 @@ namespace helvety.screentools.Capture
             Arrow,
             StraightLine,
             Circle,
-            Ellipse
+            Ellipse,
+            ClickSparkle
         }
     }
 }

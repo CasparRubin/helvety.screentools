@@ -4,18 +4,17 @@ WinUI 3 desktop app for Windows with **screen capture** (frozen-screen selection
 
 ## Development Status
 
-This project is under active development and is not a release/stable build yet.
-Expect rapid changes, incomplete features, and occasional breaking behavior while core capture UX is being refined.
+The app can be **packaged and deployed** (MSIX or unpackaged). Behavior and defaults may still **change between releases**; see **Notes** below when upgrading or supporting users.
 
 ## Current Focus
 
 - **Two independent global hotkeys**: capture (default `Shift+S+S+S`) and Live Draw (default `Shift+D+D+D`). They must use different sequences; the app blocks applying duplicates in Settings.
 - **Capture mode**: global hotkey → frozen-screen overlay with window snapping (highlighted border). **Esc** cancels and closes the overlay. **Click** (without dragging) commits the snapped window under the cursor, or the full virtual screen if nothing snaps; **drag** selects a custom rectangle. Left-click saves, copies to clipboard, and exits; right-click saves (no clipboard copy) and stays in capture mode.
-- **Live Draw**: global hotkey → fullscreen **Win32 layered host** hosting a **DesktopWindowXamlSource** island (vector markup only; no desktop BitBlt). **Esc** ends the session. **Left-mouse** shape tools (Rectangle modifier **Shift** by default): **Shift**+drag = rectangles; **Alt**+drag (without Ctrl) = arrows; **Ctrl**+drag = straight lines (uniform stroke, not arrow-shaft taper; no arrowhead); drag without a matching shape-tool modifier = freehand. **Other Rectangle modifier** options in Settings remap which modifier selects rectangles vs arrows vs straight lines; if the modifier is **Ctrl**, **Ctrl**+drag is rectangles only (straight line via Ctrl is disabled). **Right-mouse** shortcuts are **fixed** (they do **not** follow Rectangle modifier): plain **right-click** = sparkle at the pointer; **Shift**+right drag = circle; **Alt**+right drag (without Ctrl) = ellipse (if both Shift and Alt are held, Shift+right wins). **Rectangles, ellipses, circles, arrows, straight lines, freehand, and sparkle** use the same snap-border chrome as capture selection (gradients, dashing, pulse). **Does not require a save folder**; saving captures from capture mode still requires a writable save location.
+- **Live Draw**: global hotkey → fullscreen **Win32 layered host** hosting a **DesktopWindowXamlSource** island (vector markup only; no desktop BitBlt). **Esc** ends the session. **Left-mouse** shape tools (Rectangle modifier **Shift** by default): **Shift**+drag = rectangles; **Alt**+drag (without Ctrl) = arrows; **Ctrl**+drag = straight lines (uniform stroke, not arrow-shaft taper; no arrowhead); drag without a matching shape-tool modifier = freehand. **Other Rectangle modifier** options in Settings remap which modifier selects rectangles vs arrows vs straight lines; if the modifier is **Ctrl**, **Ctrl**+drag is rectangles only (straight line via Ctrl is disabled). **Right-mouse** shortcuts are **fixed** (they do **not** follow Rectangle modifier): plain **right-click** (hold) shows a **pulsing** sparkle at the pointer that **follows the cursor** until you release; **Shift**+right drag = circle; **Alt**+right drag (without Ctrl) = ellipse (if both Shift and Alt are held, Shift+right wins). **Rectangles, ellipses, circles, arrows, straight lines, freehand, and sparkle** use the same snap-border chrome as capture selection (gradients, dashing, pulse). **Does not require a save folder**; saving captures from capture mode still requires a writable save location.
 - Close-to-tray behavior (notification area) with optional full-exit-on-close setting.
 - Restore main window after capture or Live Draw when the window was tray-hidden (capture path restores after at least one save; Live Draw restores after the session ends).
-- **Screen Tools** home page: new captures appear immediately when possible, with a debounced folder refresh afterward; the image grid stays visible during that refresh (no full hide while re-scanning the save folder). Optional line showing effective capture and Live Draw hotkeys when configured.
-- Thumbnail previews for common image formats (PNG, JPG/JPEG, BMP, GIF, TIFF; WebP when codec is installed)
+- **Screen Tools** home page: after each save, the coordinator notifies this page so the gallery **reloads** (same as navigating back to Screen Tools). For **`.png`** files thumbnails use a **scaled decode from disk** (about max width 520px), then a generic file decode, then the **shell thumbnail** provider. A **debounced** `FileSystemWatcher` still runs a full folder rescan so ordering and metadata stay correct. **Listing files** for a refresh runs on a **background thread** before the gallery lock; applying updates to the grid stays **serialized**. Thumbnails attach to the **visible row by file path**. In-flight thumbnail work is **not** cancelled on every refresh (only when leaving the page). Optional line showing effective capture and Live Draw hotkeys when configured.
+- Thumbnail previews for common image formats (PNG, JPG/JPEG, BMP, GIF, TIFF; WebP when a codec is installed)
 - File metadata shown as European date/time format (`dd.MM.yyyy HH:mm`) plus relative age (`... ago`)
 - Built-in image editor tools (Move, Text, Border, Blur, Highlight, Arrow, Crop; Crop is last in the toolbar)
 - Single-row editor settings strip with horizontal overflow handling; settings switch contextually to the active tool (or selected layer while Move is active)
@@ -29,7 +28,7 @@ Expect rapid changes, incomplete features, and occasional breaking behavior whil
 - Optional `Performance Mode` toggle in editor settings to prioritize responsiveness during intensive layer editing
 - Iterative UX polish (overlay guidance, animation, interaction tuning)
 - Border FX personalization (intensity profile, rotating palettes, adaptive chase speed)
-- Selection capture quality modes (`Fast`, `Optimized`, `Heavy`) to trade off speed vs text readability enhancement
+- Selection capture quality modes (`Fast`, `Optimized`, `Heavy`) to trade off speed vs text readability enhancement; **default is `Fast`** for responsive saves. **`Heavy`** applies large upscales and filters and can take several seconds on big selections—use it when you explicitly want maximum enhancement.
 - Settings-controlled overlay guidance visibility for **capture** mode
 - Mutual exclusion between capture overlay and Live Draw via a shared gate (only one session at a time)
 
@@ -55,5 +54,7 @@ Expect rapid changes, incomplete features, and occasional breaking behavior whil
 
 ## Notes
 
+- **Capture quality** defaults to **Fast** for new settings profiles (missing `ScreenshotQualityMode` in LocalSettings). If you previously saved **Heavy** or **Optimized**, that choice is kept until you change it in **Settings > Capture Mode > Capture Quality Mode**.
+- Default save folder when the app first creates one (and you have not cleared it in Settings) is **`Helvety Screen Tools captures`** on your desktop (see `SettingsService`). The UI label **Screen Tools** is the home page name; it is not tied to a legacy “Screenshots” folder name.
 - This repository is public but still in heavy iteration.
 - Quality enhancement modes improve perceived readability for some text-heavy captures, but they cannot guarantee recovery of detail that is not present in source screen pixels.

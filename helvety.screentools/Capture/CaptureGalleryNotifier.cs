@@ -2,7 +2,10 @@ using System;
 
 namespace helvety.screentools.Capture
 {
-    /// <summary>Raises when a capture file has been written so the home gallery can update immediately (watcher uses a short debounce).</summary>
+    /// <summary>
+    /// Signals that a capture was saved so the Screen Tools gallery can reload. The save folder
+    /// <see cref="System.IO.FileSystemWatcher"/> still triggers a debounced full rescan separately.
+    /// </summary>
     internal static class CaptureGalleryNotifier
     {
         internal static event Action<string>? CaptureSavedToPath;

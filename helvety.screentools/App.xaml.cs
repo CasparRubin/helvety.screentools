@@ -95,7 +95,7 @@ namespace helvety.screentools
         {
             var sessionLabel = kind switch
             {
-                HotkeySessionKind.Screenshot => "Screenshot",
+                HotkeySessionKind.Screenshot => "Capture",
                 HotkeySessionKind.LiveDraw => "Live Draw",
                 _ => kind.ToString()
             };
@@ -113,7 +113,7 @@ namespace helvety.screentools
         {
             if (_captureCoordinator is null)
             {
-                SessionStatusPublished?.Invoke("Screenshot capture failed: capture coordinator is not initialized.");
+                SessionStatusPublished?.Invoke("Capture failed: capture coordinator is not initialized.");
                 return;
             }
 

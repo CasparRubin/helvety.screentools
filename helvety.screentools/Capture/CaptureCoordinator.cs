@@ -108,6 +108,7 @@ namespace helvety.screentools.Capture
                     }
 
                     savedScreenshotCount++;
+                    // Screen Tools reloads its gallery when notified; saveResult.PngBytes is still used for clipboard copy below.
                     CaptureGalleryNotifier.NotifyCaptureSaved(saveResult.OutputPath);
 
                     if (action.Mode == SelectionCommitMode.RightCommitContinue)

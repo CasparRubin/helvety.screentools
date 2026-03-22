@@ -94,6 +94,15 @@ namespace helvety.screentools.Capture
         private int _activePaletteIndex;
         private double[] _activePaletteHueOffsets = BorderPaletteHueOffsets[0];
 
+        private const double ClickSparkleSizeDip = 56.0;
+        private const int ClickSparkleHoldPulseMs = 640;
+        private Canvas? _clickSparkleHoldDrawCanvas;
+        private Canvas? _clickSparkleHoldContainer;
+        private Visual? _clickSparkleHoldVisual;
+        private CompositeTransform? _clickSparkleHoldFallbackTransform;
+        private DispatcherQueueTimer? _clickSparkleHoldFallbackTimer;
+        private double _clickSparkleHoldFallbackPhase;
+
         private bool HasEllipseLayerTemplates =>
             _snapEllipseBorder is not null &&
             _snapEllipseChase is not null &&
@@ -314,43 +323,16 @@ namespace helvety.screentools.Capture
             _committedEllipseGroups.Add(new CommittedSnapEllipseGroup(border, chase, corner, glow));
         }
 
-        /// <summary>One-shot “click here” burst using the same gradient/dash palette as snap chrome (Live Draw right-click).</summary>
+        /// <summary>One-shot “click here” burst using the same gradient/dash palette as snap chrome. Live Draw’s default right-click UX is <see cref="StartClickSparkleHold"/> (pulse while held).</summary>
         internal void PlayClickSparkle(Canvas drawCanvas, Point center)
         {
             PickNextBorderPalette();
             ResetDashSpeedToDefault();
 
             const int sparkleAnimationMs = 400;
-            const double sparkleSize = 56.0;
-            var left = center.X - (sparkleSize / 2.0);
-            var top = center.Y - (sparkleSize / 2.0);
-
-            var container = new Canvas
-            {
-                Width = sparkleSize,
-                Height = sparkleSize
-            };
-            Canvas.SetLeft(container, left);
-            Canvas.SetTop(container, top);
-
-            var p = _borderFxProfile;
-            AddSparkleRing(container, sparkleSize, 34, p.BorderStrokeThickness, _snapBorderGradientBrush, null);
-            AddSparkleRing(
-                container,
-                sparkleSize,
-                40,
-                Math.Max(1.1, p.ChaseStrokeThickness * 0.72),
-                _snapBorderChaseGradientBrush,
-                ChaseDashPattern);
-            AddSparkleRing(
-                container,
-                sparkleSize,
-                46,
-                Math.Max(1.0, p.CornerGlowStrokeThickness * 0.68),
-                _snapBorderCornerGlowBrush,
-                CornerDashPattern);
-            AddSparkleRing(container, sparkleSize, 56, p.OuterGlowStrokeThickness, _snapBorderGlowGradientBrush, null);
-
+            var left = center.X - (ClickSparkleSizeDip / 2.0);
+            var top = center.Y - (ClickSparkleSizeDip / 2.0);
+            var container = CreateClickSparkleContainerPopulated(left, top);
             drawCanvas.Children.Add(container);
 
             if (_compositor is null)
@@ -366,7 +348,7 @@ namespace helvety.screentools.Capture
                 return;
             }
 
-            v.CenterPoint = new Vector3((float)(sparkleSize / 2.0), (float)(sparkleSize / 2.0), 0f);
+            v.CenterPoint = new Vector3((float)(ClickSparkleSizeDip / 2.0), (float)(ClickSparkleSizeDip / 2.0), 0f);
             v.Opacity = 1f;
             v.Scale = new Vector3(0.52f, 0.52f, 1f);
 
@@ -389,6 +371,194 @@ namespace helvety.screentools.Capture
             v.StartAnimation("Scale", scaleAnim);
             batch.End();
             batch.Completed += (_, _) => drawCanvas.Children.Remove(container);
+        }
+
+        /// <summary>Live Draw: right-click sparkle that loops a smooth opacity/scale pulse until <see cref="StopClickSparkleHold"/> (call <see cref="UpdateClickSparkleHoldPosition"/> while the pointer moves).</summary>
+        internal void StartClickSparkleHold(Canvas drawCanvas, Point center)
+        {
+            StopClickSparkleHold();
+            PickNextBorderPalette();
+            ResetDashSpeedToDefault();
+
+            var left = center.X - (ClickSparkleSizeDip / 2.0);
+            var top = center.Y - (ClickSparkleSizeDip / 2.0);
+            var container = CreateClickSparkleContainerPopulated(left, top);
+            drawCanvas.Children.Add(container);
+
+            _clickSparkleHoldDrawCanvas = drawCanvas;
+            _clickSparkleHoldContainer = container;
+
+            if (_compositor is null)
+            {
+                StartClickSparkleHoldFallback(container);
+                return;
+            }
+
+            var v = ElementCompositionPreview.GetElementVisual(container);
+            if (v is null)
+            {
+                StartClickSparkleHoldFallback(container);
+                return;
+            }
+
+            _clickSparkleHoldVisual = v;
+            var half = (float)(ClickSparkleSizeDip / 2.0);
+            v.CenterPoint = new Vector3(half, half, 0f);
+            v.Opacity = 0.62f;
+            v.Scale = new Vector3(0.72f, 0.72f, 1f);
+
+            v.StartAnimation("Opacity", CreateClickSparkleHoldOpacityAnimation());
+            v.StartAnimation("Scale", CreateClickSparkleHoldScaleAnimation());
+        }
+
+        internal void UpdateClickSparkleHoldPosition(Canvas drawCanvas, Point center)
+        {
+            if (_clickSparkleHoldContainer is null)
+            {
+                return;
+            }
+
+            if (_clickSparkleHoldDrawCanvas is null || !ReferenceEquals(_clickSparkleHoldDrawCanvas, drawCanvas))
+            {
+                return;
+            }
+
+            var left = center.X - (ClickSparkleSizeDip / 2.0);
+            var top = center.Y - (ClickSparkleSizeDip / 2.0);
+            Canvas.SetLeft(_clickSparkleHoldContainer, left);
+            Canvas.SetTop(_clickSparkleHoldContainer, top);
+        }
+
+        internal void StopClickSparkleHold()
+        {
+            if (_clickSparkleHoldFallbackTimer is not null)
+            {
+                _clickSparkleHoldFallbackTimer.Stop();
+                _clickSparkleHoldFallbackTimer = null;
+            }
+
+            _clickSparkleHoldFallbackTransform = null;
+            _clickSparkleHoldFallbackPhase = 0;
+
+            if (_clickSparkleHoldVisual is not null)
+            {
+                _clickSparkleHoldVisual.StopAnimation("Opacity");
+                _clickSparkleHoldVisual.StopAnimation("Scale");
+                _clickSparkleHoldVisual = null;
+            }
+
+            if (_clickSparkleHoldContainer is not null && _clickSparkleHoldDrawCanvas is not null)
+            {
+                _clickSparkleHoldDrawCanvas.Children.Remove(_clickSparkleHoldContainer);
+            }
+
+            _clickSparkleHoldContainer = null;
+            _clickSparkleHoldDrawCanvas = null;
+        }
+
+        private void StartClickSparkleHoldFallback(Canvas container)
+        {
+            var dq = DispatcherQueue.GetForCurrentThread();
+            if (dq is null)
+            {
+                _clickSparkleHoldDrawCanvas?.Children.Remove(container);
+                _clickSparkleHoldContainer = null;
+                _clickSparkleHoldDrawCanvas = null;
+                return;
+            }
+
+            var ct = new CompositeTransform
+            {
+                CenterX = ClickSparkleSizeDip / 2.0,
+                CenterY = ClickSparkleSizeDip / 2.0,
+                ScaleX = 0.72,
+                ScaleY = 0.72
+            };
+            container.RenderTransform = ct;
+            _clickSparkleHoldFallbackTransform = ct;
+
+            var phaseStep = (Math.PI * 2.0 * 50.0) / ClickSparkleHoldPulseMs;
+            _clickSparkleHoldFallbackPhase = 0;
+
+            ApplyClickSparkleHoldFallbackFrame();
+
+            var timer = dq.CreateTimer();
+            timer.Interval = TimeSpan.FromMilliseconds(50);
+            timer.Tick += (_, _) =>
+            {
+                _clickSparkleHoldFallbackPhase += phaseStep;
+                ApplyClickSparkleHoldFallbackFrame();
+            };
+            timer.Start();
+            _clickSparkleHoldFallbackTimer = timer;
+        }
+
+        private void ApplyClickSparkleHoldFallbackFrame()
+        {
+            if (_clickSparkleHoldContainer is null || _clickSparkleHoldFallbackTransform is null)
+            {
+                return;
+            }
+
+            var s = Math.Sin(_clickSparkleHoldFallbackPhase);
+            var t = 0.5 + 0.5 * s;
+            _clickSparkleHoldContainer.Opacity = 0.62 + 0.38 * t;
+            var scale = 0.72 + 0.50 * t;
+            _clickSparkleHoldFallbackTransform.ScaleX = scale;
+            _clickSparkleHoldFallbackTransform.ScaleY = scale;
+        }
+
+        private ScalarKeyFrameAnimation CreateClickSparkleHoldOpacityAnimation()
+        {
+            var a = _compositor!.CreateScalarKeyFrameAnimation();
+            a.InsertKeyFrame(0.0f, 0.62f);
+            a.InsertKeyFrame(0.5f, 1.0f);
+            a.InsertKeyFrame(1.0f, 0.62f);
+            a.Duration = TimeSpan.FromMilliseconds(ClickSparkleHoldPulseMs);
+            a.IterationBehavior = AnimationIterationBehavior.Forever;
+            return a;
+        }
+
+        private Vector3KeyFrameAnimation CreateClickSparkleHoldScaleAnimation()
+        {
+            var a = _compositor!.CreateVector3KeyFrameAnimation();
+            a.InsertKeyFrame(0.0f, new Vector3(0.72f, 0.72f, 1f));
+            a.InsertKeyFrame(0.5f, new Vector3(1.22f, 1.22f, 1f));
+            a.InsertKeyFrame(1.0f, new Vector3(0.72f, 0.72f, 1f));
+            a.Duration = TimeSpan.FromMilliseconds(ClickSparkleHoldPulseMs);
+            a.IterationBehavior = AnimationIterationBehavior.Forever;
+            return a;
+        }
+
+        private Canvas CreateClickSparkleContainerPopulated(double left, double top)
+        {
+            var container = new Canvas
+            {
+                Width = ClickSparkleSizeDip,
+                Height = ClickSparkleSizeDip
+            };
+            Canvas.SetLeft(container, left);
+            Canvas.SetTop(container, top);
+
+            var p = _borderFxProfile;
+            AddSparkleRing(container, ClickSparkleSizeDip, 34, p.BorderStrokeThickness, _snapBorderGradientBrush, null);
+            AddSparkleRing(
+                container,
+                ClickSparkleSizeDip,
+                40,
+                Math.Max(1.1, p.ChaseStrokeThickness * 0.72),
+                _snapBorderChaseGradientBrush,
+                ChaseDashPattern);
+            AddSparkleRing(
+                container,
+                ClickSparkleSizeDip,
+                46,
+                Math.Max(1.0, p.CornerGlowStrokeThickness * 0.68),
+                _snapBorderCornerGlowBrush,
+                CornerDashPattern);
+            AddSparkleRing(container, ClickSparkleSizeDip, 56, p.OuterGlowStrokeThickness, _snapBorderGlowGradientBrush, null);
+
+            return container;
         }
 
         private static void ScheduleRemoveSparkleContainer(Canvas drawCanvas, UIElement container, int delayMs)

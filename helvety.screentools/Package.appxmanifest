@@ -35,7 +35,7 @@
       EntryPoint="$targetentrypoint$">
       <uap:VisualElements
         DisplayName="Helvety Screen Tools"
-        Description="Helvety Screen Tools — frozen-screen capture (selection overlay) and Live Draw (transparent layered ink; rectangles, arrows, straight lines, freehand)."
+        Description="Helvety Screen Tools — frozen-screen capture (selection overlay) and Live Draw (transparent layered ink; shapes, freehand, click-hold pointer sparkle)."
         BackgroundColor="transparent"
         Square150x150Logo="Assets\Square150x150Logo.png"
         Square44x44Logo="Assets\Square44x44Logo.png">

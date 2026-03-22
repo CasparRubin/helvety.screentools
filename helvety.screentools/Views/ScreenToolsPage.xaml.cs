@@ -14,13 +14,19 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
+using helvety.screentools;
 using helvety.screentools.Capture;
+using Windows.Graphics.Imaging;
 using Windows.Storage;
 using Windows.Storage.FileProperties;
 using Windows.Storage.Streams;
 
 namespace helvety.screentools.Views
 {
+    /// <summary>
+    /// Home "Screen Tools" page: lists files from the configured save folder with thumbnails and metadata, and opens the image editor on item click.
+    /// Refreshes enumerate the folder on a background thread, then apply updates under a short lock. After a capture, the list reloads the same way as on navigation.
+    /// </summary>
     public sealed partial class ScreenToolsPage : Page
     {
         // Core Windows-native decoders reliably cover these formats.
@@ -37,7 +43,10 @@ namespace helvety.screentools.Views
 
         private readonly ObservableCollection<GalleryFileItem> _imageFiles = new();
         private readonly ObservableCollection<GalleryFileItem> _otherFiles = new();
-        private CancellationTokenSource? _refreshTokenSource;
+        /// <summary>Cancellation only on page unload so in-flight thumbnail loads are not dropped when the gallery refreshes.</summary>
+        private CancellationTokenSource? _thumbnailLoadLifetimeCts;
+        /// <summary>Serializes gallery updates so <see cref="_imageFiles"/> is not modified concurrently.</summary>
+        private readonly SemaphoreSlim _refreshSemaphore = new(1, 1);
         private FileSystemWatcher? _saveFolderWatcher;
         private string? _watchedFolderPath;
         private readonly DispatcherQueueTimer _watcherRefreshTimer;
@@ -89,11 +98,6 @@ namespace helvety.screentools.Views
 
         private void CaptureGalleryNotifier_CaptureSavedToPath(string path)
         {
-            _ = ApplyImmediateCaptureSavedAsync(path);
-        }
-
-        private async Task ApplyImmediateCaptureSavedAsync(string path)
-        {
             if (!SettingsService.TryGetEffectiveSaveFolderPath(out var folderPath))
             {
                 return;
@@ -109,67 +113,28 @@ namespace helvety.screentools.Views
                 return;
             }
 
-            for (var attempt = 0; attempt < 25; attempt++)
-            {
-                if (File.Exists(path))
-                {
-                    break;
-                }
+            DispatcherQueue.TryEnqueue(() => _ = ReloadGalleryAfterCaptureAsync());
+        }
 
-                await Task.Delay(20).ConfigureAwait(true);
-            }
-
-            if (!File.Exists(path))
-            {
-                return;
-            }
-
-            FileInfo file;
+        private async Task ReloadGalleryAfterCaptureAsync()
+        {
             try
             {
-                file = new FileInfo(path);
+                await Task.Delay(80).ConfigureAwait(true);
+                await RefreshPageAsync().ConfigureAwait(true);
             }
-            catch
+            catch (Exception ex)
             {
-                return;
+                Debug.WriteLine($"[ScreenToolsPage] Post-capture gallery reload failed: {ex.Message}");
             }
+        }
 
-            if (_imageFiles.Count > 0 && string.Equals(_imageFiles[0].Path, path, StringComparison.OrdinalIgnoreCase))
+        private void EnsureThumbnailLoadLifetime()
+        {
+            if (_thumbnailLoadLifetimeCts is null)
             {
-                return;
+                _thumbnailLoadLifetimeCts = new CancellationTokenSource();
             }
-
-            for (var i = _imageFiles.Count - 1; i >= 0; i--)
-            {
-                if (string.Equals(_imageFiles[i].Path, path, StringComparison.OrdinalIgnoreCase))
-                {
-                    _imageFiles.RemoveAt(i);
-                }
-            }
-
-            var item = new GalleryFileItem(
-                file.FullName,
-                file.Name,
-                BuildFileInfoText(file),
-                true,
-                "🖼",
-                file.LastWriteTimeUtc.Ticks,
-                file.Length);
-            _imageFiles.Insert(0, item);
-            EmptyFolderCallout.Visibility = Visibility.Collapsed;
-            GalleryScrollViewer.Visibility = Visibility.Visible;
-
-            if (SettingsService.TryGetEffectiveHotkey(out var hk))
-            {
-                var hasLive = SettingsService.TryGetEffectiveLiveDrawHotkey(out var live);
-                HotkeysHintText.Text = hasLive
-                    ? $"Capture: {hk.Display} · Live Draw: {live.Display}"
-                    : $"Capture: {hk.Display}";
-                HotkeysHintText.Visibility = Visibility.Visible;
-            }
-
-            SaveFolderPathText.Text = folderPath;
-            _ = LoadThumbnailAsync(item, CancellationToken.None);
         }
 
         private static bool GalleryItemMatchesFile(GalleryFileItem item, FileInfo file)
@@ -179,9 +144,9 @@ namespace helvety.screentools.Views
 
         private void ScreenToolsPage_Unloaded(object sender, RoutedEventArgs e)
         {
-            _refreshTokenSource?.Cancel();
-            _refreshTokenSource?.Dispose();
-            _refreshTokenSource = null;
+            _thumbnailLoadLifetimeCts?.Cancel();
+            _thumbnailLoadLifetimeCts?.Dispose();
+            _thumbnailLoadLifetimeCts = null;
             DisposeSaveFolderWatcher();
             _watcherRefreshTimer.Stop();
             _watcherRefreshTimer.Tick -= WatcherRefreshTimer_Tick;
@@ -192,17 +157,64 @@ namespace helvety.screentools.Views
 
         private async Task RefreshPageAsync()
         {
+            var plan = await BuildGalleryRefreshPlanAsync().ConfigureAwait(true);
+            await _refreshSemaphore.WaitAsync().ConfigureAwait(true);
+            try
+            {
+                ApplyGalleryRefreshPlan(plan);
+            }
+            finally
+            {
+                _refreshSemaphore.Release();
+            }
+        }
+
+        private async Task<GalleryRefreshPlan> BuildGalleryRefreshPlanAsync()
+        {
             var hasSaveFolder = SettingsService.TryGetEffectiveSaveFolderPath(out var folderPath);
             var hasHotkey = SettingsService.TryGetEffectiveHotkey(out var hotkey);
             var hasLiveDrawHotkey = SettingsService.TryGetEffectiveLiveDrawHotkey(out var liveHotkey);
-            SaveFolderPathText.Text = hasSaveFolder
-                ? folderPath
+            var emptyHotkey = new HotkeySettings(0, Array.Empty<uint>(), string.Empty);
+
+            if (!hasSaveFolder)
+            {
+                return new GalleryRefreshPlan(GalleryRefreshKind.NoSaveFolder, folderPath, emptyHotkey, hasLiveDrawHotkey, liveHotkey, null);
+            }
+
+            if (!hasHotkey)
+            {
+                return new GalleryRefreshPlan(GalleryRefreshKind.NoHotkey, folderPath, hotkey, hasLiveDrawHotkey, liveHotkey, null);
+            }
+
+            if (!Directory.Exists(folderPath))
+            {
+                return new GalleryRefreshPlan(GalleryRefreshKind.FolderMissing, folderPath, hotkey, hasLiveDrawHotkey, liveHotkey, null);
+            }
+
+            var allFiles = await Task.Run(() => Directory.EnumerateFiles(folderPath)
+                .Select(path => new FileInfo(path))
+                .OrderByDescending(file => file.LastWriteTimeUtc)
+                .ToArray()).ConfigureAwait(false);
+
+            if (allFiles.Length == 0)
+            {
+                return new GalleryRefreshPlan(GalleryRefreshKind.EmptyFolder, folderPath, hotkey, hasLiveDrawHotkey, liveHotkey, allFiles);
+            }
+
+            return new GalleryRefreshPlan(GalleryRefreshKind.Populated, folderPath, hotkey, hasLiveDrawHotkey, liveHotkey, allFiles);
+        }
+
+        private void ApplyGalleryRefreshPlan(GalleryRefreshPlan plan)
+        {
+            var hasSaveFolder = plan.Kind != GalleryRefreshKind.NoSaveFolder;
+            SaveFolderPathText.Text = hasSaveFolder && !string.IsNullOrEmpty(plan.FolderPath)
+                ? plan.FolderPath!
                 : "No save folder selected.";
 
             HotkeysHintText.Visibility = Visibility.Collapsed;
             HotkeysHintText.Text = string.Empty;
 
-            if (!hasSaveFolder)
+            if (plan.Kind == GalleryRefreshKind.NoSaveFolder)
             {
                 _imageFiles.Clear();
                 _otherFiles.Clear();
@@ -213,21 +225,21 @@ namespace helvety.screentools.Views
                 return;
             }
 
-            if (!hasHotkey)
+            if (plan.Kind == GalleryRefreshKind.NoHotkey)
             {
                 _imageFiles.Clear();
                 _otherFiles.Clear();
                 DisposeSaveFolderWatcher();
                 GalleryScrollViewer.Visibility = Visibility.Collapsed;
-                var liveHint = hasLiveDrawHotkey
-                    ? $" You can still use Live Draw with {liveHotkey.Display} (no save folder required for that hotkey)."
+                var liveHint = plan.HasLiveDrawHotkey
+                    ? $" You can still use Live Draw with {plan.LiveHotkey.Display} (no save folder required for that hotkey)."
                     : string.Empty;
                 EmptyStateMessageText.Text = $"Set a capture hotkey to save files to this folder.{liveHint}";
                 EmptyFolderCallout.Visibility = Visibility.Visible;
                 return;
             }
 
-            if (!Directory.Exists(folderPath))
+            if (plan.Kind == GalleryRefreshKind.FolderMissing)
             {
                 _imageFiles.Clear();
                 _otherFiles.Clear();
@@ -238,21 +250,18 @@ namespace helvety.screentools.Views
                 return;
             }
 
-            EnsureSaveFolderWatcher(folderPath);
-            var allFiles = Directory.EnumerateFiles(folderPath)
-                .Select(path => new FileInfo(path))
-                .OrderByDescending(file => file.LastWriteTimeUtc)
-                .ToArray();
+            EnsureSaveFolderWatcher(plan.FolderPath!);
+            var allFiles = plan.Files ?? Array.Empty<FileInfo>();
 
-            if (allFiles.Length == 0)
+            if (plan.Kind == GalleryRefreshKind.EmptyFolder || allFiles.Length == 0)
             {
                 _imageFiles.Clear();
                 _otherFiles.Clear();
                 GalleryScrollViewer.Visibility = Visibility.Collapsed;
-                var liveLine = hasLiveDrawHotkey
-                    ? $" Live Draw: {liveHotkey.Display}."
+                var liveLine = plan.HasLiveDrawHotkey
+                    ? $" Live Draw: {plan.LiveHotkey.Display}."
                     : string.Empty;
-                EmptyStateMessageText.Text = $"Press {hotkey.Display} to create your first capture.{liveLine}";
+                EmptyStateMessageText.Text = $"Press {plan.Hotkey.Display} to create your first capture.{liveLine}";
                 EmptyFolderCallout.Visibility = Visibility.Visible;
                 return;
             }
@@ -262,10 +271,8 @@ namespace helvety.screentools.Views
             _imageFiles.Clear();
             _otherFiles.Clear();
 
-            _refreshTokenSource?.Cancel();
-            _refreshTokenSource?.Dispose();
-            _refreshTokenSource = new CancellationTokenSource();
-            var token = _refreshTokenSource.Token;
+            EnsureThumbnailLoadLifetime();
+            var token = _thumbnailLoadLifetimeCts!.Token;
 
             foreach (var file in allFiles)
             {
@@ -317,10 +324,45 @@ namespace helvety.screentools.Views
             EmptyFolderCallout.Visibility = Visibility.Collapsed;
             GalleryScrollViewer.Visibility = Visibility.Visible;
 
-            HotkeysHintText.Text = hasLiveDrawHotkey
-                ? $"Capture: {hotkey.Display} · Live Draw: {liveHotkey.Display}"
-                : $"Capture: {hotkey.Display}";
+            HotkeysHintText.Text = plan.HasLiveDrawHotkey
+                ? $"Capture: {plan.Hotkey.Display} · Live Draw: {plan.LiveHotkey.Display}"
+                : $"Capture: {plan.Hotkey.Display}";
             HotkeysHintText.Visibility = Visibility.Visible;
+        }
+
+        private enum GalleryRefreshKind
+        {
+            NoSaveFolder,
+            NoHotkey,
+            FolderMissing,
+            EmptyFolder,
+            Populated
+        }
+
+        private readonly struct GalleryRefreshPlan
+        {
+            public GalleryRefreshPlan(
+                GalleryRefreshKind kind,
+                string? folderPath,
+                HotkeySettings hotkey,
+                bool hasLiveDrawHotkey,
+                HotkeySettings liveHotkey,
+                FileInfo[]? files)
+            {
+                Kind = kind;
+                FolderPath = folderPath;
+                Hotkey = hotkey;
+                HasLiveDrawHotkey = hasLiveDrawHotkey;
+                LiveHotkey = liveHotkey;
+                Files = files;
+            }
+
+            public GalleryRefreshKind Kind { get; }
+            public string? FolderPath { get; }
+            public HotkeySettings Hotkey { get; }
+            public bool HasLiveDrawHotkey { get; }
+            public HotkeySettings LiveHotkey { get; }
+            public FileInfo[]? Files { get; }
         }
 
         private async Task LoadThumbnailAsync(GalleryFileItem item, CancellationToken token)
@@ -328,7 +370,7 @@ namespace helvety.screentools.Views
             try
             {
                 var file = await StorageFile.GetFileFromPathAsync(item.Path);
-                var thumbnail = await TryLoadPreviewAsync(file, token);
+                var thumbnail = await TryLoadPreviewAsync(file, token).ConfigureAwait(false);
                 if (thumbnail is null || token.IsCancellationRequested)
                 {
                     return;
@@ -346,21 +388,29 @@ namespace helvety.screentools.Views
             }
         }
 
-        private Task TryAssignThumbnailOnUiThreadAsync(GalleryFileItem item, BitmapImage thumbnail, CancellationToken token)
+        private Task TryAssignThumbnailOnUiThreadAsync(GalleryFileItem item, ImageSource thumbnail, CancellationToken token)
         {
             if (token.IsCancellationRequested)
             {
                 return Task.CompletedTask;
             }
 
+            var path = item.Path;
             var completion = new TaskCompletionSource<object?>();
             var queued = DispatcherQueue.TryEnqueue(() =>
             {
                 try
                 {
-                    if (!token.IsCancellationRequested)
+                    if (token.IsCancellationRequested)
                     {
-                        item.Thumbnail = thumbnail;
+                        completion.TrySetResult(null);
+                        return;
+                    }
+
+                    var target = FindGalleryImageItemByPath(path);
+                    if (target is not null)
+                    {
+                        target.Thumbnail = thumbnail;
                     }
 
                     completion.TrySetResult(null);
@@ -373,11 +423,24 @@ namespace helvety.screentools.Views
 
             if (!queued)
             {
-                Debug.WriteLine($"[ScreenToolsPage] DispatcherQueue enqueue failed for '{item.Path}'.");
+                Debug.WriteLine($"[ScreenToolsPage] DispatcherQueue enqueue failed for '{path}'.");
                 completion.TrySetResult(null);
             }
 
             return completion.Task;
+        }
+
+        private GalleryFileItem? FindGalleryImageItemByPath(string path)
+        {
+            foreach (var entry in _imageFiles)
+            {
+                if (string.Equals(entry.Path, path, StringComparison.OrdinalIgnoreCase))
+                {
+                    return entry;
+                }
+            }
+
+            return null;
         }
 
         private static void LogPreviewFailure(string stage, StorageFile file, Exception ex)
@@ -414,9 +477,18 @@ namespace helvety.screentools.Views
             }
         }
 
-        private static async Task<BitmapImage?> TryLoadPreviewAsync(StorageFile file, CancellationToken token)
+        /// <summary>Decode order: scaled PNG from disk, BitmapImage decode, shell thumbnail.</summary>
+        private static async Task<ImageSource?> TryLoadPreviewAsync(StorageFile file, CancellationToken token)
         {
-            // Prefer direct decode for reliable previews in arbitrary folders.
+            if (string.Equals(Path.GetExtension(file.Path), ".png", StringComparison.OrdinalIgnoreCase))
+            {
+                var scaled = await TryLoadScaledPngPreviewFromFileAsync(file, token).ConfigureAwait(false);
+                if (scaled is not null)
+                {
+                    return scaled;
+                }
+            }
+
             try
             {
                 var imageStream = await RetryOnceAsync(() => file.OpenReadAsync().AsTask());
@@ -478,6 +550,61 @@ namespace helvety.screentools.Views
                 LogPreviewFailure("Shell thumbnail", file, ex);
                 return null;
             }
+        }
+
+        private static async Task<ImageSource?> TryLoadScaledPngPreviewFromFileAsync(StorageFile file, CancellationToken token)
+        {
+            IRandomAccessStream? stream = null;
+            try
+            {
+                stream = await RetryOnceAsync(() => file.OpenReadAsync().AsTask());
+                if (stream is null)
+                {
+                    return null;
+                }
+
+                var decoder = await BitmapDecoder.CreateAsync(stream);
+                return await DecodeBitmapDecoderToSoftwareBitmapSourceAsync(decoder, token).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                LogPreviewFailure("Scaled PNG decode", file, ex);
+                return null;
+            }
+            finally
+            {
+                stream?.Dispose();
+            }
+        }
+
+        private static async Task<SoftwareBitmapSource?> DecodeBitmapDecoderToSoftwareBitmapSourceAsync(BitmapDecoder decoder, CancellationToken token)
+        {
+            var transform = new BitmapTransform();
+            var w = decoder.OrientedPixelWidth;
+            var h = decoder.OrientedPixelHeight;
+            const uint maxW = 520;
+            if (w > maxW)
+            {
+                var ratio = (double)maxW / w;
+                transform.ScaledWidth = maxW;
+                transform.ScaledHeight = (uint)Math.Max(1, Math.Round(h * ratio));
+            }
+
+            var softwareBitmap = await decoder.GetSoftwareBitmapAsync(
+                BitmapPixelFormat.Bgra8,
+                BitmapAlphaMode.Premultiplied,
+                transform,
+                ExifOrientationMode.IgnoreExifOrientation,
+                ColorManagementMode.ColorManageToSRgb);
+
+            if (token.IsCancellationRequested)
+            {
+                return null;
+            }
+
+            var source = new SoftwareBitmapSource();
+            await source.SetBitmapAsync(softwareBitmap);
+            return source;
         }
 
         private void ImageFilesGridView_ItemClick(object sender, ItemClickEventArgs e)
