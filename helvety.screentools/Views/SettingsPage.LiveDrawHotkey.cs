@@ -1,4 +1,6 @@
 using helvety.screentools;
+using static helvety.screentools.HotkeyVisualMapper;
+using helvety.screentools.Views.Controls;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using System;
@@ -54,14 +56,18 @@ namespace helvety.screentools.Views
             if (!SettingsService.TryGetEffectiveLiveDrawHotkey(out var effective))
             {
                 ResetLiveDrawEditor();
-                LiveDrawCurrentBindingText.Text = "Live Draw: (none)";
+                LiveDrawCurrentChordStrip.SetEmpty("(none)", "Live Draw: (none)");
                 LiveDrawBindingStatusText.Text = "No Live Draw hotkey set.";
                 UpdateLiveDrawFeatureAvailability();
                 return;
             }
 
             SetLiveDrawEditorFromBinding(new HotkeyBinding(effective.Modifiers, effective.Sequence.ToArray(), effective.Display));
-            LiveDrawCurrentBindingText.Text = $"Live Draw: {effective.Display}";
+            LiveDrawCurrentChordStrip.SetChord(
+                effective.Modifiers,
+                effective.Sequence,
+                HotkeyChordAppearance.Accent,
+                $"Live Draw: {effective.Display}");
             LiveDrawBindingStatusText.Text = string.Empty;
             UpdateLiveDrawFeatureAvailability();
         }
@@ -114,11 +120,11 @@ namespace helvety.screentools.Views
 
         private void UpdateLiveDrawStepTexts()
         {
-            LiveDrawStep1KeyText.Text = _liveDrawEditorSequence[0].HasValue ? GetKeyDisplayName(_liveDrawEditorSequence[0]!.Value) : "(not set)";
-            LiveDrawStep2KeyText.Text = _liveDrawEditorSequence[1].HasValue ? GetKeyDisplayName(_liveDrawEditorSequence[1]!.Value) : "(not set)";
-            LiveDrawStep3KeyText.Text = _liveDrawEditorSequence[2].HasValue ? GetKeyDisplayName(_liveDrawEditorSequence[2]!.Value) : "(not set)";
-            LiveDrawStep4KeyText.Text = _liveDrawEditorSequence[3].HasValue ? GetKeyDisplayName(_liveDrawEditorSequence[3]!.Value) : "(not set)";
-            LiveDrawStep5KeyText.Text = _liveDrawEditorSequence[4].HasValue ? GetKeyDisplayName(_liveDrawEditorSequence[4]!.Value) : "(not set)";
+            LiveDrawStep1KeyChordStrip.SetSingleKey(_liveDrawEditorSequence[0], HotkeyChordAppearance.Default, null);
+            LiveDrawStep2KeyChordStrip.SetSingleKey(_liveDrawEditorSequence[1], HotkeyChordAppearance.Default, null);
+            LiveDrawStep3KeyChordStrip.SetSingleKey(_liveDrawEditorSequence[2], HotkeyChordAppearance.Default, null);
+            LiveDrawStep4KeyChordStrip.SetSingleKey(_liveDrawEditorSequence[3], HotkeyChordAppearance.Default, null);
+            LiveDrawStep5KeyChordStrip.SetSingleKey(_liveDrawEditorSequence[4], HotkeyChordAppearance.Default, null);
         }
 
         private void SetLiveDrawEditorFromBinding(HotkeyBinding binding)
@@ -175,12 +181,18 @@ namespace helvety.screentools.Views
             var sequence = BuildLiveDrawEditorSequence();
             if (sequence.Count == 0)
             {
-                LiveDrawHotkeyPreviewText.Text = string.Empty;
+                LiveDrawPreviewPanel.Visibility = Visibility.Collapsed;
                 return;
             }
 
-            var keyNames = sequence.Select(GetKeyDisplayName).ToArray();
-            LiveDrawHotkeyPreviewText.Text = $"Preview: {BuildBindingDisplay(_liveDrawEditorModifiers, keyNames)}";
+            LiveDrawPreviewPanel.Visibility = Visibility.Visible;
+            var keyNames = sequence.Select(HotkeyVisualMapper.GetKeyDisplayName).ToArray();
+            var display = HotkeyVisualMapper.BuildBindingDisplay(_liveDrawEditorModifiers, keyNames);
+            LiveDrawPreviewChordStrip.SetChord(
+                _liveDrawEditorModifiers,
+                sequence,
+                HotkeyChordAppearance.Default,
+                $"Preview: {display}");
         }
 
         private void UpdateLiveDrawFeatureAvailability()
@@ -202,7 +214,7 @@ namespace helvety.screentools.Views
                 return false;
             }
 
-            var liveDisplay = BuildBindingDisplay(_liveDrawEditorModifiers, liveSeq.Select(GetKeyDisplayName).ToArray());
+            var liveDisplay = HotkeyVisualMapper.BuildBindingDisplay(_liveDrawEditorModifiers, liveSeq.Select(HotkeyVisualMapper.GetKeyDisplayName).ToArray());
             var candidate = new HotkeySettings(_liveDrawEditorModifiers, liveSeq, liveDisplay);
 
             if (!SettingsService.TryGetEffectiveHotkey(out var shot))
@@ -291,7 +303,7 @@ namespace helvety.screentools.Views
             StopStepCapture();
             SettingsService.ClearLiveDrawHotkey();
             ResetLiveDrawEditor();
-            LiveDrawCurrentBindingText.Text = "Live Draw: (none)";
+            LiveDrawCurrentChordStrip.SetEmpty("(none)", "Live Draw: (none)");
             LiveDrawBindingStatusText.Text = "No Live Draw hotkey set.";
             UpdateLiveDrawFeatureAvailability();
         }
@@ -311,9 +323,13 @@ namespace helvety.screentools.Views
                 return false;
             }
 
-            var display = BuildBindingDisplay(_liveDrawEditorModifiers, sequence.Select(GetKeyDisplayName).ToArray());
+            var display = HotkeyVisualMapper.BuildBindingDisplay(_liveDrawEditorModifiers, sequence.Select(HotkeyVisualMapper.GetKeyDisplayName).ToArray());
             SettingsService.SaveLiveDrawHotkey(_liveDrawEditorModifiers, sequence, display);
-            LiveDrawCurrentBindingText.Text = $"Live Draw: {display}";
+            LiveDrawCurrentChordStrip.SetChord(
+                _liveDrawEditorModifiers,
+                sequence,
+                HotkeyChordAppearance.Accent,
+                $"Live Draw: {display}");
             statusMessage = string.Empty;
             UpdateLiveDrawFeatureAvailability();
             return true;
@@ -325,7 +341,7 @@ namespace helvety.screentools.Views
             StopStepCapture();
             UpdateLiveDrawStepTexts();
             UpdateLiveDrawHotkeyPreview();
-            LiveDrawBindingStatusText.Text = $"Step {stepIndex + 1} set to {GetKeyDisplayName(virtualKey)}.";
+            LiveDrawBindingStatusText.Text = $"Step {stepIndex + 1} set to {HotkeyVisualMapper.GetKeyDisplayName(virtualKey)}.";
         }
     }
 }

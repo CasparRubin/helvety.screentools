@@ -1,4 +1,6 @@
 using helvety.screentools;
+using static helvety.screentools.HotkeyVisualMapper;
+using helvety.screentools.Views.Controls;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -12,6 +14,10 @@ using WinRT.Interop;
 
 namespace helvety.screentools.Views
 {
+    /// <summary>
+    /// Application settings: save folder, capture and Live Draw hotkeys (Listen/Clear per step, visual chord preview),
+    /// capture mode, editor, and app behavior options.
+    /// </summary>
     public sealed partial class SettingsPage : Page
     {
         private const int WhKeyboardLl = 13;
@@ -19,10 +25,6 @@ namespace helvety.screentools.Views
         private const uint WmKeyup = 0x0101;
         private const uint WmSyskeydown = 0x0104;
         private const uint WmSyskeyup = 0x0105;
-        private const uint ModAlt = 0x0001;
-        private const uint ModControl = 0x0002;
-        private const uint ModShift = 0x0004;
-        private const uint ModWin = 0x0008;
         private const int ProbeHotkeyId = 40001;
         private const int VkEscape = 0x1B;
         private const int VkPrintScreen = 0x2C;
@@ -382,7 +384,7 @@ namespace helvety.screentools.Views
                 _currentBinding = null;
                 ResetRuntimeSequenceState();
                 ResetEditor();
-                CurrentBindingText.Text = "Capture hotkey: (none)";
+                CaptureCurrentChordStrip.SetEmpty("(none)", "Capture hotkey: (none)");
                 BindingStatusText.Text = "No capture hotkey set.";
                 UpdateFeatureAvailability();
                 return;
@@ -470,11 +472,11 @@ namespace helvety.screentools.Views
 
         private void UpdateStepTexts()
         {
-            Step1KeyText.Text = _editorSequence[0].HasValue ? GetKeyDisplayName(_editorSequence[0]!.Value) : "(not set)";
-            Step2KeyText.Text = _editorSequence[1].HasValue ? GetKeyDisplayName(_editorSequence[1]!.Value) : "(not set)";
-            Step3KeyText.Text = _editorSequence[2].HasValue ? GetKeyDisplayName(_editorSequence[2]!.Value) : "(not set)";
-            Step4KeyText.Text = _editorSequence[3].HasValue ? GetKeyDisplayName(_editorSequence[3]!.Value) : "(not set)";
-            Step5KeyText.Text = _editorSequence[4].HasValue ? GetKeyDisplayName(_editorSequence[4]!.Value) : "(not set)";
+            Step1KeyChordStrip.SetSingleKey(_editorSequence[0], HotkeyChordAppearance.Default, null);
+            Step2KeyChordStrip.SetSingleKey(_editorSequence[1], HotkeyChordAppearance.Default, null);
+            Step3KeyChordStrip.SetSingleKey(_editorSequence[2], HotkeyChordAppearance.Default, null);
+            Step4KeyChordStrip.SetSingleKey(_editorSequence[3], HotkeyChordAppearance.Default, null);
+            Step5KeyChordStrip.SetSingleKey(_editorSequence[4], HotkeyChordAppearance.Default, null);
         }
 
         private void UseDefaultHotkeyButton_Click(object sender, RoutedEventArgs e)
@@ -516,7 +518,11 @@ namespace helvety.screentools.Views
 
             _currentBinding = requestedBinding;
             ResetRuntimeSequenceState();
-            CurrentBindingText.Text = $"Capture hotkey: {requestedBinding.Display}";
+            CaptureCurrentChordStrip.SetChord(
+                requestedBinding.Modifiers,
+                requestedBinding.Sequence,
+                HotkeyChordAppearance.Accent,
+                $"Capture hotkey: {requestedBinding.Display}");
             SettingsService.SaveHotkey(requestedBinding.Modifiers, requestedBinding.Sequence, requestedBinding.Display);
             UpdateFeatureAvailability();
             SetEditorFromBinding(requestedBinding);
@@ -534,7 +540,7 @@ namespace helvety.screentools.Views
             ResetRuntimeSequenceState();
             SettingsService.ClearHotkey();
             ResetEditor();
-            CurrentBindingText.Text = "Capture hotkey: (none)";
+            CaptureCurrentChordStrip.SetEmpty("(none)", "Capture hotkey: (none)");
             BindingStatusText.Text = "No capture hotkey set.";
             UpdateFeatureAvailability();
         }
@@ -570,7 +576,7 @@ namespace helvety.screentools.Views
                 return false;
             }
 
-            var display = BuildBindingDisplay(_editorModifiers, sequence.Select(GetKeyDisplayName).ToArray());
+            var display = HotkeyVisualMapper.BuildBindingDisplay(_editorModifiers, sequence.Select(HotkeyVisualMapper.GetKeyDisplayName).ToArray());
             var candidate = new HotkeySettings(_editorModifiers, sequence, display);
             if (SettingsService.TryGetEffectiveLiveDrawHotkey(out var live) &&
                 SettingsService.HotkeyModifiersAndSequenceEqual(candidate, live))
@@ -596,7 +602,7 @@ namespace helvety.screentools.Views
                 return false;
             }
 
-            var display = BuildBindingDisplay(_editorModifiers, sequence.Select(GetKeyDisplayName).ToArray());
+            var display = HotkeyVisualMapper.BuildBindingDisplay(_editorModifiers, sequence.Select(HotkeyVisualMapper.GetKeyDisplayName).ToArray());
             var candidate = new HotkeySettings(_editorModifiers, sequence, display);
             return SettingsService.HotkeyModifiersAndSequenceEqual(candidate, live);
         }
@@ -832,7 +838,7 @@ namespace helvety.screentools.Views
                         StopStepCapture();
                         UpdateStepTexts();
                         UpdateCapturePreview();
-                        BindingStatusText.Text = $"Step {stepIndex + 1} set to {GetKeyDisplayName(virtualKey)}.";
+                        BindingStatusText.Text = $"Step {stepIndex + 1} set to {HotkeyVisualMapper.GetKeyDisplayName(virtualKey)}.";
                     }
                     else
                     {
@@ -848,46 +854,18 @@ namespace helvety.screentools.Views
             var sequence = BuildEditorSequence();
             if (sequence.Count == 0)
             {
-                CapturePreviewText.Text = string.Empty;
+                CapturePreviewPanel.Visibility = Visibility.Collapsed;
                 return;
             }
 
-            var keyNames = sequence.Select(GetKeyDisplayName).ToArray();
-            CapturePreviewText.Text = $"Preview: {BuildBindingDisplay(_editorModifiers, keyNames)}";
-        }
-
-        private static string BuildModifierPreview(uint modifiers)
-        {
-            var parts = new List<string>();
-
-            if ((modifiers & ModControl) != 0)
-            {
-                parts.Add("Ctrl");
-            }
-
-            if ((modifiers & ModAlt) != 0)
-            {
-                parts.Add("Alt");
-            }
-
-            if ((modifiers & ModShift) != 0)
-            {
-                parts.Add("Shift");
-            }
-
-            if ((modifiers & ModWin) != 0)
-            {
-                parts.Add("Win");
-            }
-
-            return string.Join('+', parts);
-        }
-
-        private static string BuildBindingDisplay(uint modifiers, IReadOnlyList<string> keyNames)
-        {
-            var modifiersPart = BuildModifierPreview(modifiers);
-            var sequencePart = string.Join('+', keyNames);
-            return string.IsNullOrEmpty(modifiersPart) ? sequencePart : $"{modifiersPart}+{sequencePart}";
+            CapturePreviewPanel.Visibility = Visibility.Visible;
+            var keyNames = sequence.Select(HotkeyVisualMapper.GetKeyDisplayName).ToArray();
+            var display = HotkeyVisualMapper.BuildBindingDisplay(_editorModifiers, keyNames);
+            CapturePreviewChordStrip.SetChord(
+                _editorModifiers,
+                sequence,
+                HotkeyChordAppearance.Default,
+                $"Preview: {display}");
         }
 
         private static uint GetCurrentModifiers()
@@ -915,44 +893,6 @@ namespace helvety.screentools.Views
             }
 
             return modifiers;
-        }
-
-        private static string GetKeyDisplayName(uint virtualKey)
-        {
-            if (virtualKey >= 0x41 && virtualKey <= 0x5A)
-            {
-                return ((char)virtualKey).ToString();
-            }
-
-            if (virtualKey >= 0x30 && virtualKey <= 0x39)
-            {
-                return ((char)virtualKey).ToString();
-            }
-
-            if (virtualKey >= 0x70 && virtualKey <= 0x87)
-            {
-                return $"F{virtualKey - 0x6F}";
-            }
-
-            return virtualKey switch
-            {
-                0x20 => "Space",
-                0x25 => "LeftArrow",
-                0x26 => "UpArrow",
-                0x27 => "RightArrow",
-                0x28 => "DownArrow",
-                VkPrintScreen => "PrintScreen",
-                0x2D => "Insert",
-                0x2E => "Delete",
-                0x24 => "Home",
-                0x23 => "End",
-                0x21 => "PageUp",
-                0x22 => "PageDown",
-                0x08 => "Backspace",
-                0x09 => "Tab",
-                0x0D => "Enter",
-                _ => $"VK_{virtualKey:X2}"
-            };
         }
 
         private nint KeyboardHookCallback(int nCode, nuint wParam, nint lParam)

@@ -60,16 +60,33 @@
                 <Setter Property="VerticalAlignment" Value="Center" />
             </Style>
 
-            <Style x:Key="SettingsInlineButtonStyle" TargetType="Button" BasedOn="{StaticResource SettingsInlineControlStyle}">
+            <!-- Fluent buttons: single corner radius app-wide (was inconsistent when styles derived from Control). -->
+            <Style BasedOn="{StaticResource DefaultButtonStyle}" TargetType="Button">
+                <Setter Property="CornerRadius" Value="{ThemeResource ControlCornerRadius}" />
+            </Style>
+            <Style x:Key="SettingsInlineButtonStyle" BasedOn="{StaticResource DefaultButtonStyle}" TargetType="Button">
                 <Setter Property="Height" Value="34" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="CornerRadius" Value="{ThemeResource ControlCornerRadius}" />
+            </Style>
+            <Style BasedOn="{StaticResource DefaultToggleButtonStyle}" TargetType="ToggleButton">
+                <Setter Property="CornerRadius" Value="{ThemeResource ControlCornerRadius}" />
+            </Style>
+            <Style BasedOn="{StaticResource DefaultHyperlinkButtonStyle}" TargetType="HyperlinkButton">
+                <Setter Property="CornerRadius" Value="{ThemeResource ControlCornerRadius}" />
+            </Style>
+            <Style BasedOn="{StaticResource DefaultComboBoxStyle}" TargetType="ComboBox">
+                <Setter Property="CornerRadius" Value="{ThemeResource ControlCornerRadius}" />
             </Style>
 
             <Style x:Key="SettingsInlineTextBoxStyle" TargetType="TextBox" BasedOn="{StaticResource SettingsInlineControlStyle}">
                 <Setter Property="Height" Value="34" />
             </Style>
 
-            <Style x:Key="SettingsInlineComboBoxStyle" TargetType="ComboBox" BasedOn="{StaticResource SettingsInlineControlStyle}">
+            <Style x:Key="SettingsInlineComboBoxStyle" BasedOn="{StaticResource DefaultComboBoxStyle}" TargetType="ComboBox">
                 <Setter Property="Height" Value="34" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="CornerRadius" Value="{ThemeResource ControlCornerRadius}" />
             </Style>
 
             <Style x:Key="SettingsInlineNumberBoxStyle" TargetType="NumberBox" BasedOn="{StaticResource SettingsInlineControlStyle}">

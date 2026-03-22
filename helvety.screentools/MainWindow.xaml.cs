@@ -15,6 +15,9 @@ using WinRT.Interop;
 
 namespace helvety.screentools
 {
+    /// <summary>
+    /// Main shell: navigation to Screen Tools, Settings, and About; global issue banners; in-app toasts; tray integration.
+    /// </summary>
     public sealed partial class MainWindow : Window
     {
         private const string UseDefaultSaveFolderActionTag = "use-default-save-folder";
@@ -296,6 +299,7 @@ namespace helvety.screentools
             {
                 "home" => typeof(ScreenToolsPage),
                 "settings" => typeof(SettingsPage),
+                "about" => typeof(AboutPage),
                 _ => typeof(ScreenToolsPage)
             };
 

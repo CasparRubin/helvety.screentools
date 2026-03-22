@@ -12,9 +12,11 @@ namespace helvety.screentools
     {
         internal const int MaxHotkeySequenceLength = 5;
         private const uint DefaultHotkeyModifiers = 0x0004; // Shift
+        /// <summary>Default label persisted in settings; UI shows the same chord as visual key pills.</summary>
         private const string DefaultHotkeyDisplay = "Shift+S+S+S";
         private const string DefaultHotkeySequence = "83,83,83";
         private const uint DefaultLiveDrawHotkeyModifiers = 0x0004; // Shift
+        /// <summary>Default label persisted in settings; UI shows the same chord as visual key pills.</summary>
         private const string DefaultLiveDrawHotkeyDisplay = "Shift+D+D+D";
         private const string DefaultLiveDrawHotkeySequence = "68,68,68";
         private const ScreenshotBorderIntensity DefaultScreenshotBorderIntensity = ScreenshotBorderIntensity.Bold;

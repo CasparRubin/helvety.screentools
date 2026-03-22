@@ -4,6 +4,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:controls="using:helvety.screentools.Views.Controls"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
@@ -19,11 +20,31 @@
                 x:Name="SaveFolderPathText"
                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                 TextWrapping="WrapWholeWords" />
-            <TextBlock
-                x:Name="HotkeysHintText"
-                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                TextWrapping="WrapWholeWords"
-                Visibility="Collapsed" />
+            <StackPanel
+                x:Name="HotkeysHintPanel"
+                Orientation="Horizontal"
+                Spacing="8"
+                VerticalAlignment="Center"
+                Visibility="Collapsed">
+                <TextBlock
+                    VerticalAlignment="Center"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Text="Capture" />
+                <controls:HotkeyChordStrip x:Name="CaptureHotkeyHintStrip" />
+                <TextBlock
+                    x:Name="LiveDrawHintSeparator"
+                    VerticalAlignment="Center"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Text="·"
+                    Visibility="Collapsed" />
+                <TextBlock
+                    x:Name="LiveDrawHintLabel"
+                    VerticalAlignment="Center"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Text="Live Draw"
+                    Visibility="Collapsed" />
+                <controls:HotkeyChordStrip x:Name="LiveDrawHotkeyHintStrip" />
+            </StackPanel>
         </StackPanel>
 
         <Border
@@ -66,11 +87,19 @@
                 <ScrollViewer x:Name="GalleryScrollViewer" Visibility="Collapsed">
                     <StackPanel Spacing="22">
                         <StackPanel Spacing="10">
-                            <TextBlock FontSize="20" FontWeight="SemiBold" Text="Images" />
+                            <StackPanel Spacing="4">
+                                <TextBlock FontSize="20" FontWeight="SemiBold" Text="Images" />
+                                <TextBlock
+                                    FontSize="14"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Text="Left-click opens the editor. Right-click copies the image to the clipboard."
+                                    TextWrapping="WrapWholeWords" />
+                            </StackPanel>
                             <GridView
                                 x:Name="ImageFilesGridView"
                                 IsItemClickEnabled="True"
                                 ItemClick="ImageFilesGridView_ItemClick"
+                                RightTapped="ImageFilesGridView_RightTapped"
                                 SelectionMode="None">
                                 <GridView.ItemTemplate>
                                     <DataTemplate>
@@ -108,12 +137,11 @@
                                                     Margin="0,8,0,0"
                                                     Spacing="2">
                                                     <TextBlock
-                                                        FontWeight="SemiBold"
-                                                        Text="{Binding Name}"
+                                                        Text="{Binding ImageDateLine}"
                                                         TextTrimming="CharacterEllipsis" />
                                                     <TextBlock
                                                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                        Text="{Binding FileInfoText}"
+                                                        Text="{Binding ImageSizeLine}"
                                                         TextTrimming="CharacterEllipsis" />
                                                 </StackPanel>
                                             </Grid>

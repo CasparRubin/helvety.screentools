@@ -27,6 +27,10 @@
                 Content="Settings"
                 Icon="Setting"
                 Tag="settings" />
+            <NavigationViewItem
+                Content="About"
+                Icon="Help"
+                Tag="about" />
         </NavigationView.MenuItems>
 
         <Grid>

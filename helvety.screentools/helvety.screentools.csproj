@@ -72,4 +72,25 @@
     <PublishTrimmed Condition="'$(Configuration)' == 'Debug'">False</PublishTrimmed>
     <PublishTrimmed Condition="'$(Configuration)' != 'Debug'">True</PublishTrimmed>
   </PropertyGroup>
+
+  <!-- yyMMdd_HHmmss from local clock at compile time (regenerates each build; see README Notes + About page). Semicolons in Include must be %3B (MSBuild uses ; as item separator). Must run before WinUI MarkupCompilePass1 so AppBuildInfo exists when XAML compiler runs. -->
+  <PropertyGroup>
+    <MarkupCompilePass1DependsOn>GenerateAppBuildStamp;$(MarkupCompilePass1DependsOn)</MarkupCompilePass1DependsOn>
+  </PropertyGroup>
+  <Target Name="GenerateAppBuildStamp">
+    <PropertyGroup>
+      <AppBuildStamp>$([System.DateTime]::Now.ToString('yyMMdd_HHmmss'))</AppBuildStamp>
+    </PropertyGroup>
+    <ItemGroup>
+      <_AppBuildStampLine Include="namespace helvety.screentools%3B" />
+      <_AppBuildStampLine Include="public static class AppBuildInfo" />
+      <_AppBuildStampLine Include="{" />
+      <_AppBuildStampLine Include="    public const string BuildStamp = &quot;$(AppBuildStamp)&quot;%3B" />
+      <_AppBuildStampLine Include="}" />
+    </ItemGroup>
+    <WriteLinesToFile File="$(IntermediateOutputPath)AppBuildStamp.g.cs" Overwrite="true" Lines="@(_AppBuildStampLine)" />
+    <ItemGroup>
+      <Compile Include="$(IntermediateOutputPath)AppBuildStamp.g.cs" />
+    </ItemGroup>
+  </Target>
 </Project>

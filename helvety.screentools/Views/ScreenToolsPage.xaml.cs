@@ -1,6 +1,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Dispatching;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.UI.Xaml.Navigation;
@@ -16,6 +17,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using helvety.screentools;
 using helvety.screentools.Capture;
+using helvety.screentools.Views.Controls;
+using Windows.ApplicationModel.DataTransfer;
 using Windows.Graphics.Imaging;
 using Windows.Storage;
 using Windows.Storage.FileProperties;
@@ -24,8 +27,10 @@ using Windows.Storage.Streams;
 namespace helvety.screentools.Views
 {
     /// <summary>
-    /// Home "Screen Tools" page: lists files from the configured save folder with thumbnails and metadata, and opens the image editor on item click.
+    /// Home "Screen Tools" page: lists files from the configured save folder with thumbnails and metadata.
+    /// Left-click on an image opens the editor; right-click copies that image to the clipboard.
     /// Refreshes enumerate the folder on a background thread, then apply updates under a short lock. After a capture, the list reloads the same way as on navigation.
+    /// When the gallery lists captures, the page header shows the configured capture shortcut and (if set) the Live Draw shortcut as accent-styled key-chord strips.
     /// </summary>
     public sealed partial class ScreenToolsPage : Page
     {
@@ -211,8 +216,7 @@ namespace helvety.screentools.Views
                 ? plan.FolderPath!
                 : "No save folder selected.";
 
-            HotkeysHintText.Visibility = Visibility.Collapsed;
-            HotkeysHintText.Text = string.Empty;
+            HotkeysHintPanel.Visibility = Visibility.Collapsed;
 
             if (plan.Kind == GalleryRefreshKind.NoSaveFolder)
             {
@@ -293,6 +297,8 @@ namespace helvety.screentools.Views
                             file.FullName,
                             file.Name,
                             BuildFileInfoText(file),
+                            BuildImageGalleryDateLine(file),
+                            BuildImageGallerySizeLine(file),
                             true,
                             "🖼",
                             file.LastWriteTimeUtc.Ticks,
@@ -313,6 +319,8 @@ namespace helvety.screentools.Views
                             file.FullName,
                             file.Name,
                             BuildFileInfoText(file),
+                            string.Empty,
+                            string.Empty,
                             false,
                             "📄",
                             file.LastWriteTimeUtc.Ticks,
@@ -324,10 +332,30 @@ namespace helvety.screentools.Views
             EmptyFolderCallout.Visibility = Visibility.Collapsed;
             GalleryScrollViewer.Visibility = Visibility.Visible;
 
-            HotkeysHintText.Text = plan.HasLiveDrawHotkey
-                ? $"Capture: {plan.Hotkey.Display} · Live Draw: {plan.LiveHotkey.Display}"
-                : $"Capture: {plan.Hotkey.Display}";
-            HotkeysHintText.Visibility = Visibility.Visible;
+            CaptureHotkeyHintStrip.SetChord(
+                plan.Hotkey.Modifiers,
+                plan.Hotkey.Sequence,
+                HotkeyChordAppearance.Accent,
+                $"Capture: {plan.Hotkey.Display}");
+            if (plan.HasLiveDrawHotkey)
+            {
+                LiveDrawHintSeparator.Visibility = Visibility.Visible;
+                LiveDrawHintLabel.Visibility = Visibility.Visible;
+                LiveDrawHotkeyHintStrip.Visibility = Visibility.Visible;
+                LiveDrawHotkeyHintStrip.SetChord(
+                    plan.LiveHotkey.Modifiers,
+                    plan.LiveHotkey.Sequence,
+                    HotkeyChordAppearance.Accent,
+                    $"Live Draw: {plan.LiveHotkey.Display}");
+            }
+            else
+            {
+                LiveDrawHintSeparator.Visibility = Visibility.Collapsed;
+                LiveDrawHintLabel.Visibility = Visibility.Collapsed;
+                LiveDrawHotkeyHintStrip.Visibility = Visibility.Collapsed;
+            }
+
+            HotkeysHintPanel.Visibility = Visibility.Visible;
         }
 
         private enum GalleryRefreshKind
@@ -617,6 +645,56 @@ namespace helvety.screentools.Views
             Editor.ImageEditorLauncher.OpenEditor(item.Path);
         }
 
+        private async void ImageFilesGridView_RightTapped(object sender, RightTappedRoutedEventArgs e)
+        {
+            if (FindGalleryFileItemFromEventSource(e.OriginalSource) is not { } item || !item.IsEditableImage)
+            {
+                return;
+            }
+
+            e.Handled = true;
+            await CopyGalleryImageToClipboardAsync(item.Path);
+        }
+
+        private static GalleryFileItem? FindGalleryFileItemFromEventSource(object? source)
+        {
+            for (var current = source as DependencyObject; current is not null; current = VisualTreeHelper.GetParent(current))
+            {
+                if (current is GridViewItem container && container.Content is GalleryFileItem item)
+                {
+                    return item;
+                }
+            }
+
+            return null;
+        }
+
+        private static async Task CopyGalleryImageToClipboardAsync(string path)
+        {
+            try
+            {
+                var file = await StorageFile.GetFileFromPathAsync(path);
+                var buffer = await FileIO.ReadBufferAsync(file);
+                var stream = new InMemoryRandomAccessStream();
+                await stream.WriteAsync(buffer);
+                stream.Seek(0);
+
+                var dataPackage = new DataPackage
+                {
+                    RequestedOperation = DataPackageOperation.Copy
+                };
+                dataPackage.SetBitmap(RandomAccessStreamReference.CreateFromStream(stream));
+                Clipboard.SetContent(dataPackage);
+                Clipboard.Flush();
+
+                InAppToastService.Show("Copied image to clipboard.", InAppToastSeverity.Success);
+            }
+            catch (Exception ex)
+            {
+                InAppToastService.Show($"Copy failed ({ex.Message}).", InAppToastSeverity.Error);
+            }
+        }
+
         private static bool IsEditableImage(string extension)
         {
             return CommonImageExtensions.Contains(extension, StringComparer.OrdinalIgnoreCase)
@@ -705,6 +783,15 @@ namespace helvety.screentools.Views
             return $"{extension} • {sizeText} • {dateText} - {relativeText} ago";
         }
 
+        private static string BuildImageGalleryDateLine(FileInfo file)
+        {
+            var dateText = file.LastWriteTime.ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture);
+            var relativeText = FormatRelativeAgo(file.LastWriteTime);
+            return $"{dateText} ({relativeText} ago)";
+        }
+
+        private static string BuildImageGallerySizeLine(FileInfo file) => FormatBytes(file.Length);
+
         private static string FormatRelativeAgo(DateTime timestamp)
         {
             var elapsed = DateTime.Now - timestamp;
@@ -763,6 +850,8 @@ namespace helvety.screentools.Views
             string path,
             string name,
             string fileInfoText,
+            string imageDateLine,
+            string imageSizeLine,
             bool isEditableImage,
             string fileGlyph,
             long lastWriteTimeUtcTicks,
@@ -771,6 +860,8 @@ namespace helvety.screentools.Views
             Path = path;
             Name = name;
             FileInfoText = fileInfoText;
+            ImageDateLine = imageDateLine;
+            ImageSizeLine = imageSizeLine;
             IsEditableImage = isEditableImage;
             FileGlyph = fileGlyph;
             LastWriteTimeUtcTicks = lastWriteTimeUtcTicks;
@@ -782,6 +873,10 @@ namespace helvety.screentools.Views
         public string Name { get; }
 
         public string FileInfoText { get; }
+
+        public string ImageDateLine { get; }
+
+        public string ImageSizeLine { get; }
 
         public bool IsEditableImage { get; }
 

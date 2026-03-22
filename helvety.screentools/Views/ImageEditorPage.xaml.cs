@@ -30,6 +30,9 @@ using Windows.UI;
 
 namespace helvety.screentools.Views
 {
+    /// <summary>
+    /// Layer-based image editor opened from Screen Tools or after capture: tools, layers, export, and editor settings.
+    /// </summary>
     public sealed partial class ImageEditorPage : Page
     {
         private const string DefaultPrimaryColor = "#FFD81B60";

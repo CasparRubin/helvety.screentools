@@ -3,6 +3,9 @@
 bin/
 obj/
 
+# MSIX publish output (local pre-deploy)
+AppPackages/
+
 *.user
 *.suo
 *.userosscache

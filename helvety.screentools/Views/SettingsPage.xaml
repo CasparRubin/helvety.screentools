@@ -4,6 +4,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:controls="using:helvety.screentools.Views.Controls"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
@@ -69,10 +70,10 @@
                         Style="{StaticResource SettingsSectionDescriptionTextStyle}"
                         Text="Starts frozen-screen capture. Set modifiers and one to five keys in order. A writable save folder is required to apply, use default, or use Listen."
                         TextWrapping="WrapWholeWords" />
-                    <TextBlock
-                        x:Name="CurrentBindingText"
-                        Text="Capture hotkey: (loading…)"
-                        TextWrapping="WrapWholeWords" />
+                    <StackPanel Spacing="4">
+                        <TextBlock Style="{StaticResource SettingsSectionDescriptionTextStyle}" Text="Current shortcut" />
+                        <controls:HotkeyChordStrip x:Name="CaptureCurrentChordStrip" />
+                    </StackPanel>
 
                     <StackPanel Style="{StaticResource SettingsInlineRowStackPanelStyle}">
                         <CheckBox
@@ -111,36 +112,86 @@
                         </Grid.RowDefinitions>
 
                         <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="Step 1" />
-                        <TextBlock x:Name="Step1KeyText" Grid.Row="0" Grid.Column="1" VerticalAlignment="Center" Text="(not set)" />
-                        <Button Grid.Row="0" Grid.Column="2" Click="ListenStep1Button_Click" Content="Listen" />
-                        <Button Grid.Row="0" Grid.Column="3" Click="ClearStep1Button_Click" Content="Clear" />
+                        <controls:HotkeyChordStrip x:Name="Step1KeyChordStrip" Grid.Row="0" Grid.Column="1" VerticalAlignment="Center" />
+                        <Button
+                            Grid.Row="0"
+                            Grid.Column="2"
+                            Click="ListenStep1Button_Click"
+                            Content="Listen"
+                            Style="{StaticResource SettingsInlineButtonStyle}" />
+                        <Button
+                            Grid.Row="0"
+                            Grid.Column="3"
+                            Click="ClearStep1Button_Click"
+                            Content="Clear"
+                            Style="{StaticResource SettingsInlineButtonStyle}" />
 
                         <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Text="Step 2" />
-                        <TextBlock x:Name="Step2KeyText" Grid.Row="1" Grid.Column="1" VerticalAlignment="Center" Text="(not set)" />
-                        <Button Grid.Row="1" Grid.Column="2" Click="ListenStep2Button_Click" Content="Listen" />
-                        <Button Grid.Row="1" Grid.Column="3" Click="ClearStep2Button_Click" Content="Clear" />
+                        <controls:HotkeyChordStrip x:Name="Step2KeyChordStrip" Grid.Row="1" Grid.Column="1" VerticalAlignment="Center" />
+                        <Button
+                            Grid.Row="1"
+                            Grid.Column="2"
+                            Click="ListenStep2Button_Click"
+                            Content="Listen"
+                            Style="{StaticResource SettingsInlineButtonStyle}" />
+                        <Button
+                            Grid.Row="1"
+                            Grid.Column="3"
+                            Click="ClearStep2Button_Click"
+                            Content="Clear"
+                            Style="{StaticResource SettingsInlineButtonStyle}" />
 
                         <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Text="Step 3" />
-                        <TextBlock x:Name="Step3KeyText" Grid.Row="2" Grid.Column="1" VerticalAlignment="Center" Text="(not set)" />
-                        <Button Grid.Row="2" Grid.Column="2" Click="ListenStep3Button_Click" Content="Listen" />
-                        <Button Grid.Row="2" Grid.Column="3" Click="ClearStep3Button_Click" Content="Clear" />
+                        <controls:HotkeyChordStrip x:Name="Step3KeyChordStrip" Grid.Row="2" Grid.Column="1" VerticalAlignment="Center" />
+                        <Button
+                            Grid.Row="2"
+                            Grid.Column="2"
+                            Click="ListenStep3Button_Click"
+                            Content="Listen"
+                            Style="{StaticResource SettingsInlineButtonStyle}" />
+                        <Button
+                            Grid.Row="2"
+                            Grid.Column="3"
+                            Click="ClearStep3Button_Click"
+                            Content="Clear"
+                            Style="{StaticResource SettingsInlineButtonStyle}" />
 
                         <TextBlock Grid.Row="3" Grid.Column="0" VerticalAlignment="Center" Text="Step 4" />
-                        <TextBlock x:Name="Step4KeyText" Grid.Row="3" Grid.Column="1" VerticalAlignment="Center" Text="(not set)" />
-                        <Button Grid.Row="3" Grid.Column="2" Click="ListenStep4Button_Click" Content="Listen" />
-                        <Button Grid.Row="3" Grid.Column="3" Click="ClearStep4Button_Click" Content="Clear" />
+                        <controls:HotkeyChordStrip x:Name="Step4KeyChordStrip" Grid.Row="3" Grid.Column="1" VerticalAlignment="Center" />
+                        <Button
+                            Grid.Row="3"
+                            Grid.Column="2"
+                            Click="ListenStep4Button_Click"
+                            Content="Listen"
+                            Style="{StaticResource SettingsInlineButtonStyle}" />
+                        <Button
+                            Grid.Row="3"
+                            Grid.Column="3"
+                            Click="ClearStep4Button_Click"
+                            Content="Clear"
+                            Style="{StaticResource SettingsInlineButtonStyle}" />
 
                         <TextBlock Grid.Row="4" Grid.Column="0" VerticalAlignment="Center" Text="Step 5" />
-                        <TextBlock x:Name="Step5KeyText" Grid.Row="4" Grid.Column="1" VerticalAlignment="Center" Text="(not set)" />
-                        <Button Grid.Row="4" Grid.Column="2" Click="ListenStep5Button_Click" Content="Listen" />
-                        <Button Grid.Row="4" Grid.Column="3" Click="ClearStep5Button_Click" Content="Clear" />
+                        <controls:HotkeyChordStrip x:Name="Step5KeyChordStrip" Grid.Row="4" Grid.Column="1" VerticalAlignment="Center" />
+                        <Button
+                            Grid.Row="4"
+                            Grid.Column="2"
+                            Click="ListenStep5Button_Click"
+                            Content="Listen"
+                            Style="{StaticResource SettingsInlineButtonStyle}" />
+                        <Button
+                            Grid.Row="4"
+                            Grid.Column="3"
+                            Click="ClearStep5Button_Click"
+                            Content="Clear"
+                            Style="{StaticResource SettingsInlineButtonStyle}" />
                     </Grid>
 
                     <InfoBar
                         x:Name="ListeningInfoBar"
                         IsClosable="False"
                         IsOpen="False"
-                        Message="Click Listen on a step, then press a key."
+                        Message="Press a non-modifier key. Esc cancels."
                         Severity="Informational"
                         Title="Listening for key" />
                     <TextBlock
@@ -148,11 +199,10 @@
                         Style="{StaticResource SettingsSectionDescriptionTextStyle}"
                         Text=""
                         />
-                    <TextBlock
-                        x:Name="CapturePreviewText"
-                        Style="{StaticResource SettingsSectionDescriptionTextStyle}"
-                        Text=""
-                        />
+                    <StackPanel x:Name="CapturePreviewPanel" Spacing="4" Visibility="Collapsed">
+                        <TextBlock Style="{StaticResource SettingsSectionDescriptionTextStyle}" Text="Preview" />
+                        <controls:HotkeyChordStrip x:Name="CapturePreviewChordStrip" />
+                    </StackPanel>
                     <TextBlock
                         x:Name="BindingStatusText"
                         Style="{StaticResource SettingsSectionDescriptionTextStyle}"
@@ -186,10 +236,10 @@
                         Style="{StaticResource SettingsSectionDescriptionTextStyle}"
                         Text="Full-screen Live Draw overlay: transparent to your desktop (GDI chroma key under transparent WinUI; no desktop snapshot). No save folder. Esc exits. Straight-line strokes (e.g. Ctrl+drag when Shift is the rectangle modifier) use a uniform line, not a tapered arrow shaft. Default Rectangle modifier is Shift: Shift+drag draws rectangles; Alt+drag (without Ctrl) draws arrows; Ctrl+drag draws straight lines (no arrowhead). If Rectangle modifier is Alt: Alt alone (without Ctrl) selects rectangles; Shift+drag draws arrows; Ctrl+drag draws straight lines. If it is Ctrl: Ctrl+drag selects rectangles; Alt or Shift (without Ctrl) draws arrows; straight line via Ctrl is unavailable. If it is Win: Win+drag selects rectangles; Alt or Shift (without Ctrl) draws arrows; Ctrl+drag draws straight lines. Drag without a matching shape-tool modifier is freehand. Right-click (no modifiers) shows a pulsing sparkle at the pointer while the button is held; it follows the pointer if you move. Shift+right drag draws a circle; Alt+right drag (without Ctrl) draws an ellipse; if both Shift and Alt are held, Shift+right wins. These right-button shortcuts are fixed and do not follow the rectangle modifier setting (that setting applies to left-button tools only). All shape tools share the same animated styling (gradients, dashing, pulse) as capture border effects."
                         TextWrapping="WrapWholeWords" />
-                    <TextBlock
-                        x:Name="LiveDrawCurrentBindingText"
-                        Text="Live Draw: Shift+D+D+D"
-                        TextWrapping="WrapWholeWords" />
+                    <StackPanel Spacing="4">
+                        <TextBlock Style="{StaticResource SettingsSectionDescriptionTextStyle}" Text="Current shortcut" />
+                        <controls:HotkeyChordStrip x:Name="LiveDrawCurrentChordStrip" />
+                    </StackPanel>
                     <TextBlock Style="{StaticResource SettingsSectionDescriptionTextStyle}" Text="Rectangle modifier (left mouse, while drawing)" />
                     <ComboBox
                         x:Name="LiveDrawRectangleModifierComboBox"
@@ -234,34 +284,84 @@
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
                         <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="Step 1" />
-                        <TextBlock x:Name="LiveDrawStep1KeyText" Grid.Row="0" Grid.Column="1" VerticalAlignment="Center" Text="(not set)" />
-                        <Button Grid.Row="0" Grid.Column="2" Click="LiveDrawListenStep1Button_Click" Content="Listen" />
-                        <Button Grid.Row="0" Grid.Column="3" Click="LiveDrawClearStep1Button_Click" Content="Clear" />
+                        <controls:HotkeyChordStrip x:Name="LiveDrawStep1KeyChordStrip" Grid.Row="0" Grid.Column="1" VerticalAlignment="Center" />
+                        <Button
+                            Grid.Row="0"
+                            Grid.Column="2"
+                            Click="LiveDrawListenStep1Button_Click"
+                            Content="Listen"
+                            Style="{StaticResource SettingsInlineButtonStyle}" />
+                        <Button
+                            Grid.Row="0"
+                            Grid.Column="3"
+                            Click="LiveDrawClearStep1Button_Click"
+                            Content="Clear"
+                            Style="{StaticResource SettingsInlineButtonStyle}" />
                         <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Text="Step 2" />
-                        <TextBlock x:Name="LiveDrawStep2KeyText" Grid.Row="1" Grid.Column="1" VerticalAlignment="Center" Text="(not set)" />
-                        <Button Grid.Row="1" Grid.Column="2" Click="LiveDrawListenStep2Button_Click" Content="Listen" />
-                        <Button Grid.Row="1" Grid.Column="3" Click="LiveDrawClearStep2Button_Click" Content="Clear" />
+                        <controls:HotkeyChordStrip x:Name="LiveDrawStep2KeyChordStrip" Grid.Row="1" Grid.Column="1" VerticalAlignment="Center" />
+                        <Button
+                            Grid.Row="1"
+                            Grid.Column="2"
+                            Click="LiveDrawListenStep2Button_Click"
+                            Content="Listen"
+                            Style="{StaticResource SettingsInlineButtonStyle}" />
+                        <Button
+                            Grid.Row="1"
+                            Grid.Column="3"
+                            Click="LiveDrawClearStep2Button_Click"
+                            Content="Clear"
+                            Style="{StaticResource SettingsInlineButtonStyle}" />
                         <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Text="Step 3" />
-                        <TextBlock x:Name="LiveDrawStep3KeyText" Grid.Row="2" Grid.Column="1" VerticalAlignment="Center" Text="(not set)" />
-                        <Button Grid.Row="2" Grid.Column="2" Click="LiveDrawListenStep3Button_Click" Content="Listen" />
-                        <Button Grid.Row="2" Grid.Column="3" Click="LiveDrawClearStep3Button_Click" Content="Clear" />
+                        <controls:HotkeyChordStrip x:Name="LiveDrawStep3KeyChordStrip" Grid.Row="2" Grid.Column="1" VerticalAlignment="Center" />
+                        <Button
+                            Grid.Row="2"
+                            Grid.Column="2"
+                            Click="LiveDrawListenStep3Button_Click"
+                            Content="Listen"
+                            Style="{StaticResource SettingsInlineButtonStyle}" />
+                        <Button
+                            Grid.Row="2"
+                            Grid.Column="3"
+                            Click="LiveDrawClearStep3Button_Click"
+                            Content="Clear"
+                            Style="{StaticResource SettingsInlineButtonStyle}" />
                         <TextBlock Grid.Row="3" Grid.Column="0" VerticalAlignment="Center" Text="Step 4" />
-                        <TextBlock x:Name="LiveDrawStep4KeyText" Grid.Row="3" Grid.Column="1" VerticalAlignment="Center" Text="(not set)" />
-                        <Button Grid.Row="3" Grid.Column="2" Click="LiveDrawListenStep4Button_Click" Content="Listen" />
-                        <Button Grid.Row="3" Grid.Column="3" Click="LiveDrawClearStep4Button_Click" Content="Clear" />
+                        <controls:HotkeyChordStrip x:Name="LiveDrawStep4KeyChordStrip" Grid.Row="3" Grid.Column="1" VerticalAlignment="Center" />
+                        <Button
+                            Grid.Row="3"
+                            Grid.Column="2"
+                            Click="LiveDrawListenStep4Button_Click"
+                            Content="Listen"
+                            Style="{StaticResource SettingsInlineButtonStyle}" />
+                        <Button
+                            Grid.Row="3"
+                            Grid.Column="3"
+                            Click="LiveDrawClearStep4Button_Click"
+                            Content="Clear"
+                            Style="{StaticResource SettingsInlineButtonStyle}" />
                         <TextBlock Grid.Row="4" Grid.Column="0" VerticalAlignment="Center" Text="Step 5" />
-                        <TextBlock x:Name="LiveDrawStep5KeyText" Grid.Row="4" Grid.Column="1" VerticalAlignment="Center" Text="(not set)" />
-                        <Button Grid.Row="4" Grid.Column="2" Click="LiveDrawListenStep5Button_Click" Content="Listen" />
-                        <Button Grid.Row="4" Grid.Column="3" Click="LiveDrawClearStep5Button_Click" Content="Clear" />
+                        <controls:HotkeyChordStrip x:Name="LiveDrawStep5KeyChordStrip" Grid.Row="4" Grid.Column="1" VerticalAlignment="Center" />
+                        <Button
+                            Grid.Row="4"
+                            Grid.Column="2"
+                            Click="LiveDrawListenStep5Button_Click"
+                            Content="Listen"
+                            Style="{StaticResource SettingsInlineButtonStyle}" />
+                        <Button
+                            Grid.Row="4"
+                            Grid.Column="3"
+                            Click="LiveDrawClearStep5Button_Click"
+                            Content="Clear"
+                            Style="{StaticResource SettingsInlineButtonStyle}" />
                     </Grid>
                     <TextBlock
                         x:Name="LiveDrawHotkeyInstructionText"
                         Style="{StaticResource SettingsSectionDescriptionTextStyle}"
                         Text="" />
-                    <TextBlock
-                        x:Name="LiveDrawHotkeyPreviewText"
-                        Style="{StaticResource SettingsSectionDescriptionTextStyle}"
-                        Text="" />
+                    <StackPanel x:Name="LiveDrawPreviewPanel" Spacing="4" Visibility="Collapsed">
+                        <TextBlock Style="{StaticResource SettingsSectionDescriptionTextStyle}" Text="Preview" />
+                        <controls:HotkeyChordStrip x:Name="LiveDrawPreviewChordStrip" />
+                    </StackPanel>
                     <TextBlock
                         x:Name="LiveDrawBindingStatusText"
                         Style="{StaticResource SettingsSectionDescriptionTextStyle}"
