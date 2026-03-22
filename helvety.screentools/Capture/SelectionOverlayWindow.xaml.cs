@@ -9,6 +9,7 @@ using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using System;
+using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading.Tasks;
 using helvety.screentools;
@@ -25,8 +26,10 @@ namespace helvety.screentools.Capture
         private const int HwndTopmost = -1;
         private const uint SwpNomove = 0x0002;
         private const uint SwpNosize = 0x0001;
-        private const uint SwpNoactivate = 0x0010;
         private const uint SwpFramechanged = 0x0020;
+        private const uint WmKeydown = 0x0100;
+        private const uint VkEscape = 0x1B;
+        private const uint EscapeSubclassId = 0x48535431;
         private const int GwlStyle = -16;
         private const nint WsCaption = 0x00C00000;
         private const nint WsThickframe = 0x00040000;
@@ -62,6 +65,18 @@ namespace helvety.screentools.Capture
         private Point _currentLocal;
         private RectInt32? _activeSnapBounds;
 
+        private static SelectionOverlayWindow? s_activeOverlayForEscape;
+        private static readonly SubclassProcDelegate s_escapeSubclassProc = EscapeSubclassProc;
+
+        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+        private delegate nint SubclassProcDelegate(
+            nint hWnd,
+            uint msg,
+            nint wParam,
+            nint lParam,
+            nuint uIdSubclass,
+            nuint dwRefData);
+
         public SelectionOverlayWindow(FreezeFrame freezeFrame, WindowSnapHitTester hitTester, bool showInstructionPanel)
         {
             _freezeFrame = freezeFrame;
@@ -90,6 +105,8 @@ namespace helvety.screentools.Capture
             RenderBackground();
             InitializeCompositionAnimations();
             Closed += SelectionOverlayWindow_Closed;
+            s_activeOverlayForEscape = this;
+            _ = SetWindowSubclass(_windowHandle, s_escapeSubclassProc, EscapeSubclassId, 0);
         }
 
         public async Task<SelectionAction> RunSelectionAsync()
@@ -98,9 +115,11 @@ namespace helvety.screentools.Capture
             {
                 Activate();
                 EnforceBorderlessWindowStyles();
-                RootGrid.Focus(FocusState.Programmatic);
                 _isSessionStarted = true;
             }
+
+            EnsureFocusedForKeyboard();
+            RootGrid.Focus(FocusState.Programmatic);
 
             if (_selectionCompletionSource.Task.IsCompleted)
             {
@@ -136,7 +155,7 @@ namespace helvety.screentools.Capture
             HideSessionToast();
             UpdateInstructionStatus("Waiting for selection...");
 
-            SetWindowPos(_windowHandle, (nint)HwndTopmost, 0, 0, 0, 0, SwpNomove | SwpNosize | SwpNoactivate);
+            SetWindowPos(_windowHandle, (nint)HwndTopmost, 0, 0, 0, 0, SwpNomove | SwpNosize | SwpFramechanged);
         }
 
         private void RenderBackground()
@@ -178,6 +197,7 @@ namespace helvety.screentools.Capture
             _currentLocal = clampedPress;
             UpdateSnapBounds(clampedPress, suppressFullVirtualBounds: true);
             _ = RootGrid.CapturePointer(e.Pointer);
+            EnsureFocusedForKeyboard();
         }
 
         private void RootGrid_PointerMoved(object sender, PointerRoutedEventArgs e)
@@ -485,7 +505,47 @@ namespace helvety.screentools.Capture
                 0,
                 0,
                 0,
-                SwpNomove | SwpNosize | SwpNoactivate | SwpFramechanged);
+                SwpNomove | SwpNosize | SwpFramechanged);
+        }
+
+        private void EnsureFocusedForKeyboard()
+        {
+            if (_windowHandle == nint.Zero)
+            {
+                return;
+            }
+
+            _ = SetForegroundWindow(_windowHandle);
+            _ = SetFocus(_windowHandle);
+        }
+
+        private void QueueEscapeFromNative()
+        {
+            var dq = DispatcherQueue.GetForCurrentThread();
+            if (dq is null)
+            {
+                return;
+            }
+
+            _ = dq.TryEnqueue(() =>
+                CompleteSelection(new SelectionAction(SelectionCommitMode.Cancel, null)));
+        }
+
+        private static nint EscapeSubclassProc(
+            nint hWnd,
+            uint msg,
+            nint wParam,
+            nint lParam,
+            nuint uIdSubclass,
+            nuint dwRefData)
+        {
+            if (msg == WmKeydown && (uint)(nint)wParam == VkEscape)
+            {
+                s_activeOverlayForEscape?.QueueEscapeFromNative();
+                return 0;
+            }
+
+            return DefSubclassProc(hWnd, msg, wParam, lParam);
         }
 
         private void EnsureChromeMeasured(FrameworkElement element)
@@ -548,6 +608,12 @@ namespace helvety.screentools.Capture
 
         private void SelectionOverlayWindow_Closed(object sender, WindowEventArgs args)
         {
+            if (s_activeOverlayForEscape == this)
+            {
+                s_activeOverlayForEscape = null;
+            }
+
+            _ = RemoveWindowSubclass(_windowHandle, s_escapeSubclassProc, EscapeSubclassId);
             _colorDriftTimer.Stop();
             _sessionToastTimer.Stop();
             if (!_selectionCompletionSource.Task.IsCompleted)
@@ -601,6 +667,28 @@ namespace helvety.screentools.Capture
             var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(_windowHandle);
             return AppWindow.GetFromWindowId(windowId);
         }
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
+        private static extern bool SetForegroundWindow(nint hWnd);
+
+        [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true)]
+        private static extern nint SetFocus(nint hWnd);
+
+        [System.Runtime.InteropServices.DllImport("comctl32.dll", SetLastError = true)]
+        [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
+        private static extern bool SetWindowSubclass(
+            nint hWnd,
+            SubclassProcDelegate pfnSubclass,
+            uint uIdSubclass,
+            uint dwRefData);
+
+        [System.Runtime.InteropServices.DllImport("comctl32.dll", SetLastError = true)]
+        [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
+        private static extern bool RemoveWindowSubclass(nint hWnd, SubclassProcDelegate pfnSubclass, uint uIdSubclass);
+
+        [System.Runtime.InteropServices.DllImport("comctl32.dll", SetLastError = true)]
+        private static extern nint DefSubclassProc(nint hWnd, uint msg, nint wParam, nint lParam);
 
         [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true)]
         [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]

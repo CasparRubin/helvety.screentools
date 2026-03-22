@@ -67,6 +67,8 @@ namespace helvety.screentools.Capture
         private bool _isBorderAnimationRunning;
         private readonly List<CommittedSnapBorderGroup> _committedGroups = new();
         private readonly List<CommittedSnapArrowGroup> _committedArrowGroups = new();
+        private readonly List<CommittedSnapLineGroup> _committedLineGroups = new();
+        private readonly List<CommittedFreeDrawGroup> _committedFreeDrawGroups = new();
         private readonly LinearGradientBrush _arrowBorderGradientBrush;
         private readonly GradientStop[] _arrowBorderGradientStops;
         private readonly LinearGradientBrush _arrowChaseGradientBrush;
@@ -120,20 +122,43 @@ namespace helvety.screentools.Capture
 
         internal void InitializeCompositionAnimations()
         {
-            _compositor = ElementCompositionPreview.GetElementVisual(_rootGrid).Compositor;
-            _snapBorderVisual = ElementCompositionPreview.GetElementVisual(_snapBorderRectangle);
-            _snapBorderChaseVisual = ElementCompositionPreview.GetElementVisual(_snapBorderChaseRectangle);
-            _snapBorderCornerGlowVisual = ElementCompositionPreview.GetElementVisual(_snapBorderCornerGlowRectangle);
-            _snapBorderGlowVisual = ElementCompositionPreview.GetElementVisual(_snapBorderGlowRectangle);
+            try
+            {
+                var rootVisual = ElementCompositionPreview.GetElementVisual(_rootGrid);
+                if (rootVisual is null)
+                {
+                    return;
+                }
 
-            _borderOpacityAnimation = CreateBorderOpacityAnimation();
-            _borderScaleAnimation = CreateBorderScaleAnimation();
-            _borderGlowOpacityAnimation = CreateGlowOpacityAnimation();
-            _borderGlowScaleAnimation = CreateGlowScaleAnimation();
-            _borderChaseOpacityAnimation = CreateChaseOpacityAnimation();
-            _borderChaseScaleAnimation = CreateChaseScaleAnimation();
+                _compositor = rootVisual.Compositor;
+                _snapBorderVisual = ElementCompositionPreview.GetElementVisual(_snapBorderRectangle);
+                _snapBorderChaseVisual = ElementCompositionPreview.GetElementVisual(_snapBorderChaseRectangle);
+                _snapBorderCornerGlowVisual = ElementCompositionPreview.GetElementVisual(_snapBorderCornerGlowRectangle);
+                _snapBorderGlowVisual = ElementCompositionPreview.GetElementVisual(_snapBorderGlowRectangle);
 
-            UpdateAnimatedBorderBrushes();
+                _borderOpacityAnimation = CreateBorderOpacityAnimation();
+                _borderScaleAnimation = CreateBorderScaleAnimation();
+                _borderGlowOpacityAnimation = CreateGlowOpacityAnimation();
+                _borderGlowScaleAnimation = CreateGlowScaleAnimation();
+                _borderChaseOpacityAnimation = CreateChaseOpacityAnimation();
+                _borderChaseScaleAnimation = CreateChaseScaleAnimation();
+
+                UpdateAnimatedBorderBrushes();
+            }
+            catch
+            {
+                _compositor = null;
+                _snapBorderVisual = null;
+                _snapBorderChaseVisual = null;
+                _snapBorderCornerGlowVisual = null;
+                _snapBorderGlowVisual = null;
+                _borderOpacityAnimation = null;
+                _borderScaleAnimation = null;
+                _borderGlowOpacityAnimation = null;
+                _borderGlowScaleAnimation = null;
+                _borderChaseOpacityAnimation = null;
+                _borderChaseScaleAnimation = null;
+            }
         }
 
         /// <summary>Copies the four animated snap-border layers onto the canvas so they keep gradient drift and dash motion.</summary>
@@ -327,6 +352,20 @@ namespace helvety.screentools.Capture
             internal Polygon CornerHead { get; }
         }
 
+        private sealed class CommittedSnapLineGroup
+        {
+            internal CommittedSnapLineGroup(Line chaseLine, Line cornerLine)
+            {
+                ChaseLine = chaseLine;
+                CornerLine = cornerLine;
+            }
+
+            internal Line ChaseLine { get; }
+            internal Line CornerLine { get; }
+        }
+
+        private sealed record CommittedFreeDrawGroup(Polyline Chase, Polyline Corner);
+
         internal void OnColorDriftTick(double deltaSeconds)
         {
             _borderEffectElapsedSeconds += deltaSeconds;
@@ -358,7 +397,7 @@ namespace helvety.screentools.Capture
 
         internal void StartSnapBorderAnimations()
         {
-            if (_isBorderAnimationRunning || _snapBorderVisual is null || _borderOpacityAnimation is null || _borderScaleAnimation is null)
+            if (_snapBorderVisual is null || _borderOpacityAnimation is null || _borderScaleAnimation is null)
             {
                 return;
             }
@@ -378,6 +417,11 @@ namespace helvety.screentools.Capture
             if (_snapBorderCornerGlowVisual is not null)
             {
                 _snapBorderCornerGlowVisual.CenterPoint = center;
+            }
+
+            if (_isBorderAnimationRunning)
+            {
+                return;
             }
 
             _snapBorderVisual.StartAnimation("Opacity", _borderOpacityAnimation);
@@ -488,11 +532,77 @@ namespace helvety.screentools.Capture
             _currentDashSpeedUnitsPerSecond = _borderFxProfile.DashSpeedUnitsPerSecond;
         }
 
+        /// <summary>Scales dash speed from stroke length (pixels). Used for Live Draw arrows, straight lines, and freehand paths.</summary>
         internal void UpdateChaseSpeedForArrowLength(double length)
         {
             var normalizedSize = Math.Clamp((length - 120.0) / 1600.0, 0.0, 1.0);
             var speedScale = 0.75 + (normalizedSize * 0.95);
             _currentDashSpeedUnitsPerSecond = _borderFxProfile.DashSpeedUnitsPerSecond * speedScale;
+        }
+
+        /// <summary>Live Draw freehand: three polylines with identical geometry (separate <see cref="PointCollection"/> per shape — WinUI does not safely share one collection across multiple polylines).</summary>
+        internal void ConfigureLiveDrawPolylineLayers(
+            Polyline main,
+            Polyline chase,
+            Polyline corner,
+            PointCollection mainPoints,
+            PointCollection chasePoints,
+            PointCollection cornerPoints)
+        {
+            var p = _borderFxProfile;
+            main.Points = mainPoints;
+            main.Stroke = _snapBorderGradientBrush;
+            main.StrokeThickness = p.BorderStrokeThickness;
+            ApplyRoundPolylineOutline(main);
+
+            chase.Points = chasePoints;
+            chase.Stroke = _snapBorderChaseGradientBrush;
+            chase.StrokeThickness = Math.Max(1.1, p.ChaseStrokeThickness * 0.72);
+            chase.StrokeDashArray = CloneDashArray(ChaseDashPattern);
+            ApplyRoundPolylineOutline(chase);
+
+            corner.Points = cornerPoints;
+            corner.Stroke = _snapBorderCornerGlowBrush;
+            corner.StrokeThickness = Math.Max(1.0, p.CornerGlowStrokeThickness * 0.68);
+            corner.StrokeDashArray = CloneDashArray(CornerDashPattern);
+            ApplyRoundPolylineOutline(corner);
+        }
+
+        /// <summary>Registers dashed freehand layers so <see cref="UpdateTravelingHighlight"/> animates dash offsets after the stroke ends.</summary>
+        internal void RegisterCommittedFreeDraw(Polyline chase, Polyline corner)
+        {
+            _committedFreeDrawGroups.Add(new CommittedFreeDrawGroup(chase, corner));
+        }
+
+        /// <summary>Composition pulse on the stroke container (same pattern as <see cref="CommitSnapChromeArrowToDrawCanvas"/>).</summary>
+        internal void FinalizeLiveDrawStroke(Canvas container, double centerX, double centerY)
+        {
+            StartCommittedContainerPulse(container, centerX, centerY);
+        }
+
+        private void StartCommittedContainerPulse(Canvas container, double centerX, double centerY)
+        {
+            if (_compositor is null)
+            {
+                return;
+            }
+
+            var v = ElementCompositionPreview.GetElementVisual(container);
+            if (v is null)
+            {
+                return;
+            }
+
+            v.CenterPoint = new Vector3((float)centerX, (float)centerY, 0f);
+            v.StartAnimation("Opacity", CreateBorderOpacityAnimation());
+            v.StartAnimation("Scale", CreateBorderScaleAnimation());
+        }
+
+        private static void ApplyRoundPolylineOutline(Polyline polyline)
+        {
+            polyline.StrokeLineJoin = PenLineJoin.Round;
+            polyline.StrokeStartLineCap = PenLineCap.Round;
+            polyline.StrokeEndLineCap = PenLineCap.Round;
         }
 
         /// <summary>Live Draw arrow preview: same gradient / dash palette as snap rectangles.</summary>
@@ -583,15 +693,81 @@ namespace helvety.screentools.Capture
 
             drawCanvas.Children.Add(container);
 
-            var v = ElementCompositionPreview.GetElementVisual(container);
-            if (v is not null)
-            {
-                v.CenterPoint = new Vector3((float)(bw / 2.0), (float)(bh / 2.0), 0f);
-                v.StartAnimation("Opacity", CreateBorderOpacityAnimation());
-                v.StartAnimation("Scale", CreateBorderScaleAnimation());
-            }
+            StartCommittedContainerPulse(container, bw / 2.0, bh / 2.0);
 
             _committedArrowGroups.Add(new CommittedSnapArrowGroup(chaseShaft, chaseHead, cornerShaft, cornerHead));
+        }
+
+        /// <summary>Live Draw straight-line preview: uniform stroke (not arrow-shaft taper); same gradients and dash layers as other snap chrome.</summary>
+        internal void DrawSnapChromeLine(Canvas canvas, ArrowLayer layer)
+        {
+            var dx = layer.EndX - layer.StartX;
+            var dy = layer.EndY - layer.StartY;
+            if (Math.Sqrt((dx * dx) + (dy * dy)) < 2.0)
+            {
+                return;
+            }
+
+            AddLineChromeLayers(
+                canvas,
+                layer,
+                layer.StartX,
+                layer.StartY,
+                layer.EndX,
+                layer.EndY,
+                out _,
+                out _);
+        }
+
+        /// <summary>Commits a Live Draw straight line with the same animated chrome as arrows (no arrowhead).</summary>
+        internal void CommitSnapChromeLineToDrawCanvas(Canvas drawCanvas, ArrowLayer layer)
+        {
+            var adx = layer.EndX - layer.StartX;
+            var ady = layer.EndY - layer.StartY;
+            if (Math.Sqrt((adx * adx) + (ady * ady)) < 2.0)
+            {
+                return;
+            }
+
+            if (_compositor is null)
+            {
+                ArrowRendering.DrawArrowLayer(layer, suppressExpensiveEffects: false, drawCanvas);
+                return;
+            }
+
+            var startX = layer.StartX;
+            var startY = layer.StartY;
+            var tipX = layer.EndX;
+            var tipY = layer.EndY;
+            var pad = Math.Max(layer.Thickness * 2.5, _borderFxProfile.OuterGlowStrokeThickness);
+            var minX = Math.Min(startX, tipX) - pad;
+            var minY = Math.Min(startY, tipY) - pad;
+            var maxX = Math.Max(startX, tipX) + pad;
+            var maxY = Math.Max(startY, tipY) + pad;
+            var bw = Math.Max(1.0, maxX - minX);
+            var bh = Math.Max(1.0, maxY - minY);
+
+            var container = new Canvas();
+            Canvas.SetLeft(container, minX);
+            Canvas.SetTop(container, minY);
+            container.Width = bw;
+            container.Height = bh;
+
+            AddLineChromeLayers(
+                container,
+                layer,
+                startX - minX,
+                startY - minY,
+                tipX - minX,
+                tipY - minY,
+                out var chaseLine,
+                out var cornerLine);
+
+            drawCanvas.Children.Add(container);
+
+            StartCommittedContainerPulse(container, bw / 2.0, bh / 2.0);
+
+            _committedLineGroups.Add(new CommittedSnapLineGroup(chaseLine, cornerLine));
         }
 
         private void UpdateTravelingHighlight(double deltaSeconds)
@@ -609,6 +785,18 @@ namespace helvety.screentools.Capture
                 a.ChaseHead.StrokeDashOffset -= dashDelta;
                 a.CornerShaft.StrokeDashOffset += dashDelta * 0.6;
                 a.CornerHead.StrokeDashOffset += dashDelta * 0.6;
+            }
+
+            foreach (var ln in _committedLineGroups)
+            {
+                ln.ChaseLine.StrokeDashOffset -= dashDelta;
+                ln.CornerLine.StrokeDashOffset += dashDelta * 0.6;
+            }
+
+            foreach (var f in _committedFreeDrawGroups)
+            {
+                f.Chase.StrokeDashOffset -= dashDelta;
+                f.Corner.StrokeDashOffset += dashDelta * 0.6;
             }
 
             if (!_isBorderAnimationRunning)
@@ -667,6 +855,7 @@ namespace helvety.screentools.Capture
             _snapBorderCornerGlowBrush.Color = ColorFromHsv(hueBase + _activePaletteHueOffsets[4 % _activePaletteHueOffsets.Length], 0.45, 1.0, cornerGlowAlpha);
         }
 
+        /// <summary>Computes straight-arrow head geometry for snap chrome (arrow path only; Live Draw straight line uses uniform <see cref="Line"/> strokes).</summary>
         private static void GetStraightArrowGeometry(
             ArrowLayer layer,
             out double startX,
@@ -814,6 +1003,37 @@ namespace helvety.screentools.Capture
             canvas.Children.Add(cornerHead);
             canvas.Children.Add(glowShaft);
             canvas.Children.Add(glowHead);
+        }
+
+        /// <summary>
+        /// Straight segment with uniform stroke thickness (no arrow-shaft taper polygons). Layering: glow, main, dashed chase, dashed corner.
+        /// </summary>
+        private void AddLineChromeLayers(
+            Canvas canvas,
+            ArrowLayer layer,
+            double startX,
+            double startY,
+            double tipX,
+            double tipY,
+            out Line chaseLine,
+            out Line cornerLine)
+        {
+            var p = _borderFxProfile;
+            var mainThickness = Math.Max(1, layer.Thickness);
+            var glowThickness = Math.Max(mainThickness + 3, p.OuterGlowStrokeThickness);
+
+            var glowLine = CreateArrowShaftLine(startX, startY, tipX, tipY, _arrowGlowGradientBrush, glowThickness, null);
+            var mainLine = CreateArrowShaftLine(startX, startY, tipX, tipY, _arrowBorderGradientBrush, mainThickness, null);
+
+            var chaseLineThickness = Math.Max(1.1, p.ChaseStrokeThickness * 0.72);
+            chaseLine = CreateArrowShaftLine(startX, startY, tipX, tipY, _arrowChaseGradientBrush, chaseLineThickness, ChaseDashPattern);
+            var cornerLineThickness = Math.Max(1.0, p.CornerGlowStrokeThickness * 0.68);
+            cornerLine = CreateArrowShaftLine(startX, startY, tipX, tipY, _snapBorderCornerGlowBrush, cornerLineThickness, CornerDashPattern);
+
+            canvas.Children.Add(glowLine);
+            canvas.Children.Add(mainLine);
+            canvas.Children.Add(chaseLine);
+            canvas.Children.Add(cornerLine);
         }
 
         private static Polygon CreateArrowShaftTaperPolygon(

@@ -1,5 +1,6 @@
 using Microsoft.UI.Xaml;
 using System;
+using System.Diagnostics;
 using System.Threading.Tasks;
 using helvety.screentools.Capture;
 using helvety.screentools.Services;
@@ -19,11 +20,22 @@ namespace helvety.screentools
         public App()
         {
             InitializeComponent();
+            UnhandledException += (_, e) =>
+            {
+                Debug.WriteLine($"Unhandled UI exception: {e.Exception}");
+            };
         }
 
         protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
         {
-            SettingsService.InitializeSaveFolderOnStartup();
+            try
+            {
+                SettingsService.InitializeSaveFolderOnStartup();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Save folder init failed: {ex}");
+            }
 
             _window = new MainWindow();
             MainAppWindow = _window;
@@ -44,9 +56,16 @@ namespace helvety.screentools
             HotkeyService.HotkeyPressed += HotkeyService_HotkeyPressed;
             HotkeyService.Start();
             _window.Closed += MainWindow_Closed;
-            _trayIconService = new TrayIconService(
-                openMainWindow: RestoreMainWindowFromTray,
-                exitApplication: ExitApplication);
+            try
+            {
+                _trayIconService = new TrayIconService(
+                    openMainWindow: RestoreMainWindowFromTray,
+                    exitApplication: ExitApplication);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Tray icon unavailable: {ex}");
+            }
         }
 
         private void MainWindow_Closed(object sender, WindowEventArgs args)

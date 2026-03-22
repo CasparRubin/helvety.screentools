@@ -33,7 +33,7 @@ namespace helvety.screentools.Views
         private const int VkRwin = 0x5C;
         private const int MaxSequenceLength = 5;
         private const int SequenceStepTimeoutMilliseconds = 700;
-        private const string DefaultCaptureInstructionText = "Click Listen for a step, then press any non-modifier key.";
+        private const string DefaultHotkeySequenceInstructionText = "Click Listen for a step, then press any non-modifier key.";
         private const string CaptureBlockedInstructionText = "Choose a save location first.";
 
         private string _saveFolderPath = string.Empty;
@@ -342,7 +342,7 @@ namespace helvety.screentools.Views
             UseDefaultHotkeyButton.IsEnabled = _hasValidSaveFolder && !_isCaptureMode;
             RemoveHotkeyButton.IsEnabled = !_isCaptureMode && _currentBinding is not null;
             CaptureInstructionText.Text = _hasValidSaveFolder
-                ? DefaultCaptureInstructionText
+                ? DefaultHotkeySequenceInstructionText
                 : CaptureBlockedInstructionText;
 
             if (_hasValidSaveFolder && BindingStatusText.Text.StartsWith("Save location needed", StringComparison.Ordinal))
@@ -836,7 +836,7 @@ namespace helvety.screentools.Views
                     }
                     else
                     {
-                        HandleLiveDrawCaptureKey(virtualKey, stepIndex);
+                        HandleLiveDrawHotkeySequenceKey(virtualKey, stepIndex);
                     }
                 });
                 return;

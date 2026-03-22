@@ -146,7 +146,7 @@
                             Foreground="White"
                             TextWrapping="WrapWholeWords">
                             <Run FontWeight="SemiBold" Text="Right click" />
-                            <Run Text=" saves and keeps frozen mode active." />
+                            <Run Text=" saves the file and stays in capture mode (no clipboard copy)." />
                         </TextBlock>
 
                         <Border

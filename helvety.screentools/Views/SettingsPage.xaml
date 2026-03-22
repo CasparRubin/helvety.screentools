@@ -184,7 +184,7 @@
                     <TextBlock Style="{StaticResource SettingsSectionTitleTextStyle}" Text="Live Draw" />
                     <TextBlock
                         Style="{StaticResource SettingsSectionDescriptionTextStyle}"
-                        Text="Full-screen overlay with a GDI bitmap of the desktop behind your drawing. On Windows 10 version 2004 and later, the background may refresh periodically when this window is excluded from GDI screen capture; if not, the background stays a static snapshot (as on older Windows). No save folder. Default rectangle modifier is Shift: Shift+drag draws rectangles; Ctrl+Shift, Alt, or Shift+Alt (without Ctrl)+drag draws arrows. If the rectangle modifier is Alt, Alt alone selects rectangles—use Shift for arrows. Use Rectangle modifier (below) to change which keys select rectangles vs arrows. Any other drag is freehand."
+                        Text="Full-screen Live Draw overlay: transparent to your desktop (GDI chroma key under transparent WinUI; no desktop snapshot). No save folder. Esc exits. Straight-line strokes (e.g. Ctrl+drag when Shift is the rectangle modifier) use a uniform line, not a tapered arrow shaft. Default Rectangle modifier is Shift: Shift+drag draws rectangles; Alt+drag (without Ctrl) draws arrows; Ctrl+drag draws straight lines (no arrowhead). If Rectangle modifier is Alt: Alt alone (without Ctrl) selects rectangles; Shift+drag draws arrows; Ctrl+drag draws straight lines. If it is Ctrl: Ctrl+drag selects rectangles; Alt or Shift (without Ctrl) draws arrows; straight line via Ctrl is unavailable. If it is Win: Win+drag selects rectangles; Alt or Shift (without Ctrl) draws arrows; Ctrl+drag draws straight lines. Drag without a matching shape-tool modifier is freehand. All shape tools share the same animated styling (gradients, dashing, pulse) as capture border effects."
                         TextWrapping="WrapWholeWords" />
                     <TextBlock
                         x:Name="LiveDrawCurrentBindingText"
@@ -255,11 +255,11 @@
                         <Button Grid.Row="4" Grid.Column="3" Click="LiveDrawClearStep5Button_Click" Content="Clear" />
                     </Grid>
                     <TextBlock
-                        x:Name="LiveDrawCaptureInstructionText"
+                        x:Name="LiveDrawHotkeyInstructionText"
                         Style="{StaticResource SettingsSectionDescriptionTextStyle}"
                         Text="" />
                     <TextBlock
-                        x:Name="LiveDrawCapturePreviewText"
+                        x:Name="LiveDrawHotkeyPreviewText"
                         Style="{StaticResource SettingsSectionDescriptionTextStyle}"
                         Text="" />
                     <TextBlock
@@ -293,7 +293,7 @@
                     <TextBlock
                         Style="{StaticResource SettingsSectionDescriptionTextStyle}"
                         TextWrapping="WrapWholeWords"
-                        Text="Click without dragging saves the snapped window (or the full virtual screen if nothing snaps); drag to draw a rectangle. Left-click saves, copies to clipboard, and exits capture mode; right-click saves and keeps capture mode active."
+                        Text="Click without dragging saves the snapped window (or the full virtual screen if nothing snaps); drag to draw a rectangle. Left-click saves, copies to clipboard, and exits capture mode; right-click saves without copying to clipboard and keeps capture mode active."
                         />
 
                     <Border

@@ -87,7 +87,7 @@ namespace helvety.screentools.Views
         private void LiveDrawModifierCheckBox_Changed(object sender, RoutedEventArgs e)
         {
             _liveDrawEditorModifiers = BuildLiveDrawModifiersFromEditor();
-            UpdateLiveDrawCapturePreview();
+            UpdateLiveDrawHotkeyPreview();
             UpdateLiveDrawFeatureAvailability();
         }
 
@@ -136,7 +136,7 @@ namespace helvety.screentools.Views
             }
 
             UpdateLiveDrawStepTexts();
-            UpdateLiveDrawCapturePreview();
+            UpdateLiveDrawHotkeyPreview();
         }
 
         private void ResetLiveDrawEditor()
@@ -151,7 +151,7 @@ namespace helvety.screentools.Views
             LiveDrawAltModifierCheckBox.IsChecked = false;
             LiveDrawShiftModifierCheckBox.IsChecked = false;
             UpdateLiveDrawStepTexts();
-            UpdateLiveDrawCapturePreview();
+            UpdateLiveDrawHotkeyPreview();
         }
 
         private List<uint> BuildLiveDrawEditorSequence()
@@ -170,17 +170,17 @@ namespace helvety.screentools.Views
             return sequence;
         }
 
-        private void UpdateLiveDrawCapturePreview()
+        private void UpdateLiveDrawHotkeyPreview()
         {
             var sequence = BuildLiveDrawEditorSequence();
             if (sequence.Count == 0)
             {
-                LiveDrawCapturePreviewText.Text = string.Empty;
+                LiveDrawHotkeyPreviewText.Text = string.Empty;
                 return;
             }
 
             var keyNames = sequence.Select(GetKeyDisplayName).ToArray();
-            LiveDrawCapturePreviewText.Text = $"Preview: {BuildBindingDisplay(_liveDrawEditorModifiers, keyNames)}";
+            LiveDrawHotkeyPreviewText.Text = $"Preview: {BuildBindingDisplay(_liveDrawEditorModifiers, keyNames)}";
         }
 
         private void UpdateLiveDrawFeatureAvailability()
@@ -190,7 +190,7 @@ namespace helvety.screentools.Views
             ApplyLiveDrawHotkeyButton.IsEnabled = !_isCaptureMode && hasSeq && !dup;
             UseDefaultLiveDrawHotkeyButton.IsEnabled = !_isCaptureMode;
             RemoveLiveDrawHotkeyButton.IsEnabled = !_isCaptureMode;
-            LiveDrawCaptureInstructionText.Text = DefaultCaptureInstructionText;
+            LiveDrawHotkeyInstructionText.Text = DefaultHotkeySequenceInstructionText;
         }
 
         private bool TryGetDuplicateHotkeyConflict(out string message)
@@ -246,7 +246,7 @@ namespace helvety.screentools.Views
             }
 
             UpdateLiveDrawStepTexts();
-            UpdateLiveDrawCapturePreview();
+            UpdateLiveDrawHotkeyPreview();
             UpdateLiveDrawFeatureAvailability();
         }
 
@@ -319,12 +319,12 @@ namespace helvety.screentools.Views
             return true;
         }
 
-        private void HandleLiveDrawCaptureKey(uint virtualKey, int stepIndex)
+        private void HandleLiveDrawHotkeySequenceKey(uint virtualKey, int stepIndex)
         {
             _liveDrawEditorSequence[stepIndex] = virtualKey;
             StopStepCapture();
             UpdateLiveDrawStepTexts();
-            UpdateLiveDrawCapturePreview();
+            UpdateLiveDrawHotkeyPreview();
             LiveDrawBindingStatusText.Text = $"Step {stepIndex + 1} set to {GetKeyDisplayName(virtualKey)}.";
         }
     }

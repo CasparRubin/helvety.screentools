@@ -26,7 +26,8 @@ namespace helvety.screentools.Editor
     internal enum ArrowFormStyle
     {
         Tapered = 0,
-        Straight = 1
+        Straight = 1,
+        LineOnly = 2
     }
 
     internal sealed class EditorDocument

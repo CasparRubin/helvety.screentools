@@ -75,6 +75,22 @@ namespace helvety.screentools.Editor
                 return;
             }
 
+            if (arrowLayer.FormStyle == ArrowFormStyle.LineOnly)
+            {
+                targetCanvas.Children.Add(new Line
+                {
+                    X1 = startX,
+                    Y1 = startY,
+                    X2 = tipX,
+                    Y2 = tipY,
+                    Stroke = strokeBrush,
+                    StrokeThickness = thickness,
+                    StrokeStartLineCap = PenLineCap.Round,
+                    StrokeEndLineCap = PenLineCap.Round
+                });
+                return;
+            }
+
             var unitX = dx / length;
             var unitY = dy / length;
             var normalX = -unitY;

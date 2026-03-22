@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using Microsoft.UI.Dispatching;
+using Windows.Graphics;
 
 namespace helvety.screentools.Capture
 {
@@ -13,11 +14,6 @@ namespace helvety.screentools.Capture
             _dispatcherQueue = dispatcherQueue;
         }
 
-        /// <summary>
-        /// On Windows 10 build 19041+, uses a placeholder <see cref="FreezeFrame"/> (no pre-window BitBlt);
-        /// <see cref="LiveDrawOverlayWindow.PrepareVisibleSessionAsync"/> applies the first real GDI capture after
-        /// the HWND can use capture exclusion. On older Windows, captures the full screen before the overlay exists.
-        /// </summary>
         internal async Task RunLiveDrawAsync(Action<string> publishStatus)
         {
             if (!await OverlaySessionGate.Gate.WaitAsync(0))
@@ -28,20 +24,10 @@ namespace helvety.screentools.Capture
 
             try
             {
-                FreezeFrame freezeFrame;
+                RectInt32 bounds;
                 try
                 {
-                    if (LiveDrawPlatformSupport.IsLiveDesktopRefreshSupported)
-                    {
-                        var bounds = VirtualScreenBounds.Get();
-                        var stride = bounds.Width * 4;
-                        freezeFrame = new FreezeFrame(bounds, stride, new byte[stride * bounds.Height]);
-                    }
-                    else
-                    {
-                        freezeFrame = await Task.Run(() => new GdiFreezeFrameProvider().CaptureVirtualScreen())
-                            .ConfigureAwait(true);
-                    }
+                    bounds = VirtualScreenBounds.Get();
                 }
                 catch (Exception ex)
                 {
@@ -49,12 +35,29 @@ namespace helvety.screentools.Capture
                     return;
                 }
 
-                var overlay = await EnqueueAsync(() => new LiveDrawOverlayWindow(freezeFrame));
-                await EnqueueAsync(async () =>
+                await EnqueueVoidAsync(async () =>
                 {
-                    await overlay.PrepareVisibleSessionAsync();
-                    await overlay.RunSessionAsync();
-                });
+                    var content = new LiveDrawOverlayContent(bounds);
+                    LiveDrawNativeHost? host = null;
+                    void OnCloseRequested()
+                    {
+                        host?.Close();
+                    }
+
+                    try
+                    {
+                        host = new LiveDrawNativeHost();
+                        content.CloseRequested += OnCloseRequested;
+                        host.ShowAndHost(bounds, content, () => content.RequestExitFromNative());
+                        await content.PrepareVisibleSessionAsync().ConfigureAwait(true);
+                        await content.RunSessionAsync().ConfigureAwait(true);
+                    }
+                    finally
+                    {
+                        content.CloseRequested -= OnCloseRequested;
+                        host?.Dispose();
+                    }
+                }).ConfigureAwait(true);
             }
             finally
             {
@@ -62,32 +65,15 @@ namespace helvety.screentools.Capture
             }
         }
 
-        private Task<T> EnqueueAsync<T>(Func<T> work)
+        private Task EnqueueVoidAsync(Func<Task> work)
         {
-            var completionSource = new TaskCompletionSource<T>();
-            _dispatcherQueue.TryEnqueue(() =>
-            {
-                try
-                {
-                    completionSource.TrySetResult(work());
-                }
-                catch (Exception ex)
-                {
-                    completionSource.TrySetException(ex);
-                }
-            });
-
-            return completionSource.Task;
-        }
-
-        private Task<T> EnqueueAsync<T>(Func<Task<T>> work)
-        {
-            var completionSource = new TaskCompletionSource<T>();
+            var completionSource = new TaskCompletionSource();
             _dispatcherQueue.TryEnqueue(async () =>
             {
                 try
                 {
-                    completionSource.TrySetResult(await work());
+                    await work().ConfigureAwait(true);
+                    completionSource.TrySetResult();
                 }
                 catch (Exception ex)
                 {

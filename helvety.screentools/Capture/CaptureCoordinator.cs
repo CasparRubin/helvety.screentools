@@ -82,12 +82,7 @@ namespace helvety.screentools.Capture
 
                     if (action.Mode == SelectionCommitMode.Cancel || !action.Bounds.HasValue)
                     {
-                        await EnqueueAsync(() =>
-                        {
-                            overlay.UpdateInstructionStatus("Capture canceled.");
-                            overlay.ShowSessionToast("Capture canceled", "No capture was saved.");
-                            return true;
-                        });
+                        // Overlay is already closed by SelectionOverlayWindow.CompleteSelection; do not touch it here.
                         publishStatus("Capture canceled.");
                         return new CaptureSessionResult(savedScreenshotCount, WasCanceled: true);
                     }

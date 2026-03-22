@@ -2301,7 +2301,10 @@ namespace helvety.screentools.Views
                         ArrowBorderToggle.IsOn = arrowLayer.HasBorder;
                         SetComboBoxSelectedColor(ArrowBorderColorComboBox, arrowLayer.BorderColorHex);
                         ArrowBorderThicknessNumberBox.Value = arrowLayer.BorderThickness;
-                        SelectComboItemByTag(ArrowFormComboBox, arrowLayer.FormStyle.ToString());
+                        var arrowFormTag = arrowLayer.FormStyle == ArrowFormStyle.LineOnly
+                            ? nameof(ArrowFormStyle.Straight)
+                            : arrowLayer.FormStyle.ToString();
+                        SelectComboItemByTag(ArrowFormComboBox, arrowFormTag);
                         ArrowShadowToggle.IsOn = arrowLayer.FormStyle == ArrowFormStyle.Tapered
                             ? false
                             : arrowLayer.HasShadow;
