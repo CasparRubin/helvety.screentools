@@ -61,6 +61,10 @@ namespace helvety.screentools.Capture
 
                 var showInstructions = captureSettings.ShowScreenshotOverlayInstructions;
                 var overlay = await EnqueueAsync(() => new SelectionOverlayWindow(freezeFrame, _windowSnapHitTester, showInstructions));
+                ActiveOverlayCancelService.Register(
+                    _dispatcherQueue,
+                    HotkeySessionKind.Screenshot,
+                    () => overlay.RequestCancelFromExternal());
 
                 while (true)
                 {
@@ -143,6 +147,7 @@ namespace helvety.screentools.Capture
             }
             finally
             {
+                ActiveOverlayCancelService.Unregister();
                 OverlaySessionGate.Gate.Release();
             }
         }

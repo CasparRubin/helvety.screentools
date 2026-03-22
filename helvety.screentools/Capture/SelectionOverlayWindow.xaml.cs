@@ -531,6 +531,12 @@ namespace helvety.screentools.Capture
                 CompleteSelection(new SelectionAction(SelectionCommitMode.Cancel, null)));
         }
 
+        /// <summary>Cancel from low-level hotkey hook; must run on the UI thread (caller enqueues).</summary>
+        internal void RequestCancelFromExternal()
+        {
+            CompleteSelection(new SelectionAction(SelectionCommitMode.Cancel, null));
+        }
+
         private static nint EscapeSubclassProc(
             nint hWnd,
             uint msg,

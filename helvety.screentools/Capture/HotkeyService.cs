@@ -20,6 +20,7 @@ namespace helvety.screentools.Capture
         private const int VkMenu = 0x12;
         private const int VkLwin = 0x5B;
         private const int VkRwin = 0x5C;
+        private const int VkEscape = 0x1B;
         private const int SequenceStepTimeoutMilliseconds = 700;
 
         private nint _keyboardHookHandle;
@@ -93,6 +94,11 @@ namespace helvety.screentools.Capture
 
                 if (message is WmKeydown or WmSyskeydown)
                 {
+                    if (keyData.VkCode == VkEscape && ActiveOverlayCancelService.TryCancelFromEscape())
+                    {
+                        return (nint)1;
+                    }
+
                     if (_captureBinding is not null)
                     {
                         HandleRuntimeKeyDown(keyData.VkCode, _captureBinding.Value, ref _captureState);
@@ -121,15 +127,27 @@ namespace helvety.screentools.Capture
                     if (captureCompleted && liveCompleted && BindingsEqual(_captureBinding, _liveDrawBinding))
                     {
                         ResetLiveDrawSequenceState();
+                        if (ActiveOverlayCancelService.TryCancelFromRepeatHotkey(HotkeySessionKind.Screenshot) ||
+                            ActiveOverlayCancelService.TryCancelFromRepeatHotkey(HotkeySessionKind.LiveDraw))
+                        {
+                            return CallNextHookEx(_keyboardHookHandle, nCode, wParam, lParam);
+                        }
+
                         HotkeyPressed?.Invoke(HotkeySessionKind.Screenshot, _captureBinding!.Value.Display);
                     }
                     else if (captureCompleted)
                     {
-                        HotkeyPressed?.Invoke(HotkeySessionKind.Screenshot, _captureBinding!.Value.Display);
+                        if (!ActiveOverlayCancelService.TryCancelFromRepeatHotkey(HotkeySessionKind.Screenshot))
+                        {
+                            HotkeyPressed?.Invoke(HotkeySessionKind.Screenshot, _captureBinding!.Value.Display);
+                        }
                     }
                     else if (liveCompleted)
                     {
-                        HotkeyPressed?.Invoke(HotkeySessionKind.LiveDraw, _liveDrawBinding!.Value.Display);
+                        if (!ActiveOverlayCancelService.TryCancelFromRepeatHotkey(HotkeySessionKind.LiveDraw))
+                        {
+                            HotkeyPressed?.Invoke(HotkeySessionKind.LiveDraw, _liveDrawBinding!.Value.Display);
+                        }
                     }
                 }
             }

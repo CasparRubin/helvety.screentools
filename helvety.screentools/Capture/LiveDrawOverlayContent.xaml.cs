@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using helvety.screentools.Editor;
+using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
@@ -15,11 +16,15 @@ namespace helvety.screentools.Capture
     /// <summary>
     /// Live Draw vector overlay: full virtual-screen <see cref="UserControl"/> with a transparent root so the host
     /// can key out the GDI chroma fill from <see cref="LiveDrawNativeHost"/>; ink renders above the desktop.
+    /// Left mouse: freehand and shape tools (rectangle / arrow / straight line per Settings). Right mouse: sparkle
+    /// (no modifiers), Shift+drag circle, Alt+drag ellipse (no Ctrl); right-button shortcuts are fixed and ignore
+    /// the rectangle modifier setting.
     /// </summary>
     internal sealed partial class LiveDrawOverlayContent : UserControl
     {
         private const double LiveDrawArrowSizeScale = 2.0;
         private const double LiveDrawFreeDrawMinCommitPathLengthDip = 2.0;
+        private const double LiveDrawShapeMinCommitSizeDip = 2.0;
 
         private readonly RectInt32 _virtualBounds;
         private readonly SnapBorderChromeController _snapBorderChrome;
@@ -35,6 +40,7 @@ namespace helvety.screentools.Capture
         private Polyline? _currentFreeDrawChasePolyline;
         private Polyline? _currentFreeDrawCornerPolyline;
         private bool _isPointerDown;
+        private ActivePointerKind _activePointerKind;
         private bool _snapBorderCompositionInitialized;
         private Microsoft.UI.Dispatching.DispatcherQueueTimer? _driftTimer;
         private LiveDrawNativeHost? _host;
@@ -60,7 +66,11 @@ namespace helvety.screentools.Capture
                 SnapBorderChaseRectangle,
                 SnapBorderCornerGlowRectangle,
                 SnapBorderGlowRectangle,
-                BorderCanvas);
+                BorderCanvas,
+                SnapEllipseBorder,
+                SnapEllipseChase,
+                SnapEllipseCornerGlow,
+                SnapEllipseGlow);
 
             RootGrid.Loaded += RootGrid_Loaded;
             Unloaded += LiveDrawOverlayContent_Unloaded;
@@ -222,12 +232,19 @@ namespace helvety.screentools.Capture
         private void RootGrid_PointerPressed(object sender, PointerRoutedEventArgs e)
         {
             var point = e.GetCurrentPoint(RootGrid);
+            if (point.Properties.IsRightButtonPressed)
+            {
+                HandleRightPointerPressed(e);
+                return;
+            }
+
             if (!point.Properties.IsLeftButtonPressed)
             {
                 return;
             }
 
             _isPointerDown = true;
+            _activePointerKind = ActivePointerKind.Left;
             _pointerDownLocal = point.Position;
             _ = RootGrid.CapturePointer(e.Pointer);
             _host?.EnsureFocusedForKeyboard();
@@ -333,6 +350,24 @@ namespace helvety.screentools.Capture
                         break;
                     }
 
+                case LiveDrawTool.Circle:
+                case LiveDrawTool.Ellipse:
+                    {
+                        ComputeLiveDrawEllipseBounds(
+                            _pointerDownLocal,
+                            local,
+                            _activeTool == LiveDrawTool.Circle,
+                            out var el,
+                            out var et,
+                            out var ew,
+                            out var eh);
+                        _snapBorderChrome.UpdateChaseSpeedForPixelSize(ew, eh);
+                        _snapBorderChrome.UpdateSnapBorderEllipseLayers(el, et, ew, eh);
+                        _snapBorderChrome.SetSnapBorderEllipseLayersVisible(true);
+                        _snapBorderChrome.StartSnapBorderEllipseAnimations();
+                        break;
+                    }
+
                 case LiveDrawTool.Arrow:
                 case LiveDrawTool.StraightLine:
                     PreviewCanvas.Children.Clear();
@@ -355,6 +390,33 @@ namespace helvety.screentools.Capture
             }
         }
 
+        private void HandleRightPointerPressed(PointerRoutedEventArgs e)
+        {
+            var pos = e.GetCurrentPoint(RootGrid).Position;
+            if (IsShiftDown(e))
+            {
+                _activeTool = LiveDrawTool.Circle;
+            }
+            else if (IsAltMenuWithoutCtrl(e))
+            {
+                _activeTool = LiveDrawTool.Ellipse;
+            }
+            else
+            {
+                _snapBorderChrome.PlayClickSparkle(DrawCanvas, pos);
+                return;
+            }
+
+            _isPointerDown = true;
+            _activePointerKind = ActivePointerKind.Right;
+            _pointerDownLocal = pos;
+            _ = RootGrid.CapturePointer(e.Pointer);
+            _host?.EnsureFocusedForKeyboard();
+
+            _snapBorderChrome.PickNextBorderPalette();
+            _snapBorderChrome.ResetDashSpeedToDefault();
+        }
+
         private void RootGrid_PointerReleased(object sender, PointerRoutedEventArgs e)
         {
             if (!_isPointerDown)
@@ -362,34 +424,36 @@ namespace helvety.screentools.Capture
                 return;
             }
 
+            var point = e.GetCurrentPoint(RootGrid);
+            var kind = point.Properties.PointerUpdateKind;
+            if (_activePointerKind == ActivePointerKind.Left &&
+                kind != PointerUpdateKind.LeftButtonReleased)
+            {
+                return;
+            }
+
+            if (_activePointerKind == ActivePointerKind.Right &&
+                kind != PointerUpdateKind.RightButtonReleased)
+            {
+                return;
+            }
+
             _isPointerDown = false;
+            _activePointerKind = ActivePointerKind.None;
             RootGrid.ReleasePointerCaptures();
 
-            var point = e.GetCurrentPoint(RootGrid);
             var local = point.Position;
 
             switch (_activeTool)
             {
                 case LiveDrawTool.Rectangle:
-                    {
-                        var left = Math.Min(_pointerDownLocal.X, local.X);
-                        var top = Math.Min(_pointerDownLocal.Y, local.Y);
-                        var w = Math.Abs(local.X - _pointerDownLocal.X);
-                        var h = Math.Abs(local.Y - _pointerDownLocal.Y);
-                        if (w > 2 && h > 2)
-                        {
-                            _snapBorderChrome.CommitSnapBorderToDrawCanvas(DrawCanvas, left, top, w, h);
-                            _snapBorderChrome.StopSnapBorderAnimations();
-                            _snapBorderChrome.SetSnapBorderLayersVisible(false);
-                        }
-                        else
-                        {
-                            _snapBorderChrome.StopSnapBorderAnimations();
-                            _snapBorderChrome.SetSnapBorderLayersVisible(false);
-                        }
+                    FinishRectangleDrag(local);
+                    break;
 
-                        break;
-                    }
+                case LiveDrawTool.Circle:
+                case LiveDrawTool.Ellipse:
+                    FinishEllipseOrCircleDrag(local);
+                    break;
 
                 case LiveDrawTool.Arrow:
                 case LiveDrawTool.StraightLine:
@@ -417,6 +481,48 @@ namespace helvety.screentools.Capture
                     break;
             }
 
+            ClearPendingStrokeFields();
+        }
+
+        private void FinishRectangleDrag(Point local)
+        {
+            var left = Math.Min(_pointerDownLocal.X, local.X);
+            var top = Math.Min(_pointerDownLocal.Y, local.Y);
+            var w = Math.Abs(local.X - _pointerDownLocal.X);
+            var h = Math.Abs(local.Y - _pointerDownLocal.Y);
+            if (IsCommitSizedShape(w, h))
+            {
+                _snapBorderChrome.CommitSnapBorderToDrawCanvas(DrawCanvas, left, top, w, h);
+            }
+
+            _snapBorderChrome.StopSnapBorderAnimations();
+            _snapBorderChrome.SetSnapBorderLayersVisible(false);
+        }
+
+        private void FinishEllipseOrCircleDrag(Point local)
+        {
+            ComputeLiveDrawEllipseBounds(
+                _pointerDownLocal,
+                local,
+                _activeTool == LiveDrawTool.Circle,
+                out var el,
+                out var et,
+                out var ew,
+                out var eh);
+            if (IsCommitSizedShape(ew, eh))
+            {
+                _snapBorderChrome.CommitSnapBorderEllipseToDrawCanvas(DrawCanvas, el, et, ew, eh);
+            }
+
+            _snapBorderChrome.StopSnapBorderEllipseAnimations();
+            _snapBorderChrome.SetSnapBorderEllipseLayersVisible(false);
+        }
+
+        private static bool IsCommitSizedShape(double w, double h) =>
+            w > LiveDrawShapeMinCommitSizeDip && h > LiveDrawShapeMinCommitSizeDip;
+
+        private void ClearPendingStrokeFields()
+        {
             _currentPolyline = null;
             _currentMainPoints = null;
             _currentChasePoints = null;
@@ -424,6 +530,48 @@ namespace helvety.screentools.Capture
             _currentFreeDrawContainer = null;
             _currentFreeDrawChasePolyline = null;
             _currentFreeDrawCornerPolyline = null;
+        }
+
+        private void RootGrid_PointerCanceled(object sender, PointerRoutedEventArgs e)
+        {
+            if (!_isPointerDown)
+            {
+                return;
+            }
+
+            if (_activePointerKind == ActivePointerKind.Left)
+            {
+                switch (_activeTool)
+                {
+                    case LiveDrawTool.Rectangle:
+                        _snapBorderChrome.StopSnapBorderAnimations();
+                        _snapBorderChrome.SetSnapBorderLayersVisible(false);
+                        break;
+                    case LiveDrawTool.Arrow:
+                    case LiveDrawTool.StraightLine:
+                        PreviewCanvas.Children.Clear();
+                        break;
+                    case LiveDrawTool.FreeDraw:
+                        if (_currentFreeDrawContainer is not null)
+                        {
+                            DrawCanvas.Children.Remove(_currentFreeDrawContainer);
+                        }
+
+                        break;
+                }
+            }
+            else if (_activePointerKind == ActivePointerKind.Right &&
+                     (_activeTool == LiveDrawTool.Circle || _activeTool == LiveDrawTool.Ellipse))
+            {
+                _snapBorderChrome.StopSnapBorderEllipseAnimations();
+                _snapBorderChrome.SetSnapBorderEllipseLayersVisible(false);
+            }
+
+            _isPointerDown = false;
+            _activePointerKind = ActivePointerKind.None;
+            RootGrid.ReleasePointerCaptures();
+
+            ClearPendingStrokeFields();
         }
 
         private void CommitFreeDrawStrokeOnPointerUp()
@@ -498,6 +646,36 @@ namespace helvety.screentools.Capture
             var dx = b.X - a.X;
             var dy = b.Y - a.Y;
             return Math.Sqrt((dx * dx) + (dy * dy));
+        }
+
+        private static void ComputeLiveDrawEllipseBounds(
+            Point start,
+            Point current,
+            bool circle,
+            out double left,
+            out double top,
+            out double w,
+            out double h)
+        {
+            var rawW = Math.Abs(current.X - start.X);
+            var rawH = Math.Abs(current.Y - start.Y);
+            if (circle)
+            {
+                var side = Math.Min(rawW, rawH);
+                var minX = Math.Min(start.X, current.X);
+                var minY = Math.Min(start.Y, current.Y);
+                left = minX + (rawW - side) / 2.0;
+                top = minY + (rawH - side) / 2.0;
+                w = side;
+                h = side;
+            }
+            else
+            {
+                left = Math.Min(start.X, current.X);
+                top = Math.Min(start.Y, current.Y);
+                w = rawW;
+                h = rawH;
+            }
         }
 
         private static ArrowLayer BuildLiveDrawVectorLayer(
@@ -647,12 +825,21 @@ namespace helvety.screentools.Capture
             };
         }
 
+        private enum ActivePointerKind
+        {
+            None,
+            Left,
+            Right
+        }
+
         private enum LiveDrawTool
         {
             FreeDraw,
             Rectangle,
             Arrow,
-            StraightLine
+            StraightLine,
+            Circle,
+            Ellipse
         }
     }
 }

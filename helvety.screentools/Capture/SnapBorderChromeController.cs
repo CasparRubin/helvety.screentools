@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Numerics;
 using helvety.screentools.Editor;
 using Microsoft.UI.Composition;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Hosting;
@@ -58,6 +59,15 @@ namespace helvety.screentools.Capture
         private Visual? _snapBorderChaseVisual;
         private Visual? _snapBorderCornerGlowVisual;
         private Visual? _snapBorderGlowVisual;
+        private readonly Ellipse? _snapEllipseBorder;
+        private readonly Ellipse? _snapEllipseChase;
+        private readonly Ellipse? _snapEllipseCornerGlow;
+        private readonly Ellipse? _snapEllipseGlow;
+        private Visual? _snapEllipseBorderVisual;
+        private Visual? _snapEllipseChaseVisual;
+        private Visual? _snapEllipseCornerGlowVisual;
+        private Visual? _snapEllipseGlowVisual;
+        private bool _isEllipseBorderAnimationRunning;
         private ScalarKeyFrameAnimation? _borderOpacityAnimation;
         private Vector3KeyFrameAnimation? _borderScaleAnimation;
         private ScalarKeyFrameAnimation? _borderGlowOpacityAnimation;
@@ -66,6 +76,7 @@ namespace helvety.screentools.Capture
         private Vector3KeyFrameAnimation? _borderChaseScaleAnimation;
         private bool _isBorderAnimationRunning;
         private readonly List<CommittedSnapBorderGroup> _committedGroups = new();
+        private readonly List<CommittedSnapEllipseGroup> _committedEllipseGroups = new();
         private readonly List<CommittedSnapArrowGroup> _committedArrowGroups = new();
         private readonly List<CommittedSnapLineGroup> _committedLineGroups = new();
         private readonly List<CommittedFreeDrawGroup> _committedFreeDrawGroups = new();
@@ -83,13 +94,23 @@ namespace helvety.screentools.Capture
         private int _activePaletteIndex;
         private double[] _activePaletteHueOffsets = BorderPaletteHueOffsets[0];
 
+        private bool HasEllipseLayerTemplates =>
+            _snapEllipseBorder is not null &&
+            _snapEllipseChase is not null &&
+            _snapEllipseCornerGlow is not null &&
+            _snapEllipseGlow is not null;
+
         internal SnapBorderChromeController(
             Grid rootGrid,
             Rectangle snapBorderRectangle,
             Rectangle snapBorderChaseRectangle,
             Rectangle snapBorderCornerGlowRectangle,
             Rectangle snapBorderGlowRectangle,
-            Canvas overlayCanvas)
+            Canvas overlayCanvas,
+            Ellipse? snapEllipseBorder = null,
+            Ellipse? snapEllipseChase = null,
+            Ellipse? snapEllipseCornerGlow = null,
+            Ellipse? snapEllipseGlow = null)
         {
             _rootGrid = rootGrid;
             _snapBorderRectangle = snapBorderRectangle;
@@ -97,6 +118,10 @@ namespace helvety.screentools.Capture
             _snapBorderCornerGlowRectangle = snapBorderCornerGlowRectangle;
             _snapBorderGlowRectangle = snapBorderGlowRectangle;
             _overlayCanvas = overlayCanvas;
+            _snapEllipseBorder = snapEllipseBorder;
+            _snapEllipseChase = snapEllipseChase;
+            _snapEllipseCornerGlow = snapEllipseCornerGlow;
+            _snapEllipseGlow = snapEllipseGlow;
 
             var configuredIntensity = SettingsService.Load().ScreenshotBorderIntensity;
             _borderFxProfile = CreateBorderFxProfile(configuredIntensity);
@@ -117,6 +142,24 @@ namespace helvety.screentools.Capture
             _snapBorderCornerGlowRectangle.StrokeThickness = _borderFxProfile.CornerGlowStrokeThickness;
             _snapBorderGlowRectangle.StrokeThickness = _borderFxProfile.OuterGlowStrokeThickness;
 
+            if (HasEllipseLayerTemplates)
+            {
+                var ellipseBorder = _snapEllipseBorder!;
+                var ellipseChase = _snapEllipseChase!;
+                var ellipseCornerGlow = _snapEllipseCornerGlow!;
+                var ellipseGlow = _snapEllipseGlow!;
+                ellipseBorder.Stroke = _snapBorderGradientBrush;
+                ellipseChase.Stroke = _snapBorderChaseGradientBrush;
+                ellipseCornerGlow.Stroke = _snapBorderCornerGlowBrush;
+                ellipseGlow.Stroke = _snapBorderGlowGradientBrush;
+                ellipseBorder.StrokeThickness = _borderFxProfile.BorderStrokeThickness;
+                ellipseChase.StrokeThickness = _borderFxProfile.ChaseStrokeThickness;
+                ellipseCornerGlow.StrokeThickness = _borderFxProfile.CornerGlowStrokeThickness;
+                ellipseGlow.StrokeThickness = _borderFxProfile.OuterGlowStrokeThickness;
+                ellipseChase.StrokeDashArray = CloneDashArray(ChaseDashPattern);
+                ellipseCornerGlow.StrokeDashArray = CloneDashArray(CornerDashPattern);
+            }
+
             PickNextBorderPalette();
         }
 
@@ -135,6 +178,14 @@ namespace helvety.screentools.Capture
                 _snapBorderChaseVisual = ElementCompositionPreview.GetElementVisual(_snapBorderChaseRectangle);
                 _snapBorderCornerGlowVisual = ElementCompositionPreview.GetElementVisual(_snapBorderCornerGlowRectangle);
                 _snapBorderGlowVisual = ElementCompositionPreview.GetElementVisual(_snapBorderGlowRectangle);
+
+                if (HasEllipseLayerTemplates)
+                {
+                    _snapEllipseBorderVisual = ElementCompositionPreview.GetElementVisual(_snapEllipseBorder);
+                    _snapEllipseChaseVisual = ElementCompositionPreview.GetElementVisual(_snapEllipseChase);
+                    _snapEllipseCornerGlowVisual = ElementCompositionPreview.GetElementVisual(_snapEllipseCornerGlow);
+                    _snapEllipseGlowVisual = ElementCompositionPreview.GetElementVisual(_snapEllipseGlow);
+                }
 
                 _borderOpacityAnimation = CreateBorderOpacityAnimation();
                 _borderScaleAnimation = CreateBorderScaleAnimation();
@@ -158,6 +209,10 @@ namespace helvety.screentools.Capture
                 _borderGlowScaleAnimation = null;
                 _borderChaseOpacityAnimation = null;
                 _borderChaseScaleAnimation = null;
+                _snapEllipseBorderVisual = null;
+                _snapEllipseChaseVisual = null;
+                _snapEllipseCornerGlowVisual = null;
+                _snapEllipseGlowVisual = null;
             }
         }
 
@@ -210,9 +265,194 @@ namespace helvety.screentools.Capture
             _committedGroups.Add(new CommittedSnapBorderGroup(border, chase, corner, glow));
         }
 
+        /// <summary>Live Draw ellipse/circle: same animated chrome as snap-border rectangles, drawn with stroked ellipses.</summary>
+        internal void CommitSnapBorderEllipseToDrawCanvas(Canvas drawCanvas, double left, double top, double width, double height)
+        {
+            if (_compositor is null || width < 1 || height < 1 || !HasEllipseLayerTemplates)
+            {
+                return;
+            }
+
+            var border = CreateCommittedEllipse(_snapEllipseBorder!);
+            var chase = CreateCommittedEllipse(_snapEllipseChase!);
+            var corner = CreateCommittedEllipse(_snapEllipseCornerGlow!);
+            var glow = CreateCommittedEllipse(_snapEllipseGlow!);
+
+            ApplyEllipseGeometry(border, left, top, width, height);
+            ApplyEllipseGeometry(chase, left, top, width, height);
+            ApplyEllipseGeometry(corner, left, top, width, height);
+            ApplyEllipseGeometry(
+                glow,
+                left - _borderFxProfile.GlowPadding,
+                top - _borderFxProfile.GlowPadding,
+                width + (_borderFxProfile.GlowPadding * 2),
+                height + (_borderFxProfile.GlowPadding * 2));
+
+            chase.StrokeDashOffset = _snapEllipseChase!.StrokeDashOffset;
+            corner.StrokeDashOffset = _snapEllipseCornerGlow!.StrokeDashOffset;
+
+            drawCanvas.Children.Add(border);
+            drawCanvas.Children.Add(chase);
+            drawCanvas.Children.Add(corner);
+            drawCanvas.Children.Add(glow);
+
+            var vBorder = ElementCompositionPreview.GetElementVisual(border);
+            var vChase = ElementCompositionPreview.GetElementVisual(chase);
+            var vCorner = ElementCompositionPreview.GetElementVisual(corner);
+            var vGlow = ElementCompositionPreview.GetElementVisual(glow);
+
+            var cx = (float)(width / 2.0);
+            var cy = (float)(height / 2.0);
+            var center = new Vector3(cx, cy, 0f);
+            vBorder.CenterPoint = center;
+            vChase.CenterPoint = center;
+            vCorner.CenterPoint = center;
+            vGlow.CenterPoint = center;
+
+            StartCommittedVisualAnimations(vBorder, vChase, vCorner, vGlow);
+
+            _committedEllipseGroups.Add(new CommittedSnapEllipseGroup(border, chase, corner, glow));
+        }
+
+        /// <summary>One-shot “click here” burst using the same gradient/dash palette as snap chrome (Live Draw right-click).</summary>
+        internal void PlayClickSparkle(Canvas drawCanvas, Point center)
+        {
+            PickNextBorderPalette();
+            ResetDashSpeedToDefault();
+
+            const int sparkleAnimationMs = 400;
+            const double sparkleSize = 56.0;
+            var left = center.X - (sparkleSize / 2.0);
+            var top = center.Y - (sparkleSize / 2.0);
+
+            var container = new Canvas
+            {
+                Width = sparkleSize,
+                Height = sparkleSize
+            };
+            Canvas.SetLeft(container, left);
+            Canvas.SetTop(container, top);
+
+            var p = _borderFxProfile;
+            AddSparkleRing(container, sparkleSize, 34, p.BorderStrokeThickness, _snapBorderGradientBrush, null);
+            AddSparkleRing(
+                container,
+                sparkleSize,
+                40,
+                Math.Max(1.1, p.ChaseStrokeThickness * 0.72),
+                _snapBorderChaseGradientBrush,
+                ChaseDashPattern);
+            AddSparkleRing(
+                container,
+                sparkleSize,
+                46,
+                Math.Max(1.0, p.CornerGlowStrokeThickness * 0.68),
+                _snapBorderCornerGlowBrush,
+                CornerDashPattern);
+            AddSparkleRing(container, sparkleSize, 56, p.OuterGlowStrokeThickness, _snapBorderGlowGradientBrush, null);
+
+            drawCanvas.Children.Add(container);
+
+            if (_compositor is null)
+            {
+                ScheduleRemoveSparkleContainer(drawCanvas, container, sparkleAnimationMs + 20);
+                return;
+            }
+
+            var v = ElementCompositionPreview.GetElementVisual(container);
+            if (v is null)
+            {
+                ScheduleRemoveSparkleContainer(drawCanvas, container, sparkleAnimationMs + 20);
+                return;
+            }
+
+            v.CenterPoint = new Vector3((float)(sparkleSize / 2.0), (float)(sparkleSize / 2.0), 0f);
+            v.Opacity = 1f;
+            v.Scale = new Vector3(0.52f, 0.52f, 1f);
+
+            var opacityAnim = _compositor.CreateScalarKeyFrameAnimation();
+            opacityAnim.InsertKeyFrame(0.0f, 1.0f);
+            opacityAnim.InsertKeyFrame(1.0f, 0.0f);
+            opacityAnim.Duration = TimeSpan.FromMilliseconds(sparkleAnimationMs);
+            opacityAnim.IterationBehavior = AnimationIterationBehavior.Count;
+            opacityAnim.IterationCount = 1;
+
+            var scaleAnim = _compositor.CreateVector3KeyFrameAnimation();
+            scaleAnim.InsertKeyFrame(0.0f, new Vector3(0.52f, 0.52f, 1f));
+            scaleAnim.InsertKeyFrame(1.0f, new Vector3(1.32f, 1.32f, 1f));
+            scaleAnim.Duration = TimeSpan.FromMilliseconds(sparkleAnimationMs);
+            scaleAnim.IterationBehavior = AnimationIterationBehavior.Count;
+            scaleAnim.IterationCount = 1;
+
+            var batch = _compositor.CreateScopedBatch(CompositionBatchTypes.Animation);
+            v.StartAnimation("Opacity", opacityAnim);
+            v.StartAnimation("Scale", scaleAnim);
+            batch.End();
+            batch.Completed += (_, _) => drawCanvas.Children.Remove(container);
+        }
+
+        private static void ScheduleRemoveSparkleContainer(Canvas drawCanvas, UIElement container, int delayMs)
+        {
+            var dq = DispatcherQueue.GetForCurrentThread();
+            if (dq is null)
+            {
+                drawCanvas.Children.Remove(container);
+                return;
+            }
+
+            var timer = dq.CreateTimer();
+            timer.Interval = TimeSpan.FromMilliseconds(delayMs);
+            timer.Tick += (_, _) =>
+            {
+                timer.Stop();
+                drawCanvas.Children.Remove(container);
+            };
+            timer.Start();
+        }
+
+        private void AddSparkleRing(
+            Canvas container,
+            double containerSize,
+            double ringDiameter,
+            double strokeThickness,
+            Brush stroke,
+            DoubleCollection? dash)
+        {
+            var e = new Ellipse
+            {
+                Width = Math.Max(1, ringDiameter),
+                Height = Math.Max(1, ringDiameter),
+                Stroke = stroke,
+                StrokeThickness = strokeThickness,
+                Fill = null
+            };
+
+            if (dash is not null)
+            {
+                e.StrokeDashArray = CloneDashArray(dash);
+            }
+
+            var offset = (containerSize - ringDiameter) / 2.0;
+            Canvas.SetLeft(e, offset);
+            Canvas.SetTop(e, offset);
+            container.Children.Add(e);
+        }
+
         private static Rectangle CreateCommittedRectangle(Rectangle template)
         {
             return new Rectangle
+            {
+                Stroke = template.Stroke,
+                StrokeThickness = template.StrokeThickness,
+                StrokeDashArray = CloneDashArray(template.StrokeDashArray),
+                Fill = null,
+                Visibility = Visibility.Visible
+            };
+        }
+
+        private static Ellipse CreateCommittedEllipse(Ellipse template)
+        {
+            return new Ellipse
             {
                 Stroke = template.Stroke,
                 StrokeThickness = template.StrokeThickness,
@@ -336,6 +576,22 @@ namespace helvety.screentools.Capture
             internal Rectangle Glow { get; }
         }
 
+        private sealed class CommittedSnapEllipseGroup
+        {
+            internal CommittedSnapEllipseGroup(Ellipse border, Ellipse chase, Ellipse cornerGlow, Ellipse glow)
+            {
+                Border = border;
+                Chase = chase;
+                CornerGlow = cornerGlow;
+                Glow = glow;
+            }
+
+            internal Ellipse Border { get; }
+            internal Ellipse Chase { get; }
+            internal Ellipse CornerGlow { get; }
+            internal Ellipse Glow { get; }
+        }
+
         private sealed class CommittedSnapArrowGroup
         {
             internal CommittedSnapArrowGroup(Line chaseShaft, Polygon chaseHead, Line cornerShaft, Polygon cornerHead)
@@ -386,6 +642,24 @@ namespace helvety.screentools.Capture
                 height + (_borderFxProfile.GlowPadding * 2));
         }
 
+        internal void UpdateSnapBorderEllipseLayers(double localX, double localY, double width, double height)
+        {
+            if (!HasEllipseLayerTemplates)
+            {
+                return;
+            }
+
+            ApplyEllipseGeometry(_snapEllipseBorder!, localX, localY, width, height);
+            ApplyEllipseGeometry(_snapEllipseChase!, localX, localY, width, height);
+            ApplyEllipseGeometry(_snapEllipseCornerGlow!, localX, localY, width, height);
+            ApplyEllipseGeometry(
+                _snapEllipseGlow!,
+                localX - _borderFxProfile.GlowPadding,
+                localY - _borderFxProfile.GlowPadding,
+                width + (_borderFxProfile.GlowPadding * 2),
+                height + (_borderFxProfile.GlowPadding * 2));
+        }
+
         internal void SetSnapBorderLayersVisible(bool isVisible)
         {
             var visibility = isVisible ? Visibility.Visible : Visibility.Collapsed;
@@ -393,6 +667,20 @@ namespace helvety.screentools.Capture
             _snapBorderChaseRectangle.Visibility = visibility;
             _snapBorderCornerGlowRectangle.Visibility = visibility;
             _snapBorderGlowRectangle.Visibility = visibility;
+        }
+
+        internal void SetSnapBorderEllipseLayersVisible(bool isVisible)
+        {
+            if (!HasEllipseLayerTemplates)
+            {
+                return;
+            }
+
+            var visibility = isVisible ? Visibility.Visible : Visibility.Collapsed;
+            _snapEllipseBorder!.Visibility = visibility;
+            _snapEllipseChase!.Visibility = visibility;
+            _snapEllipseCornerGlow!.Visibility = visibility;
+            _snapEllipseGlow!.Visibility = visibility;
         }
 
         internal void StartSnapBorderAnimations()
@@ -484,6 +772,118 @@ namespace helvety.screentools.Capture
             _snapBorderChaseRectangle.Stroke = _snapBorderChaseGradientBrush;
             _snapBorderGlowRectangle.Stroke = _snapBorderGlowGradientBrush;
             _snapBorderCornerGlowRectangle.Stroke = _snapBorderCornerGlowBrush;
+        }
+
+        internal void StartSnapBorderEllipseAnimations()
+        {
+            if (_snapEllipseBorderVisual is null ||
+                _borderOpacityAnimation is null ||
+                _borderScaleAnimation is null ||
+                _snapEllipseBorder is null)
+            {
+                return;
+            }
+
+            var center = new Vector3(
+                (float)(_snapEllipseBorder.Width / 2.0),
+                (float)(_snapEllipseBorder.Height / 2.0),
+                0f);
+            _snapEllipseBorderVisual.CenterPoint = center;
+            if (_snapEllipseGlowVisual is not null)
+            {
+                _snapEllipseGlowVisual.CenterPoint = center;
+            }
+
+            if (_snapEllipseChaseVisual is not null)
+            {
+                _snapEllipseChaseVisual.CenterPoint = center;
+            }
+
+            if (_snapEllipseCornerGlowVisual is not null)
+            {
+                _snapEllipseCornerGlowVisual.CenterPoint = center;
+            }
+
+            if (_isEllipseBorderAnimationRunning)
+            {
+                return;
+            }
+
+            _snapEllipseBorderVisual.StartAnimation("Opacity", _borderOpacityAnimation);
+            _snapEllipseBorderVisual.StartAnimation("Scale", _borderScaleAnimation);
+            if (_snapEllipseGlowVisual is not null && _borderGlowOpacityAnimation is not null && _borderGlowScaleAnimation is not null)
+            {
+                _snapEllipseGlowVisual.StartAnimation("Opacity", _borderGlowOpacityAnimation);
+                _snapEllipseGlowVisual.StartAnimation("Scale", _borderGlowScaleAnimation);
+            }
+
+            if (_snapEllipseChaseVisual is not null && _borderChaseOpacityAnimation is not null && _borderChaseScaleAnimation is not null)
+            {
+                _snapEllipseChaseVisual.StartAnimation("Opacity", _borderChaseOpacityAnimation);
+                _snapEllipseChaseVisual.StartAnimation("Scale", _borderChaseScaleAnimation);
+            }
+
+            if (_snapEllipseCornerGlowVisual is not null && _borderChaseOpacityAnimation is not null)
+            {
+                _snapEllipseCornerGlowVisual.StartAnimation("Opacity", _borderChaseOpacityAnimation);
+            }
+
+            _isEllipseBorderAnimationRunning = true;
+        }
+
+        internal void StopSnapBorderEllipseAnimations()
+        {
+            if (_snapEllipseBorderVisual is null)
+            {
+                return;
+            }
+
+            _snapEllipseBorderVisual.StopAnimation("Opacity");
+            _snapEllipseBorderVisual.StopAnimation("Scale");
+            _snapEllipseBorderVisual.Opacity = 1f;
+            _snapEllipseBorderVisual.Scale = Vector3.One;
+            if (_snapEllipseGlowVisual is not null)
+            {
+                _snapEllipseGlowVisual.StopAnimation("Opacity");
+                _snapEllipseGlowVisual.StopAnimation("Scale");
+                _snapEllipseGlowVisual.Opacity = 1f;
+                _snapEllipseGlowVisual.Scale = Vector3.One;
+            }
+
+            if (_snapEllipseChaseVisual is not null)
+            {
+                _snapEllipseChaseVisual.StopAnimation("Opacity");
+                _snapEllipseChaseVisual.StopAnimation("Scale");
+                _snapEllipseChaseVisual.Opacity = 1f;
+                _snapEllipseChaseVisual.Scale = Vector3.One;
+            }
+
+            if (_snapEllipseCornerGlowVisual is not null)
+            {
+                _snapEllipseCornerGlowVisual.StopAnimation("Opacity");
+                _snapEllipseCornerGlowVisual.Opacity = 1f;
+            }
+
+            _isEllipseBorderAnimationRunning = false;
+            if (_snapEllipseBorder is not null)
+            {
+                _snapEllipseBorder.Stroke = _snapBorderGradientBrush;
+            }
+
+            if (_snapEllipseChase is not null)
+            {
+                _snapEllipseChase.Stroke = _snapBorderChaseGradientBrush;
+            }
+
+            if (_snapEllipseGlow is not null)
+            {
+                _snapEllipseGlow.Stroke = _snapBorderGlowGradientBrush;
+            }
+
+            if (_snapEllipseCornerGlow is not null)
+            {
+                _snapEllipseCornerGlow.Stroke = _snapBorderCornerGlowBrush;
+            }
         }
 
         internal void PickNextBorderPalette()
@@ -605,7 +1005,7 @@ namespace helvety.screentools.Capture
             polyline.StrokeEndLineCap = PenLineCap.Round;
         }
 
-        /// <summary>Live Draw arrow preview: same gradient / dash palette as snap rectangles.</summary>
+        /// <summary>Live Draw arrow preview: same gradient / dash palette as snap-border chrome.</summary>
         internal void DrawSnapChromeArrow(Canvas canvas, ArrowLayer layer)
         {
             var dx = layer.EndX - layer.StartX;
@@ -639,7 +1039,7 @@ namespace helvety.screentools.Capture
                 out _);
         }
 
-        /// <summary>Commits a Live Draw arrow with the same animated chrome as rectangles (gradient drift, dashing, pulse).</summary>
+        /// <summary>Commits a Live Draw arrow with the same animated chrome as other snap-border shapes (gradient drift, dashing, pulse).</summary>
         internal void CommitSnapChromeArrowToDrawCanvas(Canvas drawCanvas, ArrowLayer layer)
         {
             var adx = layer.EndX - layer.StartX;
@@ -779,6 +1179,12 @@ namespace helvety.screentools.Capture
                 g.CornerGlow.StrokeDashOffset = g.CornerGlow.StrokeDashOffset + (dashDelta * 0.6);
             }
 
+            foreach (var eg in _committedEllipseGroups)
+            {
+                eg.Chase.StrokeDashOffset = eg.Chase.StrokeDashOffset - dashDelta;
+                eg.CornerGlow.StrokeDashOffset = eg.CornerGlow.StrokeDashOffset + (dashDelta * 0.6);
+            }
+
             foreach (var a in _committedArrowGroups)
             {
                 a.ChaseShaft.StrokeDashOffset -= dashDelta;
@@ -799,13 +1205,19 @@ namespace helvety.screentools.Capture
                 f.Corner.StrokeDashOffset += dashDelta * 0.6;
             }
 
-            if (!_isBorderAnimationRunning)
+            if (_isBorderAnimationRunning)
             {
-                return;
+                _snapBorderChaseRectangle.StrokeDashOffset = _snapBorderChaseRectangle.StrokeDashOffset - dashDelta;
+                _snapBorderCornerGlowRectangle.StrokeDashOffset = _snapBorderCornerGlowRectangle.StrokeDashOffset + (dashDelta * 0.6);
             }
 
-            _snapBorderChaseRectangle.StrokeDashOffset = _snapBorderChaseRectangle.StrokeDashOffset - dashDelta;
-            _snapBorderCornerGlowRectangle.StrokeDashOffset = _snapBorderCornerGlowRectangle.StrokeDashOffset + (dashDelta * 0.6);
+            if (_isEllipseBorderAnimationRunning &&
+                _snapEllipseChase is not null &&
+                _snapEllipseCornerGlow is not null)
+            {
+                _snapEllipseChase.StrokeDashOffset = _snapEllipseChase.StrokeDashOffset - dashDelta;
+                _snapEllipseCornerGlow.StrokeDashOffset = _snapEllipseCornerGlow.StrokeDashOffset + (dashDelta * 0.6);
+            }
         }
 
         private void UpdateAnimatedBorderBrushes()
@@ -1131,6 +1543,14 @@ namespace helvety.screentools.Capture
             Canvas.SetTop(rectangle, y);
             rectangle.Width = Math.Max(1, width);
             rectangle.Height = Math.Max(1, height);
+        }
+
+        private static void ApplyEllipseGeometry(FrameworkElement ellipse, double x, double y, double width, double height)
+        {
+            Canvas.SetLeft(ellipse, x);
+            Canvas.SetTop(ellipse, y);
+            ellipse.Width = Math.Max(1, width);
+            ellipse.Height = Math.Max(1, height);
         }
 
         private static BorderFxProfile CreateBorderFxProfile(ScreenshotBorderIntensity intensity)

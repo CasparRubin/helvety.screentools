@@ -50,7 +50,18 @@ namespace helvety.screentools.Capture
                         content.CloseRequested += OnCloseRequested;
                         host.ShowAndHost(bounds, content, () => content.RequestExitFromNative());
                         await content.PrepareVisibleSessionAsync().ConfigureAwait(true);
-                        await content.RunSessionAsync().ConfigureAwait(true);
+                        ActiveOverlayCancelService.Register(
+                            _dispatcherQueue,
+                            HotkeySessionKind.LiveDraw,
+                            () => content.RequestExitFromNative());
+                        try
+                        {
+                            await content.RunSessionAsync().ConfigureAwait(true);
+                        }
+                        finally
+                        {
+                            ActiveOverlayCancelService.Unregister();
+                        }
                     }
                     finally
                     {
