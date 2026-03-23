@@ -1,4 +1,5 @@
 using helvety.screentools.Views;
+using helvety.screentools.Views.Settings;
 using H.NotifyIcon;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
@@ -298,7 +299,7 @@ namespace helvety.screentools
             var targetPage = tag switch
             {
                 "home" => typeof(ScreenToolsPage),
-                "settings" => typeof(SettingsPage),
+                "settings" => typeof(SettingsShellPage),
                 "about" => typeof(AboutPage),
                 _ => typeof(ScreenToolsPage)
             };

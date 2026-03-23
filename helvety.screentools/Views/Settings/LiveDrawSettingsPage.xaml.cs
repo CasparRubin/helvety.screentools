@@ -3,23 +3,102 @@ using static helvety.screentools.HotkeyVisualMapper;
 using helvety.screentools.Views.Controls;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Navigation;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace helvety.screentools.Views
+namespace helvety.screentools.Views.Settings
 {
-    public sealed partial class SettingsPage
+    public sealed partial class LiveDrawSettingsPage : Page
     {
-        private HotkeyCaptureKind _hotkeyCaptureKind = HotkeyCaptureKind.Screenshot;
+        private const string DefaultHotkeySequenceInstructionText = "Click Listen for a step, then press any non-modifier key.";
+        private static readonly int MaxSequenceLength = SettingsService.MaxHotkeySequenceLength;
+
         private readonly uint?[] _liveDrawEditorSequence = new uint?[MaxSequenceLength];
         private uint _liveDrawEditorModifiers;
         private bool _isUpdatingLiveDrawRectangleModifier;
+        private bool _isUpdatingLiveDrawToggle;
+        private bool _isCaptureMode;
+        private HotkeyListenController? _listenController;
 
-        private enum HotkeyCaptureKind
+        public LiveDrawSettingsPage()
         {
-            Screenshot,
-            LiveDraw
+            InitializeComponent();
+            NavigationCacheMode = NavigationCacheMode.Required;
+
+            _listenController = new HotkeyListenController(DispatcherQueue);
+            _listenController.NonModifierKeyCaptured += ListenController_NonModifierKeyCaptured;
+            _listenController.EscapePressed += ListenController_EscapePressed;
+
+            InitializeLiveDrawModuleToggle();
+            InitializeLiveDrawHotkeyUi();
+            SettingsService.SettingsChanged += SettingsService_SettingsChanged;
+            Unloaded += LiveDrawSettingsPage_Unloaded;
+        }
+
+        private void InitializeLiveDrawModuleToggle()
+        {
+            var enabled = SettingsService.Load().LiveDrawEnabled;
+            _isUpdatingLiveDrawToggle = true;
+            try
+            {
+                LiveDrawModuleToggle.IsOn = enabled;
+                LiveDrawDetailsPanel.IsEnabled = enabled;
+            }
+            finally
+            {
+                _isUpdatingLiveDrawToggle = false;
+            }
+        }
+
+        private void LiveDrawModuleToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (_isUpdatingLiveDrawToggle)
+            {
+                return;
+            }
+
+            SettingsService.SaveLiveDrawEnabled(LiveDrawModuleToggle.IsOn);
+            LiveDrawDetailsPanel.IsEnabled = LiveDrawModuleToggle.IsOn;
+        }
+
+        private void SettingsService_SettingsChanged()
+        {
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                InitializeLiveDrawModuleToggle();
+                InitializeLiveDrawHotkeyUi();
+            });
+        }
+
+        private void ListenController_NonModifierKeyCaptured(int stepIndex, uint virtualKey)
+        {
+            _liveDrawEditorSequence[stepIndex] = virtualKey;
+            StopStepCapture();
+            UpdateLiveDrawStepTexts();
+            UpdateLiveDrawHotkeyPreview();
+            LiveDrawBindingStatusText.Text = $"Step {stepIndex + 1} set to {HotkeyVisualMapper.GetKeyDisplayName(virtualKey)}.";
+        }
+
+        private void ListenController_EscapePressed()
+        {
+            StopStepCapture();
+            LiveDrawBindingStatusText.Text = "Listen canceled.";
+        }
+
+        private void LiveDrawSettingsPage_Unloaded(object sender, RoutedEventArgs e)
+        {
+            SettingsService.SettingsChanged -= SettingsService_SettingsChanged;
+            if (_listenController is not null)
+            {
+                _listenController.NonModifierKeyCaptured -= ListenController_NonModifierKeyCaptured;
+                _listenController.EscapePressed -= ListenController_EscapePressed;
+                _listenController.Dispose();
+                _listenController = null;
+            }
+
+            Unloaded -= LiveDrawSettingsPage_Unloaded;
         }
 
         private void InitializeLiveDrawHotkeyUi()
@@ -231,11 +310,35 @@ namespace helvety.screentools.Views
             return false;
         }
 
-        private void LiveDrawListenStep1Button_Click(object sender, RoutedEventArgs e) => StartStepCapture(0, HotkeyCaptureKind.LiveDraw);
-        private void LiveDrawListenStep2Button_Click(object sender, RoutedEventArgs e) => StartStepCapture(1, HotkeyCaptureKind.LiveDraw);
-        private void LiveDrawListenStep3Button_Click(object sender, RoutedEventArgs e) => StartStepCapture(2, HotkeyCaptureKind.LiveDraw);
-        private void LiveDrawListenStep4Button_Click(object sender, RoutedEventArgs e) => StartStepCapture(3, HotkeyCaptureKind.LiveDraw);
-        private void LiveDrawListenStep5Button_Click(object sender, RoutedEventArgs e) => StartStepCapture(4, HotkeyCaptureKind.LiveDraw);
+        private void LiveDrawListenStep1Button_Click(object sender, RoutedEventArgs e) => StartStepCapture(0);
+        private void LiveDrawListenStep2Button_Click(object sender, RoutedEventArgs e) => StartStepCapture(1);
+        private void LiveDrawListenStep3Button_Click(object sender, RoutedEventArgs e) => StartStepCapture(2);
+        private void LiveDrawListenStep4Button_Click(object sender, RoutedEventArgs e) => StartStepCapture(3);
+        private void LiveDrawListenStep5Button_Click(object sender, RoutedEventArgs e) => StartStepCapture(4);
+
+        private void StartStepCapture(int stepIndex)
+        {
+            if (_listenController is null || !_listenController.IsInstalled)
+            {
+                LiveDrawBindingStatusText.Text = "Keyboard hook failed to install.";
+                return;
+            }
+
+            _isCaptureMode = true;
+            _listenController.StartListen(stepIndex, HotkeyListenKind.LiveDraw);
+            ListeningInfoBar.Title = $"Live Draw — listening for step {stepIndex + 1}";
+            ListeningInfoBar.Message = "Press a non-modifier key. Esc cancels.";
+            ListeningInfoBar.IsOpen = true;
+            UpdateLiveDrawFeatureAvailability();
+        }
+
+        private void StopStepCapture()
+        {
+            _isCaptureMode = false;
+            _listenController?.StopListen();
+            ListeningInfoBar.IsOpen = false;
+            UpdateLiveDrawFeatureAvailability();
+        }
 
         private void LiveDrawClearStep1Button_Click(object sender, RoutedEventArgs e) => ClearLiveDrawStep(0);
         private void LiveDrawClearStep2Button_Click(object sender, RoutedEventArgs e) => ClearLiveDrawStep(1);
@@ -269,14 +372,14 @@ namespace helvety.screentools.Views
                 LiveDrawBindingStatusText.Text = statusMessage;
                 if (!string.IsNullOrWhiteSpace(statusMessage))
                 {
-                    AddMessage(statusMessage);
+                    InAppToastService.Show(statusMessage);
                 }
 
                 return;
             }
 
             LiveDrawBindingStatusText.Text = statusMessage;
-            AddMessage(statusMessage);
+            InAppToastService.Show(statusMessage);
         }
 
         private void UseDefaultLiveDrawHotkeyButton_Click(object sender, RoutedEventArgs e)
@@ -288,14 +391,14 @@ namespace helvety.screentools.Views
                 LiveDrawBindingStatusText.Text = statusMessage;
                 if (!string.IsNullOrWhiteSpace(statusMessage))
                 {
-                    AddMessage(statusMessage);
+                    InAppToastService.Show(statusMessage);
                 }
 
                 return;
             }
 
             LiveDrawBindingStatusText.Text = statusMessage;
-            AddMessage(statusMessage);
+            InAppToastService.Show(statusMessage);
         }
 
         private void RemoveLiveDrawHotkeyButton_Click(object sender, RoutedEventArgs e)
@@ -335,13 +438,6 @@ namespace helvety.screentools.Views
             return true;
         }
 
-        private void HandleLiveDrawHotkeySequenceKey(uint virtualKey, int stepIndex)
-        {
-            _liveDrawEditorSequence[stepIndex] = virtualKey;
-            StopStepCapture();
-            UpdateLiveDrawStepTexts();
-            UpdateLiveDrawHotkeyPreview();
-            LiveDrawBindingStatusText.Text = $"Step {stepIndex + 1} set to {HotkeyVisualMapper.GetKeyDisplayName(virtualKey)}.";
-        }
+        private readonly record struct HotkeyBinding(uint Modifiers, uint[] Sequence, string Display);
     }
 }

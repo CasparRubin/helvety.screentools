@@ -10,6 +10,6 @@
     <StackPanel
         x:Name="RootPanel"
         Orientation="Horizontal"
-        Spacing="4"
+        Spacing="{StaticResource AppSpacingTight}"
         VerticalAlignment="Center" />
 </UserControl>

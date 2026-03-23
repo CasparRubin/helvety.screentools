@@ -8,39 +8,38 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
-    <Grid Padding="24">
+    <Grid Padding="{StaticResource AppPaddingPage}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <StackPanel Spacing="6">
-            <TextBlock FontSize="26" FontWeight="SemiBold" Text="Screen Tools" />
+        <StackPanel Spacing="{StaticResource AppSpacingStack}">
+            <TextBlock Style="{StaticResource AppPageTitleTextStyle}" Text="Screen Tools" />
             <TextBlock
                 x:Name="SaveFolderPathText"
-                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                TextWrapping="WrapWholeWords" />
+                Style="{StaticResource AppPageSubtitleTextStyle}" />
             <StackPanel
                 x:Name="HotkeysHintPanel"
                 Orientation="Horizontal"
-                Spacing="8"
+                Spacing="{StaticResource AppSpacingStack}"
                 VerticalAlignment="Center"
                 Visibility="Collapsed">
                 <TextBlock
                     VerticalAlignment="Center"
-                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Style="{StaticResource AppPageSubtitleTextStyle}"
                     Text="Capture" />
                 <controls:HotkeyChordStrip x:Name="CaptureHotkeyHintStrip" />
                 <TextBlock
                     x:Name="LiveDrawHintSeparator"
                     VerticalAlignment="Center"
-                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Style="{StaticResource AppPageSubtitleTextStyle}"
                     Text="·"
                     Visibility="Collapsed" />
                 <TextBlock
                     x:Name="LiveDrawHintLabel"
                     VerticalAlignment="Center"
-                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Style="{StaticResource AppPageSubtitleTextStyle}"
                     Text="Live Draw"
                     Visibility="Collapsed" />
                 <controls:HotkeyChordStrip x:Name="LiveDrawHotkeyHintStrip" />
@@ -50,11 +49,11 @@
         <Border
             Grid.Row="1"
             Margin="0,16,0,0"
-            Padding="20"
+            Padding="{StaticResource AppPaddingCardLarge}"
             Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
             BorderThickness="1"
-            CornerRadius="12">
+            CornerRadius="{StaticResource AppCornerRadiusCard}">
             <Grid>
                 <Border
                     x:Name="EmptyFolderCallout"
@@ -63,35 +62,26 @@
                     Background="{ThemeResource SubtleFillColorTertiaryBrush}"
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                     BorderThickness="1"
-                    CornerRadius="12"
+                    CornerRadius="{StaticResource AppCornerRadiusCard}"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
                     Visibility="Collapsed">
-                    <StackPanel Spacing="10">
-                        <TextBlock
-                            FontSize="32"
-                            FontWeight="SemiBold"
-                            HorizontalAlignment="Center"
-                            Text="No captures yet" />
+                    <StackPanel Spacing="{StaticResource AppSpacingContent}">
+                        <TextBlock Style="{StaticResource AppEmptyStateTitleTextStyle}" Text="No captures yet" />
                         <TextBlock
                             x:Name="EmptyStateMessageText"
-                            FontSize="18"
-                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                            HorizontalAlignment="Center"
-                            TextAlignment="Center"
-                            TextWrapping="WrapWholeWords"
+                            Style="{StaticResource AppEmptyStateBodyTextStyle}"
                             Text="Set a save folder and capture hotkey to get started. Live Draw is configured in Settings and works without a save folder." />
                     </StackPanel>
                 </Border>
 
                 <ScrollViewer x:Name="GalleryScrollViewer" Visibility="Collapsed">
-                    <StackPanel Spacing="22">
-                        <StackPanel Spacing="10">
-                            <StackPanel Spacing="4">
-                                <TextBlock FontSize="20" FontWeight="SemiBold" Text="Images" />
+                    <StackPanel Spacing="{StaticResource AppSpacingSection}">
+                        <StackPanel Spacing="{StaticResource AppSpacingContent}">
+                            <StackPanel Spacing="{StaticResource AppSpacingTight}">
+                                <TextBlock Style="{StaticResource AppContentSectionTitleTextStyle}" Text="Images" />
                                 <TextBlock
-                                    FontSize="14"
-                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource AppContentCaptionTextStyle}"
                                     Text="Left-click opens the editor. Right-click copies the image to the clipboard."
                                     TextWrapping="WrapWholeWords" />
                             </StackPanel>
@@ -110,7 +100,7 @@
                                             Background="{ThemeResource SubtleFillColorSecondaryBrush}"
                                             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                                             BorderThickness="1"
-                                            CornerRadius="10">
+                                            CornerRadius="{StaticResource AppCornerRadiusCard}">
                                             <Grid>
                                                 <Grid.RowDefinitions>
                                                     <RowDefinition Height="*" />
@@ -119,7 +109,7 @@
 
                                                 <Border
                                                     Background="{ThemeResource SubtleFillColorTertiaryBrush}"
-                                                    CornerRadius="8">
+                                                    CornerRadius="{StaticResource AppCornerRadiusControl}">
                                                     <Grid>
                                                         <TextBlock
                                                             HorizontalAlignment="Center"
@@ -135,12 +125,13 @@
                                                 <StackPanel
                                                     Grid.Row="1"
                                                     Margin="0,8,0,0"
-                                                    Spacing="2">
+                                                    Spacing="{StaticResource AppSpacingTight}">
                                                     <TextBlock
+                                                        Foreground="{ThemeResource TextFillColorPrimaryBrush}"
                                                         Text="{Binding ImageDateLine}"
                                                         TextTrimming="CharacterEllipsis" />
                                                     <TextBlock
-                                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                        Style="{StaticResource AppContentCaptionTextStyle}"
                                                         Text="{Binding ImageSizeLine}"
                                                         TextTrimming="CharacterEllipsis" />
                                                 </StackPanel>
@@ -151,8 +142,8 @@
                             </GridView>
                         </StackPanel>
 
-                        <StackPanel Spacing="10">
-                            <TextBlock FontSize="20" FontWeight="SemiBold" Text="Other Files" />
+                        <StackPanel Spacing="{StaticResource AppSpacingContent}">
+                            <TextBlock Style="{StaticResource AppContentSectionTitleTextStyle}" Text="Other Files" />
                             <ListView
                                 x:Name="OtherFilesListView"
                                 SelectionMode="None">
@@ -163,17 +154,19 @@
                                             Background="{ThemeResource SubtleFillColorSecondaryBrush}"
                                             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                                             BorderThickness="1"
-                                            CornerRadius="8">
-                                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                            CornerRadius="{StaticResource AppCornerRadiusControl}">
+                                            <StackPanel Orientation="Horizontal" Spacing="{StaticResource AppSpacingContent}">
                                                 <TextBlock
                                                     FontSize="18"
+                                                    Foreground="{ThemeResource TextFillColorPrimaryBrush}"
                                                     Text="{Binding FileGlyph}" />
                                                 <StackPanel>
                                                     <TextBlock
                                                         FontWeight="SemiBold"
+                                                        Foreground="{ThemeResource TextFillColorPrimaryBrush}"
                                                         Text="{Binding Name}" />
                                                     <TextBlock
-                                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                        Style="{StaticResource AppContentCaptionTextStyle}"
                                                         Text="{Binding FileInfoText}" />
                                                 </StackPanel>
                                             </StackPanel>

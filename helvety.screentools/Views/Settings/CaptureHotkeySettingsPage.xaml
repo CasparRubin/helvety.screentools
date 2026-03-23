@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="helvety.screentools.Views.Settings.CaptureHotkeySettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:helvety.screentools.Views.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:tk="using:CommunityToolkit.WinUI.Controls"
+    mc:Ignorable="d">
+
+    <ScrollViewer>
+        <StackPanel Padding="{StaticResource AppPaddingPageBottomHeavy}" Spacing="{StaticResource AppSpacingSection}">
+            <StackPanel Spacing="{StaticResource AppSpacingStack}">
+                <TextBlock Style="{StaticResource SettingsPageTitleTextStyle}" Text="Screen capture" />
+                <TextBlock
+                    Style="{StaticResource SettingsSectionDescriptionTextStyle}"
+                    Text="Frozen-screen capture and your global shortcut. Turn off to keep the shortcut saved but inactive."
+                    TextWrapping="WrapWholeWords" />
+            </StackPanel>
+
+            <tk:SettingsCard
+                Description="When off, the capture shortcut is not active. Your saved keys remain stored."
+                Header="Screen capture">
+                <tk:SettingsCard.HeaderIcon>
+                    <FontIcon Glyph="&#xE722;" />
+                </tk:SettingsCard.HeaderIcon>
+                <ToggleSwitch
+                    x:Name="CaptureModuleToggle"
+                    Style="{StaticResource SettingsInlineToggleSwitchStyle}"
+                    OffContent="Off"
+                    OnContent="On"
+                    Toggled="CaptureModuleToggle_Toggled" />
+            </tk:SettingsCard>
+
+            <ContentControl x:Name="CaptureDetailsPanel" Style="{StaticResource AppSettingsDetailHostStyle}">
+                <StackPanel Spacing="{StaticResource AppSpacingSection}">
+                <TextBlock
+                    Style="{StaticResource SettingsSubsectionTitleTextStyle}"
+                    Text="Shortcut" />
+
+                <tk:SettingsCard
+                    Description="The shortcut that is currently active when capture is enabled."
+                    Header="Current shortcut">
+                    <tk:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xEDA7;" />
+                    </tk:SettingsCard.HeaderIcon>
+                    <controls:HotkeyChordStrip x:Name="CaptureCurrentChordStrip" />
+                </tk:SettingsCard>
+
+                <tk:SettingsCard Description="Hold these while pressing the sequence keys." Header="Modifiers">
+                    <tk:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xEDA7;" />
+                    </tk:SettingsCard.HeaderIcon>
+                    <StackPanel Orientation="Horizontal" Spacing="{StaticResource AppSpacingContent}">
+                        <CheckBox
+                            x:Name="CtrlModifierCheckBox"
+                            Checked="ModifierCheckBox_Changed"
+                            Content="Ctrl"
+                            Unchecked="ModifierCheckBox_Changed" />
+                        <CheckBox
+                            x:Name="AltModifierCheckBox"
+                            Checked="ModifierCheckBox_Changed"
+                            Content="Alt"
+                            Unchecked="ModifierCheckBox_Changed" />
+                        <CheckBox
+                            x:Name="ShiftModifierCheckBox"
+                            Checked="ModifierCheckBox_Changed"
+                            Content="Shift"
+                            Unchecked="ModifierCheckBox_Changed" />
+                    </StackPanel>
+                </tk:SettingsCard>
+
+                <tk:SettingsExpander Description="Set one to five keys in order. Use Listen to record a key per step." Header="Activation sequence">
+                    <tk:SettingsExpander.HeaderIcon>
+                        <FontIcon Glyph="&#xEDA7;" />
+                    </tk:SettingsExpander.HeaderIcon>
+                    <tk:SettingsExpander.Items>
+                        <tk:SettingsCard Header="Steps">
+                            <Grid ColumnSpacing="{StaticResource AppSpacingContent}" RowSpacing="{StaticResource AppSpacingStack}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="Step 1" />
+                                <controls:HotkeyChordStrip x:Name="Step1KeyChordStrip" Grid.Row="0" Grid.Column="1" VerticalAlignment="Center" />
+                                <Button
+                                    Grid.Row="0"
+                                    Grid.Column="2"
+                                    Click="ListenStep1Button_Click"
+                                    Content="Listen"
+                                    Style="{StaticResource SettingsInlineButtonStyle}" />
+                                <Button
+                                    Grid.Row="0"
+                                    Grid.Column="3"
+                                    Click="ClearStep1Button_Click"
+                                    Content="Clear"
+                                    Style="{StaticResource SettingsInlineButtonStyle}" />
+
+                                <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Text="Step 2" />
+                                <controls:HotkeyChordStrip x:Name="Step2KeyChordStrip" Grid.Row="1" Grid.Column="1" VerticalAlignment="Center" />
+                                <Button
+                                    Grid.Row="1"
+                                    Grid.Column="2"
+                                    Click="ListenStep2Button_Click"
+                                    Content="Listen"
+                                    Style="{StaticResource SettingsInlineButtonStyle}" />
+                                <Button
+                                    Grid.Row="1"
+                                    Grid.Column="3"
+                                    Click="ClearStep2Button_Click"
+                                    Content="Clear"
+                                    Style="{StaticResource SettingsInlineButtonStyle}" />
+
+                                <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Text="Step 3" />
+                                <controls:HotkeyChordStrip x:Name="Step3KeyChordStrip" Grid.Row="2" Grid.Column="1" VerticalAlignment="Center" />
+                                <Button
+                                    Grid.Row="2"
+                                    Grid.Column="2"
+                                    Click="ListenStep3Button_Click"
+                                    Content="Listen"
+                                    Style="{StaticResource SettingsInlineButtonStyle}" />
+                                <Button
+                                    Grid.Row="2"
+                                    Grid.Column="3"
+                                    Click="ClearStep3Button_Click"
+                                    Content="Clear"
+                                    Style="{StaticResource SettingsInlineButtonStyle}" />
+
+                                <TextBlock Grid.Row="3" Grid.Column="0" VerticalAlignment="Center" Text="Step 4" />
+                                <controls:HotkeyChordStrip x:Name="Step4KeyChordStrip" Grid.Row="3" Grid.Column="1" VerticalAlignment="Center" />
+                                <Button
+                                    Grid.Row="3"
+                                    Grid.Column="2"
+                                    Click="ListenStep4Button_Click"
+                                    Content="Listen"
+                                    Style="{StaticResource SettingsInlineButtonStyle}" />
+                                <Button
+                                    Grid.Row="3"
+                                    Grid.Column="3"
+                                    Click="ClearStep4Button_Click"
+                                    Content="Clear"
+                                    Style="{StaticResource SettingsInlineButtonStyle}" />
+
+                                <TextBlock Grid.Row="4" Grid.Column="0" VerticalAlignment="Center" Text="Step 5" />
+                                <controls:HotkeyChordStrip x:Name="Step5KeyChordStrip" Grid.Row="4" Grid.Column="1" VerticalAlignment="Center" />
+                                <Button
+                                    Grid.Row="4"
+                                    Grid.Column="2"
+                                    Click="ListenStep5Button_Click"
+                                    Content="Listen"
+                                    Style="{StaticResource SettingsInlineButtonStyle}" />
+                                <Button
+                                    Grid.Row="4"
+                                    Grid.Column="3"
+                                    Click="ClearStep5Button_Click"
+                                    Content="Clear"
+                                    Style="{StaticResource SettingsInlineButtonStyle}" />
+                            </Grid>
+                        </tk:SettingsCard>
+                    </tk:SettingsExpander.Items>
+                </tk:SettingsExpander>
+
+                <InfoBar
+                    x:Name="ListeningInfoBar"
+                    IsClosable="False"
+                    IsOpen="False"
+                    Message="Press a non-modifier key. Esc cancels."
+                    Severity="Informational"
+                    Title="Listening for key" />
+                <TextBlock
+                    x:Name="CaptureInstructionText"
+                    Style="{StaticResource SettingsSectionDescriptionTextStyle}"
+                    Text="" />
+                <StackPanel x:Name="CapturePreviewPanel" Spacing="{StaticResource AppSpacingTight}" Visibility="Collapsed">
+                    <TextBlock Style="{StaticResource SettingsSectionDescriptionTextStyle}" Text="Preview" />
+                    <controls:HotkeyChordStrip x:Name="CapturePreviewChordStrip" />
+                </StackPanel>
+                <TextBlock
+                    x:Name="BindingStatusText"
+                    Style="{StaticResource SettingsSectionDescriptionTextStyle}"
+                    Text="" />
+                <StackPanel Orientation="Horizontal" Spacing="{StaticResource AppSpacingStack}">
+                    <Button
+                        x:Name="ApplyHotkeyButton"
+                        Click="ApplyHotkeyButton_Click"
+                        Content="Apply capture hotkey"
+                        Style="{StaticResource SettingsInlineButtonStyle}" />
+                    <Button
+                        x:Name="UseDefaultHotkeyButton"
+                        Click="UseDefaultHotkeyButton_Click"
+                        Content="Use default"
+                        Style="{StaticResource SettingsInlineButtonStyle}" />
+                    <Button
+                        x:Name="RemoveHotkeyButton"
+                        Click="RemoveHotkeyButton_Click"
+                        Content="Remove capture hotkey"
+                        Style="{StaticResource SettingsInlineButtonStyle}" />
+                </StackPanel>
+                </StackPanel>
+            </ContentControl>
+        </StackPanel>
+    </ScrollViewer>
+</Page>

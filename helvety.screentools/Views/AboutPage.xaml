@@ -8,21 +8,21 @@
     mc:Ignorable="d">
 
     <ScrollViewer>
-        <StackPanel Padding="24" Spacing="16">
-            <TextBlock FontSize="28" FontWeight="SemiBold" Text="About" />
+        <StackPanel Padding="{StaticResource AppPaddingPage}" Spacing="{StaticResource AppSpacingSection}">
+            <TextBlock Style="{StaticResource AppPageTitleTextStyle}" Text="About" />
 
             <Border Style="{StaticResource SettingsCardBorderStyle}">
-                <StackPanel Spacing="12">
+                <StackPanel Spacing="{StaticResource AppSpacingContent}">
                     <TextBlock Style="{StaticResource SettingsSectionTitleTextStyle}" Text="Helvety Screen Tools" />
                     <TextBlock
                         Style="{StaticResource SettingsSectionDescriptionTextStyle}"
                         Text="WinUI 3 desktop app for Windows: frozen-screen capture with snap-to-window selection, full-screen Live Draw overlay, a gallery of saved captures, and a built-in layer image editor."
                         TextWrapping="WrapWholeWords" />
-                    <StackPanel Spacing="4">
+                    <StackPanel Spacing="{StaticResource AppSpacingTight}">
                         <TextBlock Style="{StaticResource SettingsSectionDescriptionTextStyle}" Text="Build" />
                         <TextBlock
                             Style="{StaticResource SettingsSectionDescriptionTextStyle}"
-                            Text="Compile-time stamp (local machine clock when the project was built). Rebuild to refresh."
+                            Text="Compile-time stamp yyMMdd_HHmmss (local machine clock when the project was built). Rebuild to refresh."
                             TextWrapping="WrapWholeWords" />
                         <TextBlock
                             x:Name="BuildStampText"
@@ -35,9 +35,9 @@
             </Border>
 
             <Border Style="{StaticResource SettingsCardBorderStyle}">
-                <StackPanel Spacing="12">
+                <StackPanel Spacing="{StaticResource AppSpacingContent}">
                     <TextBlock Style="{StaticResource SettingsSectionTitleTextStyle}" Text="Links" />
-                    <StackPanel Spacing="4">
+                    <StackPanel Spacing="{StaticResource AppSpacingTight}">
                         <HyperlinkButton
                             AutomationProperties.Name="Open helvety.com in the browser"
                             Content="helvety.com"

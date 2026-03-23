@@ -9,6 +9,7 @@ The app can be **packaged and deployed** (MSIX or unpackaged). Behavior and defa
 ## Current Focus
 
 - **Two independent global hotkeys**: capture (default `Shift+S+S+S`) and Live Draw (default `Shift+D+D+D`). They must use different sequences; the app blocks applying duplicates in Settings.
+- **Settings layout**: choosing **Settings** in the main window opens a **nested** settings pane. Sections are **General**, **Screen capture**, **Live Draw**, **Capture mode**, **App behavior**, and **Danger zone**. **Screen capture** and **Live Draw** each include a master **On/Off** toggle (shortcuts stay stored when off).
 - **Capture mode**: global hotkey → frozen-screen overlay with window snapping (highlighted border). **Esc** cancels and closes the overlay. **Click** (without dragging) commits the snapped window under the cursor, or the full virtual screen if nothing snaps; **drag** selects a custom rectangle. Left-click saves, copies to clipboard, and exits; right-click saves (no clipboard copy) and stays in capture mode.
 - **Live Draw**: global hotkey → fullscreen **Win32 layered host** hosting a **DesktopWindowXamlSource** island (vector markup only; no desktop BitBlt). **Esc** ends the session. **Left-mouse** shape tools (Rectangle modifier **Shift** by default): **Shift**+drag = rectangles; **Alt**+drag (without Ctrl) = arrows; **Ctrl**+drag = straight lines (uniform stroke, not arrow-shaft taper; no arrowhead); drag without a matching shape-tool modifier = freehand. **Other Rectangle modifier** options in Settings remap which modifier selects rectangles vs arrows vs straight lines; if the modifier is **Ctrl**, **Ctrl**+drag is rectangles only (straight line via Ctrl is disabled). **Right-mouse** shortcuts are **fixed** (they do **not** follow Rectangle modifier): plain **right-click** (hold) shows a **pulsing** sparkle at the pointer that **follows the cursor** until you release; **Shift**+right drag = circle; **Alt**+right drag (without Ctrl) = ellipse (if both Shift and Alt are held, Shift+right wins). **Rectangles, ellipses, circles, arrows, straight lines, freehand, and sparkle** use the same snap-border chrome as capture selection (gradients, dashing, pulse). **Does not require a save folder**; saving captures from capture mode still requires a writable save location.
 - **Navigation**: left **NavigationView** with **Screen Tools**, **Settings**, and **About**. **About** shows a short product summary, a **compile-time build stamp** (`yyMMdd_HHmmss` from local clock when the project is built; see `GenerateAppBuildStamp` in `helvety.screentools.csproj`), and links to [helvety.com](https://helvety.com/) and the [GitHub repository](https://github.com/CasparRubin/helvety.screentools).
@@ -46,18 +47,17 @@ The app can be **packaged and deployed** (MSIX or unpackaged). Behavior and defa
 1. Open `helvety.screentools.slnx` in Visual Studio 2022 (with WinUI/.NET desktop workloads).
 2. Build and run the `helvety.screentools` project. The project **defaults to x64** when no platform is set so plain `dotnet build` works; you can still pass `-p:Platform=x86` or `ARM64` explicitly. (**Any CPU** is remapped to x64 because WinUI/MSIX packaging cannot target neutral architecture.) Each build regenerates the **About** page build stamp (`yyMMdd_HHmmss`).
 3. Use the navigation pane to switch between **Screen Tools**, **Settings**, and **About**.
-4. In **Settings**, choose a **save folder** (required for capture and for editing the **capture** hotkey). Configure the **capture** and **Live Draw** hotkeys as needed (Live Draw can be configured even without a save folder). Hotkeys are edited with **Listen** per step and shown as **visual chords** in Settings; stored labels still use plus-separated text for compatibility.
-5. (Optional) Tune border intensity in `Settings > Capture Mode > Border Effects`.
-6. (Optional) Choose capture quality mode in `Settings > Capture Mode > Capture Quality Mode`.
-7. (Optional) Toggle capture overlay guidance visibility in `Settings > Capture Mode`.
-8. (Optional) Configure close behavior in `Settings > App Behavior`:
+4. In **Settings**, use the inner pane:
+   - **General**: choose a **save folder** (required for frozen-screen capture and for **applying** a new capture shortcut; the **Save location** card explains this).
+   - **Screen capture** and **Live Draw**: master toggles plus **Listen**-based hotkey editors and visual chord previews. **Live Draw** can be configured without a save folder.
+5. (Optional) Under **Settings → Capture mode**, tune **Border effects** (intensity), **Capture quality** (quality mode), and **Overlay** (capture instructions on/off).
+6. (Optional) Under **Settings → App behavior**, configure close behavior:
    - Enabled (default): closing keeps the app running in the notification area so global hotkeys keep working.
    - Disabled: closing fully exits the app.
 
 ## Notes
 
 - **About** build stamp: the value shown in **About** is written at **compile time** (not runtime). Rebuild the project to refresh it; it reflects the **local** machine clock in `yyMMdd_HHmmss` form.
-- **Capture quality** defaults to **Fast** for new settings profiles (missing `ScreenshotQualityMode` in LocalSettings). If you previously saved **Heavy** or **Optimized**, that choice is kept until you change it in **Settings > Capture Mode > Capture Quality Mode**.
+- **Capture quality** defaults to **Fast** for new settings profiles (missing `ScreenshotQualityMode` in LocalSettings). If you previously saved **Heavy** or **Optimized**, that choice is kept until you change it under **Settings → Capture mode → Capture quality**.
 - Default save folder when the app first creates one (and you have not cleared it in Settings) is **`Helvety Screen Tools captures`** on your desktop (see `SettingsService`). The UI label **Screen Tools** is the home page name; it is not tied to a legacy “Screenshots” folder name.
-- This repository is public but still in heavy iteration.
 - Quality enhancement modes improve perceived readability for some text-heavy captures, but they cannot guarantee recovery of detail that is not present in source screen pixels.

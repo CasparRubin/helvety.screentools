@@ -10,8 +10,7 @@ using System.Collections.Generic;
 namespace helvety.screentools.Views.Controls
 {
     /// <summary>
-    /// Renders a shortcut as a horizontal row of key pills (spacing only, no '+' between keys). Uses theme brushes;
-    /// <see cref="HotkeyChordAppearance.Accent"/> matches the prominent preview style; Default matches subtle key pills.
+    /// Visual weight for key pills in <see cref="HotkeyChordStrip"/> (accent vs subtle theme brushes).
     /// </summary>
     public enum HotkeyChordAppearance
     {

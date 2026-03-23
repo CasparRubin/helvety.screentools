@@ -81,7 +81,7 @@
                 BorderBrush="#66262626"
                 BorderThickness="1"
                 CornerRadius="0">
-                <StackPanel Spacing="12">
+                <StackPanel Spacing="{StaticResource AppSpacingContent}">
                     <StackPanel Spacing="2">
                         <TextBlock
                             FontSize="18"
@@ -94,7 +94,7 @@
                             TextWrapping="WrapWholeWords" />
                     </StackPanel>
 
-                    <Grid RowSpacing="8" ColumnSpacing="8">
+                    <Grid RowSpacing="{StaticResource AppSpacingStack}" ColumnSpacing="{StaticResource AppSpacingStack}">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />

@@ -8,7 +8,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
-    <Grid Padding="12" RowSpacing="10">
+    <Grid Padding="{StaticResource AppPaddingEditorChrome}" RowSpacing="{StaticResource AppSpacingContent}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -16,29 +16,23 @@
 
         <Border
             MinHeight="122"
-            Padding="12"
+            Padding="{StaticResource AppPaddingEditorChrome}"
             Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
             BorderThickness="1"
-            CornerRadius="10">
+            CornerRadius="{StaticResource AppCornerRadiusCard}">
             <Border.Resources>
                 <Style BasedOn="{StaticResource SettingsInlineLabelTextStyle}" TargetType="TextBlock" />
                 <Style BasedOn="{StaticResource SettingsInlineToggleSwitchStyle}" TargetType="ToggleSwitch" />
                 <Style x:Key="ToolSettingItemBorderStyle" TargetType="Border">
-                    <Setter Property="Padding" Value="10,8" />
+                    <Setter Property="Padding" Value="{StaticResource AppPaddingToolSettingItem}" />
                     <Setter Property="Background" Value="{ThemeResource SubtleFillColorSecondaryBrush}" />
                     <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
                     <Setter Property="BorderThickness" Value="1" />
-                    <Setter Property="CornerRadius" Value="8" />
+                    <Setter Property="CornerRadius" Value="{StaticResource AppCornerRadiusControl}" />
                     <Setter Property="VerticalAlignment" Value="Center" />
                     <Setter Property="MinHeight" Value="76" />
                     <Setter Property="Margin" Value="0,0,12,0" />
-                </Style>
-                <Style x:Key="ToolSettingCardTitleStyle" TargetType="TextBlock">
-                    <Setter Property="FontSize" Value="12" />
-                    <Setter Property="FontWeight" Value="SemiBold" />
-                    <Setter Property="Margin" Value="0,0,0,6" />
-                    <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
                 </Style>
                 <ItemsPanelTemplate x:Key="ToolSettingsItemsPanelTemplate">
                     <ItemsStackPanel Orientation="Horizontal" />
@@ -60,7 +54,7 @@
                             Style="{StaticResource ToolSettingsItemsControlStyle}">
                             <Border Style="{StaticResource ToolSettingItemBorderStyle}">
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Style="{StaticResource ToolSettingCardTitleStyle}" Text="Move" />
+                                    <TextBlock Style="{StaticResource AppToolSettingCardTitleTextStyle}" Text="Move" />
                                     <TextBlock Text="No specific settings for Move." />
                                 </StackPanel>
                             </Border>
@@ -72,7 +66,7 @@
                             Visibility="Collapsed">
                             <Border Style="{StaticResource ToolSettingItemBorderStyle}">
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Style="{StaticResource ToolSettingCardTitleStyle}" Text="Edit" />
+                                    <TextBlock Style="{StaticResource AppToolSettingCardTitleTextStyle}" Text="Edit" />
                                     <Button
                                         x:Name="EditSelectedTextButton"
                                         Width="260"
@@ -84,7 +78,7 @@
                             </Border>
                             <Border Style="{StaticResource ToolSettingItemBorderStyle}">
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Style="{StaticResource ToolSettingCardTitleStyle}" Text="Font" />
+                                    <TextBlock Style="{StaticResource AppToolSettingCardTitleTextStyle}" Text="Font" />
                                     <ComboBox x:Name="TextFontComboBox" Width="150" Height="34" SelectionChanged="ToolSettingSelectionChanged">
                                         <ComboBoxItem Content="Segoe UI" IsSelected="True" />
                                         <ComboBoxItem Content="Arial" />
@@ -95,7 +89,7 @@
                             </Border>
                             <Border Style="{StaticResource ToolSettingItemBorderStyle}">
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Style="{StaticResource ToolSettingCardTitleStyle}" Text="Size" />
+                                    <TextBlock Style="{StaticResource AppToolSettingCardTitleTextStyle}" Text="Size" />
                                     <Slider
                                         x:Name="TextSizeNumberBox"
                                         Width="180"
@@ -110,8 +104,8 @@
                             </Border>
                             <Border Style="{StaticResource ToolSettingItemBorderStyle}">
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Style="{StaticResource ToolSettingCardTitleStyle}" Text="Color" />
-                                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                    <TextBlock Style="{StaticResource AppToolSettingCardTitleTextStyle}" Text="Color" />
+                                    <StackPanel Orientation="Horizontal" Spacing="{StaticResource AppSpacingStack}" VerticalAlignment="Center">
                                         <ComboBox x:Name="TextColorComboBox" Width="108" Height="34" VerticalAlignment="Center" SelectionChanged="ToolSettingSelectionChanged">
                                             <ComboBoxItem Content="Fuchsia Red" Tag="#FFD81B60" IsSelected="True" />
                                             <ComboBoxItem Content="White" Tag="#FFFFFFFF" />
@@ -126,8 +120,8 @@
                             </Border>
                             <Border Style="{StaticResource ToolSettingItemBorderStyle}">
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Style="{StaticResource ToolSettingCardTitleStyle}" Text="Border" />
-                                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                    <TextBlock Style="{StaticResource AppToolSettingCardTitleTextStyle}" Text="Border" />
+                                    <StackPanel Orientation="Horizontal" Spacing="{StaticResource AppSpacingStack}" VerticalAlignment="Center">
                                         <ToggleSwitch x:Name="TextBorderToggle" IsOn="False" Toggled="ToolSettingToggled" />
                                         <ComboBox x:Name="TextBorderColorComboBox" Width="108" Height="34" VerticalAlignment="Center" SelectionChanged="ToolSettingSelectionChanged">
                                             <ComboBoxItem Content="White" Tag="#FFFFFFFF" IsSelected="True" />
@@ -156,7 +150,7 @@
                             </Border>
                             <Border Style="{StaticResource ToolSettingItemBorderStyle}">
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Style="{StaticResource ToolSettingCardTitleStyle}" Text="Shadow" />
+                                    <TextBlock Style="{StaticResource AppToolSettingCardTitleTextStyle}" Text="Shadow" />
                                     <ToggleSwitch
                                         x:Name="TextShadowToggle"
                                         IsOn="True"
@@ -171,8 +165,8 @@
                             Visibility="Collapsed">
                             <Border Style="{StaticResource ToolSettingItemBorderStyle}">
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Style="{StaticResource ToolSettingCardTitleStyle}" Text="Color" />
-                                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                    <TextBlock Style="{StaticResource AppToolSettingCardTitleTextStyle}" Text="Color" />
+                                    <StackPanel Orientation="Horizontal" Spacing="{StaticResource AppSpacingStack}" VerticalAlignment="Center">
                                         <ComboBox x:Name="BorderColorComboBox" Width="108" Height="34" VerticalAlignment="Center" SelectionChanged="ToolSettingSelectionChanged">
                                             <ComboBoxItem Content="Fuchsia Red" Tag="#FFD81B60" IsSelected="True" />
                                             <ComboBoxItem Content="Blue" Tag="#FF4285F4" />
@@ -187,8 +181,8 @@
                             </Border>
                             <Border Style="{StaticResource ToolSettingItemBorderStyle}">
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Style="{StaticResource ToolSettingCardTitleStyle}" Text="Thickness" />
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Style="{StaticResource AppToolSettingCardTitleTextStyle}" Text="Thickness" />
+                                    <StackPanel Orientation="Horizontal" Spacing="{StaticResource AppSpacingStack}">
                                         <Slider
                                             x:Name="BorderThicknessNumberBox"
                                             Width="180"
@@ -208,8 +202,8 @@
                             </Border>
                             <Border Style="{StaticResource ToolSettingItemBorderStyle}">
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Style="{StaticResource ToolSettingCardTitleStyle}" Text="Corner Radius" />
-                                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                    <TextBlock Style="{StaticResource AppToolSettingCardTitleTextStyle}" Text="Corner Radius" />
+                                    <StackPanel Orientation="Horizontal" Spacing="{StaticResource AppSpacingStack}" VerticalAlignment="Center">
                                         <Slider
                                             x:Name="BorderCornerRadiusSlider"
                                             Width="180"
@@ -229,7 +223,7 @@
                             </Border>
                             <Border Style="{StaticResource ToolSettingItemBorderStyle}">
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Style="{StaticResource ToolSettingCardTitleStyle}" Text="Shadow" />
+                                    <TextBlock Style="{StaticResource AppToolSettingCardTitleTextStyle}" Text="Shadow" />
                                     <ToggleSwitch
                                         x:Name="BorderShadowToggle"
                                         IsOn="True"
@@ -244,7 +238,7 @@
                             Visibility="Collapsed">
                             <Border Style="{StaticResource ToolSettingItemBorderStyle}">
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Style="{StaticResource ToolSettingCardTitleStyle}" Text="Radius" />
+                                    <TextBlock Style="{StaticResource AppToolSettingCardTitleTextStyle}" Text="Radius" />
                                     <Slider
                                         x:Name="BlurRadiusNumberBox"
                                         Width="180"
@@ -259,8 +253,8 @@
                             </Border>
                             <Border Style="{StaticResource ToolSettingItemBorderStyle}">
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Style="{StaticResource ToolSettingCardTitleStyle}" Text="Corner Radius" />
-                                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                    <TextBlock Style="{StaticResource AppToolSettingCardTitleTextStyle}" Text="Corner Radius" />
+                                    <StackPanel Orientation="Horizontal" Spacing="{StaticResource AppSpacingStack}" VerticalAlignment="Center">
                                         <Slider
                                             x:Name="BlurCornerRadiusSlider"
                                             Width="180"
@@ -280,8 +274,8 @@
                             </Border>
                             <Border Style="{StaticResource ToolSettingItemBorderStyle}">
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Style="{StaticResource ToolSettingCardTitleStyle}" Text="Feather" />
-                                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                    <TextBlock Style="{StaticResource AppToolSettingCardTitleTextStyle}" Text="Feather" />
+                                    <StackPanel Orientation="Horizontal" Spacing="{StaticResource AppSpacingStack}" VerticalAlignment="Center">
                                         <Slider
                                             x:Name="BlurFeatherSlider"
                                             Width="180"
@@ -301,7 +295,7 @@
                             </Border>
                             <Border Style="{StaticResource ToolSettingItemBorderStyle}">
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Style="{StaticResource ToolSettingCardTitleStyle}" Text="Invert" />
+                                    <TextBlock Style="{StaticResource AppToolSettingCardTitleTextStyle}" Text="Invert" />
                                     <ToggleSwitch
                                         x:Name="BlurInvertToggle"
                                         IsOn="False"
@@ -316,8 +310,8 @@
                             Visibility="Collapsed">
                             <Border Style="{StaticResource ToolSettingItemBorderStyle}">
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Style="{StaticResource ToolSettingCardTitleStyle}" Text="Dim" />
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Style="{StaticResource AppToolSettingCardTitleTextStyle}" Text="Dim" />
+                                    <StackPanel Orientation="Horizontal" Spacing="{StaticResource AppSpacingStack}">
                                         <Slider
                                             x:Name="HighlightDimSlider"
                                             Width="220"
@@ -335,8 +329,8 @@
                             </Border>
                             <Border Style="{StaticResource ToolSettingItemBorderStyle}">
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Style="{StaticResource ToolSettingCardTitleStyle}" Text="Corner Radius" />
-                                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                    <TextBlock Style="{StaticResource AppToolSettingCardTitleTextStyle}" Text="Corner Radius" />
+                                    <StackPanel Orientation="Horizontal" Spacing="{StaticResource AppSpacingStack}" VerticalAlignment="Center">
                                         <Slider
                                             x:Name="HighlightCornerRadiusSlider"
                                             Width="180"
@@ -356,7 +350,7 @@
                             </Border>
                             <Border Style="{StaticResource ToolSettingItemBorderStyle}">
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Style="{StaticResource ToolSettingCardTitleStyle}" Text="Invert" />
+                                    <TextBlock Style="{StaticResource AppToolSettingCardTitleTextStyle}" Text="Invert" />
                                     <ToggleSwitch
                                         x:Name="HighlightInvertToggle"
                                         IsOn="False"
@@ -371,7 +365,7 @@
                             Visibility="Collapsed">
                             <Border Style="{StaticResource ToolSettingItemBorderStyle}">
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Style="{StaticResource ToolSettingCardTitleStyle}" Text="Form" />
+                                    <TextBlock Style="{StaticResource AppToolSettingCardTitleTextStyle}" Text="Form" />
                                     <ComboBox x:Name="ArrowFormComboBox" Width="120" Height="34" SelectionChanged="ToolSettingSelectionChanged">
                                         <ComboBoxItem Content="Tapered" Tag="Tapered" IsSelected="True" />
                                         <ComboBoxItem Content="Straight" Tag="Straight" />
@@ -380,7 +374,7 @@
                             </Border>
                             <Border Style="{StaticResource ToolSettingItemBorderStyle}">
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Style="{StaticResource ToolSettingCardTitleStyle}" Text="Size" />
+                                    <TextBlock Style="{StaticResource AppToolSettingCardTitleTextStyle}" Text="Size" />
                                     <Slider
                                         x:Name="ArrowThicknessNumberBox"
                                         Width="180"
@@ -395,8 +389,8 @@
                             </Border>
                             <Border Style="{StaticResource ToolSettingItemBorderStyle}">
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Style="{StaticResource ToolSettingCardTitleStyle}" Text="Color" />
-                                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                    <TextBlock Style="{StaticResource AppToolSettingCardTitleTextStyle}" Text="Color" />
+                                    <StackPanel Orientation="Horizontal" Spacing="{StaticResource AppSpacingStack}" VerticalAlignment="Center">
                                         <ComboBox x:Name="ArrowColorComboBox" Width="108" Height="34" VerticalAlignment="Center" SelectionChanged="ToolSettingSelectionChanged">
                                             <ComboBoxItem Content="Fuchsia Red" Tag="#FFD81B60" IsSelected="True" />
                                             <ComboBoxItem Content="Blue" Tag="#FF4285F4" />
@@ -411,8 +405,8 @@
                             </Border>
                             <Border Style="{StaticResource ToolSettingItemBorderStyle}">
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Style="{StaticResource ToolSettingCardTitleStyle}" Text="Border" />
-                                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                    <TextBlock Style="{StaticResource AppToolSettingCardTitleTextStyle}" Text="Border" />
+                                    <StackPanel Orientation="Horizontal" Spacing="{StaticResource AppSpacingStack}" VerticalAlignment="Center">
                                         <ToggleSwitch x:Name="ArrowBorderToggle" IsOn="False" Toggled="ToolSettingToggled" />
                                         <ComboBox x:Name="ArrowBorderColorComboBox" Width="108" Height="34" VerticalAlignment="Center" SelectionChanged="ToolSettingSelectionChanged">
                                             <ComboBoxItem Content="Black" Tag="#FF000000" />
@@ -440,7 +434,7 @@
                             </Border>
                             <Border Style="{StaticResource ToolSettingItemBorderStyle}">
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Style="{StaticResource ToolSettingCardTitleStyle}" Text="Shadow" />
+                                    <TextBlock Style="{StaticResource AppToolSettingCardTitleTextStyle}" Text="Shadow" />
                                     <ToggleSwitch
                                         x:Name="ArrowShadowToggle"
                                         IsOn="True"
@@ -455,7 +449,7 @@
                             Visibility="Collapsed">
                             <Border Style="{StaticResource ToolSettingItemBorderStyle}">
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Style="{StaticResource ToolSettingCardTitleStyle}" Text="Crop" />
+                                    <TextBlock Style="{StaticResource AppToolSettingCardTitleTextStyle}" Text="Crop" />
                                     <TextBlock Text="Draw a region and save crop from Export." />
                                 </StackPanel>
                             </Border>
@@ -467,7 +461,7 @@
 
         <Grid
             Grid.Row="1"
-            ColumnSpacing="12">
+            ColumnSpacing="{StaticResource AppSpacingContent}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="150" />
                 <ColumnDefinition Width="*" />
@@ -476,23 +470,23 @@
 
             <Border
                 Grid.Column="0"
-                Padding="10"
+                Padding="{StaticResource AppPaddingToolbarChrome}"
                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                 BorderThickness="1"
-                CornerRadius="10">
-                <StackPanel Spacing="8">
-                    <TextBlock FontSize="16" FontWeight="SemiBold" Text="Tools" />
-                    <StackPanel Spacing="8">
+                CornerRadius="{StaticResource AppCornerRadiusToolbarChrome}">
+                <StackPanel Spacing="{StaticResource AppSpacingStack}">
+                    <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Tools" />
+                    <StackPanel Spacing="{StaticResource AppSpacingStack}">
                         <Button
                             x:Name="MoveToolButton"
                             Width="124"
                             Height="64"
                             Tag="Move"
                             Click="ToolButton_Click">
-                            <StackPanel Spacing="4" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <StackPanel Spacing="{StaticResource AppSpacingTight}" HorizontalAlignment="Center" VerticalAlignment="Center">
                                 <FontIcon Glyph="&#xE7C9;" />
-                                <TextBlock FontSize="11" Text="Move" />
+                                <TextBlock Style="{StaticResource AppEditorToolLabelTextStyle}" Text="Move" />
                             </StackPanel>
                         </Button>
 
@@ -502,9 +496,9 @@
                             Height="64"
                             Tag="Text"
                             Click="ToolButton_Click">
-                            <StackPanel Spacing="4" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <StackPanel Spacing="{StaticResource AppSpacingTight}" HorizontalAlignment="Center" VerticalAlignment="Center">
                                 <FontIcon Glyph="&#xE8D2;" />
-                                <TextBlock FontSize="11" Text="Text" />
+                                <TextBlock Style="{StaticResource AppEditorToolLabelTextStyle}" Text="Text" />
                             </StackPanel>
                         </Button>
 
@@ -514,7 +508,7 @@
                             Height="64"
                             Tag="Border"
                             Click="ToolButton_Click">
-                            <StackPanel Spacing="4" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <StackPanel Spacing="{StaticResource AppSpacingTight}" HorizontalAlignment="Center" VerticalAlignment="Center">
                                 <Viewbox Width="20" Height="20">
                                     <Grid Width="20" Height="20">
                                         <Rectangle
@@ -534,7 +528,7 @@
                                             Opacity="0.65" />
                                     </Grid>
                                 </Viewbox>
-                                <TextBlock FontSize="11" Text="Border" />
+                                <TextBlock Style="{StaticResource AppEditorToolLabelTextStyle}" Text="Border" />
                             </StackPanel>
                         </Button>
 
@@ -544,7 +538,7 @@
                             Height="64"
                             Tag="Blur"
                             Click="ToolButton_Click">
-                            <StackPanel Spacing="4" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <StackPanel Spacing="{StaticResource AppSpacingTight}" HorizontalAlignment="Center" VerticalAlignment="Center">
                                 <Viewbox Width="20" Height="20">
                                     <Grid Width="20" Height="20">
                                         <Ellipse
@@ -571,7 +565,7 @@
                                             Opacity="0.55" />
                                     </Grid>
                                 </Viewbox>
-                                <TextBlock FontSize="11" Text="Blur" />
+                                <TextBlock Style="{StaticResource AppEditorToolLabelTextStyle}" Text="Blur" />
                             </StackPanel>
                         </Button>
 
@@ -581,9 +575,9 @@
                             Height="64"
                             Tag="Highlight"
                             Click="ToolButton_Click">
-                            <StackPanel Spacing="4" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <StackPanel Spacing="{StaticResource AppSpacingTight}" HorizontalAlignment="Center" VerticalAlignment="Center">
                                 <FontIcon Glyph="&#xE790;" />
-                                <TextBlock FontSize="11" Text="Highlight" />
+                                <TextBlock Style="{StaticResource AppEditorToolLabelTextStyle}" Text="Highlight" />
                             </StackPanel>
                         </Button>
 
@@ -593,9 +587,9 @@
                             Height="64"
                             Tag="Arrow"
                             Click="ToolButton_Click">
-                            <StackPanel Spacing="4" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <StackPanel Spacing="{StaticResource AppSpacingTight}" HorizontalAlignment="Center" VerticalAlignment="Center">
                                 <SymbolIcon Symbol="Forward" />
-                                <TextBlock FontSize="11" Text="Arrow" />
+                                <TextBlock Style="{StaticResource AppEditorToolLabelTextStyle}" Text="Arrow" />
                             </StackPanel>
                         </Button>
 
@@ -605,9 +599,9 @@
                             Height="64"
                             Tag="Crop"
                             Click="ToolButton_Click">
-                            <StackPanel Spacing="4" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <StackPanel Spacing="{StaticResource AppSpacingTight}" HorizontalAlignment="Center" VerticalAlignment="Center">
                                 <FontIcon Glyph="&#xE7A8;" />
-                                <TextBlock FontSize="11" Text="Crop" />
+                                <TextBlock Style="{StaticResource AppEditorToolLabelTextStyle}" Text="Crop" />
                             </StackPanel>
                         </Button>
                     </StackPanel>
@@ -616,11 +610,11 @@
 
             <Border
                 Grid.Column="1"
-                Padding="6"
+                Padding="{StaticResource AppPaddingEditorCanvasInset}"
                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                 BorderThickness="1"
-                CornerRadius="10">
+                CornerRadius="{StaticResource AppCornerRadiusToolbarChrome}">
                 <ScrollViewer
                     x:Name="EditorScrollViewer"
                     HorizontalScrollBarVisibility="Visible"
@@ -649,7 +643,7 @@
 
             <Grid
                 Grid.Column="2"
-                RowSpacing="12">
+                RowSpacing="{StaticResource AppSpacingContent}">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="*" />
                     <RowDefinition Height="Auto" />
@@ -657,20 +651,19 @@
 
                 <Border
                     Grid.Row="0"
-                    Padding="10"
+                    Padding="{StaticResource AppPaddingToolbarChrome}"
                     Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                     BorderThickness="1"
-                    CornerRadius="10">
-                    <Grid RowSpacing="10">
+                    CornerRadius="{StaticResource AppCornerRadiusToolbarChrome}">
+                    <Grid RowSpacing="{StaticResource AppSpacingContent}">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
                         <TextBlock
                             Grid.Row="0"
-                            FontSize="16"
-                            FontWeight="SemiBold"
+                            Style="{StaticResource SettingsSubsectionTitleTextStyle}"
                             Text="Layers" />
                         <ListView
                             Grid.Row="1"
@@ -685,18 +678,18 @@
                             <ListView.ItemTemplate>
                                 <DataTemplate x:DataType="editor:EditorLayer">
                                     <Border
-                                        Padding="8,6"
+                                        Padding="{StaticResource AppPaddingListRow}"
                                         Background="{ThemeResource SubtleFillColorSecondaryBrush}"
                                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                                         BorderThickness="1"
-                                        CornerRadius="8">
-                                        <Grid ColumnSpacing="8" MinHeight="48">
+                                        CornerRadius="{StaticResource AppCornerRadiusControl}">
+                                        <Grid ColumnSpacing="{StaticResource AppSpacingStack}" MinHeight="48">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*" />
                                                 <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
                                             <Grid
-                                                ColumnSpacing="8"
+                                                ColumnSpacing="{StaticResource AppSpacingStack}"
                                                 VerticalAlignment="Center">
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="Auto" />
@@ -712,15 +705,11 @@
                                                 </ToggleButton>
                                                 <StackPanel Grid.Column="1" Spacing="1">
                                                     <TextBlock
-                                                        FontSize="13"
-                                                        FontWeight="SemiBold"
-                                                        Text="{x:Bind Name}"
-                                                        TextTrimming="CharacterEllipsis" />
+                                                        Style="{StaticResource AppListItemTitleTextStyle}"
+                                                        Text="{x:Bind Name}" />
                                                     <TextBlock
-                                                        FontSize="11"
-                                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                        Text="{x:Bind LayerType}"
-                                                        TextTrimming="CharacterEllipsis" />
+                                                        Style="{StaticResource AppListItemCaptionTextStyle}"
+                                                        Text="{x:Bind LayerType}" />
                                                 </StackPanel>
                                             </Grid>
                                             <Button
@@ -740,21 +729,20 @@
 
                 <Border
                     Grid.Row="1"
-                    Padding="12"
+                    Padding="{StaticResource AppPaddingCardCompact}"
                     Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                     BorderThickness="1"
-                    CornerRadius="10">
-                    <StackPanel Spacing="12">
+                    CornerRadius="{StaticResource AppCornerRadiusToolbarChrome}">
+                    <StackPanel Spacing="{StaticResource AppSpacingContent}">
                         <TextBlock
-                            FontSize="16"
-                            FontWeight="SemiBold"
+                            Style="{StaticResource SettingsSubsectionTitleTextStyle}"
                             Text="Export" />
                         <Border
                             Height="1"
                             Background="{ThemeResource CardStrokeColorDefaultBrush}"
                             Opacity="0.75" />
-                        <StackPanel Spacing="8">
+                        <StackPanel Spacing="{StaticResource AppSpacingStack}">
                             <Button Height="36" HorizontalAlignment="Stretch" Click="SaveButton_Click" Content="Save As New File" />
                             <Button Height="36" HorizontalAlignment="Stretch" Click="OverrideButton_Click" Content="Overwrite Current File" />
                             <Button Height="36" HorizontalAlignment="Stretch" Click="CopyButton_Click" Content="Copy to Clipboard" />

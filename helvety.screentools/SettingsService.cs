@@ -12,11 +12,11 @@ namespace helvety.screentools
     {
         internal const int MaxHotkeySequenceLength = 5;
         private const uint DefaultHotkeyModifiers = 0x0004; // Shift
-        /// <summary>Default label persisted in settings; UI shows the same chord as visual key pills.</summary>
+        /// <summary>Default persisted capture shortcut label (plus-separated); Settings shows the same chord as visual key pills.</summary>
         private const string DefaultHotkeyDisplay = "Shift+S+S+S";
         private const string DefaultHotkeySequence = "83,83,83";
         private const uint DefaultLiveDrawHotkeyModifiers = 0x0004; // Shift
-        /// <summary>Default label persisted in settings; UI shows the same chord as visual key pills.</summary>
+        /// <summary>Default persisted Live Draw shortcut label (plus-separated); Settings shows the same chord as visual key pills.</summary>
         private const string DefaultLiveDrawHotkeyDisplay = "Shift+D+D+D";
         private const string DefaultLiveDrawHotkeySequence = "68,68,68";
         private const ScreenshotBorderIntensity DefaultScreenshotBorderIntensity = ScreenshotBorderIntensity.Bold;
@@ -45,11 +45,13 @@ namespace helvety.screentools
         private const int DefaultEditorRegionCornerRadius = 8;
         private const bool DefaultEditorPerformanceModeEnabled = false;
         private const bool DefaultEditorGpuEffectsEnabled = true;
+        private const bool DefaultCaptureHotkeyEnabled = true;
+        private const bool DefaultLiveDrawFeatureEnabled = true;
 
         internal static event Action? SaveFolderPathChanged;
         internal static event Action? SettingsChanged;
 
-        private const int CurrentSettingsVersion = 2;
+        private const int CurrentSettingsVersion = 3;
         private const string DefaultCaptureFolderName = "Helvety Screen Tools captures";
         private const string SettingsVersionKey = "SettingsVersion";
         private const string SaveFolderPathKey = "SaveFolderPath";
@@ -64,6 +66,8 @@ namespace helvety.screentools
         private const string LiveDrawHotkeyDisplayKey = "LiveDrawHotkeyDisplay";
         private const string LiveDrawHotkeyClearedKey = "LiveDrawHotkeyCleared";
         private const string LiveDrawRectangleModifierKey = "LiveDrawRectangleModifier";
+        private const string CaptureHotkeyEnabledKey = "CaptureHotkeyEnabled";
+        private const string LiveDrawEnabledKey = "LiveDrawEnabled";
         private const string SaveFolderClearedKey = "SaveFolderCleared";
         private const string ScreenshotBorderIntensityKey = "ScreenshotBorderIntensity";
         private const string ScreenshotQualityModeKey = "ScreenshotQualityMode";
@@ -113,6 +117,8 @@ namespace helvety.screentools
             LiveDrawHotkeyDisplayKey,
             LiveDrawHotkeyClearedKey,
             LiveDrawRectangleModifierKey,
+            CaptureHotkeyEnabledKey,
+            LiveDrawEnabledKey,
             ScreenshotBorderIntensityKey,
             ScreenshotQualityModeKey,
             ShowScreenshotOverlayInstructionsKey,
@@ -179,6 +185,8 @@ namespace helvety.screentools
                                         minimizeToTrayValue is bool minimizeToTray
                 ? minimizeToTray
                 : DefaultMinimizeToTrayOnClose;
+            var captureHotkeyEnabled = ReadBool(values, CaptureHotkeyEnabledKey, DefaultCaptureHotkeyEnabled);
+            var liveDrawEnabled = ReadBool(values, LiveDrawEnabledKey, DefaultLiveDrawFeatureEnabled);
 
             HotkeySettings? hotkey = null;
             if (!isHotkeyCleared &&
@@ -212,7 +220,9 @@ namespace helvety.screentools
                 screenshotBorderIntensity,
                 screenshotQualityMode,
                 showScreenshotOverlayInstructions,
-                minimizeToTrayOnClose);
+                minimizeToTrayOnClose,
+                captureHotkeyEnabled,
+                liveDrawEnabled);
         }
 
         internal static void SaveHotkey(uint modifiers, IReadOnlyList<uint> sequence, string display)
@@ -343,6 +353,22 @@ namespace helvety.screentools
                 ReadInt(values, EditorRegionCornerRadiusKey, DefaultEditorRegionCornerRadius, 0, 24),
                 ReadBool(values, EditorPerformanceModeEnabledKey, DefaultEditorPerformanceModeEnabled),
                 ReadBool(values, EditorGpuEffectsEnabledKey, DefaultEditorGpuEffectsEnabled));
+        }
+
+        internal static void SaveCaptureHotkeyEnabled(bool enabled)
+        {
+            var values = ApplicationData.Current.LocalSettings.Values;
+            EnsureSettingsVersion(values);
+            values[CaptureHotkeyEnabledKey] = enabled;
+            SettingsChanged?.Invoke();
+        }
+
+        internal static void SaveLiveDrawEnabled(bool enabled)
+        {
+            var values = ApplicationData.Current.LocalSettings.Values;
+            EnsureSettingsVersion(values);
+            values[LiveDrawEnabledKey] = enabled;
+            SettingsChanged?.Invoke();
         }
 
         internal static void SaveEditorUiSettings(EditorUiSettings settings)
@@ -678,7 +704,8 @@ namespace helvety.screentools
                     "settings"));
             }
 
-            if (!TryGetEffectiveHotkey(out _))
+            var appSettings = Load();
+            if (appSettings.CaptureHotkeyEnabled && !TryGetEffectiveHotkey(out _))
             {
                 var defaultHotkey = GetDefaultHotkey();
                 issues.Add(new GlobalSetupIssue(
@@ -691,7 +718,7 @@ namespace helvety.screentools
                     "settings"));
             }
 
-            if (IsLiveDrawHotkeyExplicitlyCleared())
+            if (appSettings.LiveDrawEnabled && IsLiveDrawHotkeyExplicitlyCleared())
             {
                 var defaultLive = GetDefaultLiveDrawHotkey();
                 issues.Add(new GlobalSetupIssue(
@@ -776,6 +803,19 @@ namespace helvety.screentools
                 ApplyLiveDrawDefaultsIfMissing(values);
             }
 
+            if (storedVersion < 3)
+            {
+                if (!values.ContainsKey(CaptureHotkeyEnabledKey))
+                {
+                    values[CaptureHotkeyEnabledKey] = DefaultCaptureHotkeyEnabled;
+                }
+
+                if (!values.ContainsKey(LiveDrawEnabledKey))
+                {
+                    values[LiveDrawEnabledKey] = DefaultLiveDrawFeatureEnabled;
+                }
+            }
+
             values[SettingsVersionKey] = CurrentSettingsVersion;
         }
 
@@ -831,6 +871,8 @@ namespace helvety.screentools
             values[LiveDrawHotkeyDisplayKey] = defaultLiveDrawHotkey.Display;
             values[LiveDrawHotkeyClearedKey] = false;
             values[LiveDrawRectangleModifierKey] = (int)LiveDrawRectangleModifier.Shift;
+            values[CaptureHotkeyEnabledKey] = DefaultCaptureHotkeyEnabled;
+            values[LiveDrawEnabledKey] = DefaultLiveDrawFeatureEnabled;
 
             values[ScreenshotBorderIntensityKey] = (int)DefaultScreenshotBorderIntensity;
             values[ScreenshotQualityModeKey] = (int)DefaultScreenshotQualityMode;
@@ -989,7 +1031,9 @@ namespace helvety.screentools
         ScreenshotBorderIntensity ScreenshotBorderIntensity,
         ScreenshotQualityMode ScreenshotQualityMode,
         bool ShowScreenshotOverlayInstructions,
-        bool MinimizeToTrayOnClose);
+        bool MinimizeToTrayOnClose,
+        bool CaptureHotkeyEnabled,
+        bool LiveDrawEnabled);
 
     internal sealed record HotkeySettings(uint Modifiers, IReadOnlyList<uint> Sequence, string Display);
 

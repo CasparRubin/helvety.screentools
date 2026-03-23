@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="helvety.screentools.Views.Settings.DangerZoneSettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:tk="using:CommunityToolkit.WinUI.Controls"
+    mc:Ignorable="d">
+
+    <ScrollViewer>
+        <StackPanel Padding="{StaticResource AppPaddingPageBottomHeavy}" Spacing="{StaticResource AppSpacingSection}">
+            <StackPanel Spacing="{StaticResource AppSpacingStack}">
+                <TextBlock Style="{StaticResource SettingsPageTitleTextStyle}" Text="Danger zone" />
+                <TextBlock
+                    Style="{StaticResource SettingsSectionDescriptionTextStyle}"
+                    Text="Irreversible settings reset. Your image files on disk are not deleted."
+                    TextWrapping="WrapWholeWords" />
+            </StackPanel>
+
+            <tk:SettingsCard
+                Description="Clears save location, hotkeys, editor preferences, border effects, capture quality, and related options."
+                Header="Reset all settings">
+                <tk:SettingsCard.HeaderIcon>
+                    <FontIcon Glyph="&#xE74D;" />
+                </tk:SettingsCard.HeaderIcon>
+                <Button
+                    x:Name="ResetSettingsButton"
+                    Click="ResetSettingsButton_Click"
+                    Content="Reset to defaults"
+                    Style="{StaticResource SettingsInlineButtonStyle}" />
+            </tk:SettingsCard>
+        </StackPanel>
+    </ScrollViewer>
+</Page>

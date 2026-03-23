@@ -8,8 +8,27 @@
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
-                <!-- Other merged dictionaries here -->
             </ResourceDictionary.MergedDictionaries>
+
+            <!-- Layout tokens (use everywhere for consistent rhythm) -->
+            <Thickness x:Key="AppPaddingPage">24</Thickness>
+            <Thickness x:Key="AppPaddingPageBottomHeavy">24,16,24,32</Thickness>
+            <Thickness x:Key="AppPaddingEditorChrome">16</Thickness>
+            <Thickness x:Key="AppPaddingCard">16</Thickness>
+            <Thickness x:Key="AppPaddingCardLarge">20</Thickness>
+            <x:Double x:Key="AppSpacingSection">16</x:Double>
+            <x:Double x:Key="AppSpacingContent">12</x:Double>
+            <x:Double x:Key="AppSpacingStack">8</x:Double>
+            <x:Double x:Key="AppSpacingTight">4</x:Double>
+            <CornerRadius x:Key="AppCornerRadiusCard">12</CornerRadius>
+            <CornerRadius x:Key="AppCornerRadiusControl">8</CornerRadius>
+            <CornerRadius x:Key="AppCornerRadiusToolbarChrome">10</CornerRadius>
+            <Thickness x:Key="AppPaddingToolbarChrome">10</Thickness>
+            <Thickness x:Key="AppPaddingEditorCanvasInset">6</Thickness>
+            <Thickness x:Key="AppPaddingCardCompact">12</Thickness>
+            <Thickness x:Key="AppPaddingListRow">8,6,8,6</Thickness>
+            <Thickness x:Key="AppPaddingToolSettingItem">10,8,10,8</Thickness>
+            <x:Double x:Key="SettingActionControlMinWidth">200</x:Double>
             <Color x:Key="HelvetyAccentColor">#FFD81B60</Color>
             <SolidColorBrush x:Key="HelvetyAccentBrush" Color="{StaticResource HelvetyAccentColor}" />
             <Color x:Key="HelvetyAccentSubtleColor">#30D81B60</Color>
@@ -22,16 +41,35 @@
             <Color x:Key="SystemAccentColorLight2">#FFE95D8E</Color>
             <Color x:Key="SystemAccentColorLight3">#FFF07AA5</Color>
             <Style x:Key="SettingsCardBorderStyle" TargetType="Border">
-                <Setter Property="Padding" Value="16" />
+                <Setter Property="Padding" Value="{StaticResource AppPaddingCard}" />
                 <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
                 <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
                 <Setter Property="BorderThickness" Value="1" />
-                <Setter Property="CornerRadius" Value="12" />
+                <Setter Property="CornerRadius" Value="{StaticResource AppCornerRadiusCard}" />
+            </Style>
+
+            <!-- Page hero title: use on every top-level page (Screen Tools, Settings modules, About). -->
+            <Style x:Key="SettingsPageTitleTextStyle" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="28" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}" />
+                <Setter Property="TextWrapping" Value="WrapWholeWords" />
+            </Style>
+
+            <!-- Alias for non-settings pages -->
+            <Style x:Key="AppPageTitleTextStyle" TargetType="TextBlock" BasedOn="{StaticResource SettingsPageTitleTextStyle}" />
+
+            <!-- Secondary line under page titles (save path, hints). -->
+            <Style x:Key="AppPageSubtitleTextStyle" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="14" />
+                <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+                <Setter Property="TextWrapping" Value="WrapWholeWords" />
             </Style>
 
             <Style x:Key="SettingsSectionTitleTextStyle" TargetType="TextBlock">
                 <Setter Property="FontSize" Value="20" />
                 <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}" />
                 <Setter Property="TextWrapping" Value="WrapWholeWords" />
             </Style>
 
@@ -43,7 +81,73 @@
             <Style x:Key="SettingsSubsectionTitleTextStyle" TargetType="TextBlock">
                 <Setter Property="FontSize" Value="16" />
                 <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}" />
                 <Setter Property="TextWrapping" Value="WrapWholeWords" />
+            </Style>
+
+            <!-- Empty / marketing callout (Screen Tools gallery) -->
+            <Style x:Key="AppEmptyStateTitleTextStyle" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="28" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="HorizontalAlignment" Value="Center" />
+                <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}" />
+                <Setter Property="TextWrapping" Value="WrapWholeWords" />
+            </Style>
+            <Style x:Key="AppEmptyStateBodyTextStyle" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="14" />
+                <Setter Property="HorizontalAlignment" Value="Center" />
+                <Setter Property="TextAlignment" Value="Center" />
+                <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+                <Setter Property="TextWrapping" Value="WrapWholeWords" />
+            </Style>
+
+            <!-- In-card section labels (gallery "Images", list rows) -->
+            <Style x:Key="AppContentSectionTitleTextStyle" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="20" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}" />
+            </Style>
+            <Style x:Key="AppContentCaptionTextStyle" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="14" />
+                <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+            </Style>
+
+            <!-- Editor tool strip (small labels under icons) -->
+            <Style x:Key="AppEditorToolLabelTextStyle" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="11" />
+                <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+                <Setter Property="TextAlignment" Value="Center" />
+            </Style>
+
+            <!-- Editor tool strip setting cards (labels above sliders/combos). -->
+            <Style x:Key="AppToolSettingCardTitleTextStyle" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Margin" Value="0,0,0,6" />
+                <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+            </Style>
+
+            <!-- List rows (e.g. editor layer list). -->
+            <Style x:Key="AppListItemTitleTextStyle" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="13" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}" />
+                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            </Style>
+            <Style x:Key="AppListItemCaptionTextStyle" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="11" />
+                <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            </Style>
+
+            <!-- Transparent host for settings detail regions (no extra chrome). -->
+            <Style x:Key="AppSettingsDetailHostStyle" TargetType="ContentControl">
+                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                <Setter Property="VerticalContentAlignment" Value="Stretch" />
+                <Setter Property="HorizontalAlignment" Value="Stretch" />
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="IsTabStop" Value="False" />
             </Style>
 
             <Style x:Key="SettingsInlineRowStackPanelStyle" TargetType="StackPanel">
@@ -102,8 +206,6 @@
                 <Setter Property="Margin" Value="0" />
                 <Setter Property="MinHeight" Value="34" />
             </Style>
-
-            <!-- Other app resources here -->
         </ResourceDictionary>
     </Application.Resources>
 </Application>
