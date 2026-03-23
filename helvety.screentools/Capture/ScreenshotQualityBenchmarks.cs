@@ -1,3 +1,4 @@
+#if DEBUG
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -89,3 +90,4 @@ namespace helvety.screentools.Capture
         }
     }
 }
+#endif

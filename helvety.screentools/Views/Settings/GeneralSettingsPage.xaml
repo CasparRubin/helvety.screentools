@@ -14,43 +14,38 @@
                 <TextBlock Style="{StaticResource SettingsPageTitleTextStyle}" Text="General" />
                 <TextBlock
                     Style="{StaticResource SettingsSectionDescriptionTextStyle}"
-                    Text="Save location and storage for your captures."
+                    Text="Window, notification area, and image editor performance."
                     TextWrapping="WrapWholeWords" />
             </StackPanel>
 
+            <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Window" />
             <tk:SettingsCard
-                Description="Choose where captures are stored. A writable folder is required for frozen-screen capture."
-                Header="Save location">
+                Description="Keep Helvety Screen Tools running when you close the window so global hotkeys keep working."
+                Header="Notification area">
                 <tk:SettingsCard.HeaderIcon>
-                    <FontIcon Glyph="&#xE8B7;" />
+                    <FontIcon Glyph="&#xE7E8;" />
                 </tk:SettingsCard.HeaderIcon>
-                <StackPanel Spacing="{StaticResource AppSpacingContent}" MinWidth="{StaticResource SettingActionControlMinWidth}">
-                    <TextBlock
-                        x:Name="SaveFolderText"
-                        Text="Save Folder: (loading...)"
-                        TextWrapping="WrapWholeWords" />
-                    <StackPanel Orientation="Horizontal" Spacing="{StaticResource AppSpacingStack}">
-                        <Button
-                            x:Name="ChooseSaveFolderButton"
-                            Click="ChooseSaveFolderButton_Click"
-                            Content="Choose folder"
-                            Style="{StaticResource SettingsInlineButtonStyle}" />
-                        <Button
-                            x:Name="UseDefaultSaveFolderButton"
-                            Click="UseDefaultSaveFolderButton_Click"
-                            Content="Use default"
-                            Style="{StaticResource SettingsInlineButtonStyle}" />
-                        <Button
-                            x:Name="RemoveSaveFolderButton"
-                            Click="RemoveSaveFolderButton_Click"
-                            Content="Remove"
-                            Style="{StaticResource SettingsInlineButtonStyle}" />
-                    </StackPanel>
-                    <TextBlock
-                        x:Name="SaveFolderStatusText"
-                        Style="{StaticResource SettingsSectionDescriptionTextStyle}"
-                        Text="" />
-                </StackPanel>
+                <ToggleSwitch
+                    x:Name="MinimizeToTrayToggle"
+                    Style="{StaticResource SettingsInlineToggleSwitchStyle}"
+                    OffContent="Off"
+                    OnContent="On"
+                    Toggled="MinimizeToTrayToggle_Toggled" />
+            </tk:SettingsCard>
+
+            <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Image editor" />
+            <tk:SettingsCard
+                Description="Reduces expensive effects while dragging or resizing for smoother editing. Disable only if you need full preview during movement."
+                Header="Editor performance mode">
+                <tk:SettingsCard.HeaderIcon>
+                    <FontIcon Glyph="&#xE9F5;" />
+                </tk:SettingsCard.HeaderIcon>
+                <ToggleSwitch
+                    x:Name="EditorPerformanceModeToggle"
+                    Style="{StaticResource SettingsInlineToggleSwitchStyle}"
+                    OffContent="Off"
+                    OnContent="On"
+                    Toggled="EditorPerformanceModeToggle_Toggled" />
             </tk:SettingsCard>
         </StackPanel>
     </ScrollViewer>

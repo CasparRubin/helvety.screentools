@@ -41,7 +41,9 @@ namespace helvety.screentools.Capture
             var processingWatch = Stopwatch.StartNew();
             var processedImage = ApplyQualityMode(cropBuffer, clampedSelection.Width, clampedSelection.Height, qualityMode);
             processingWatch.Stop();
+#if DEBUG
             ScreenshotQualityBenchmarks.RecordSample(qualityMode, processedImage.Width, processedImage.Height, processingWatch.Elapsed, processedImage.Pixels);
+#endif
             var outputPath = BuildOutputPath(outputFolderPath);
             using var stream = new InMemoryRandomAccessStream();
             var encoder = await BitmapEncoder.CreateAsync(BitmapEncoder.PngEncoderId, stream);

@@ -35,199 +35,277 @@
 
             <ContentControl x:Name="LiveDrawDetailsPanel" Style="{StaticResource AppSettingsDetailHostStyle}">
                 <StackPanel Spacing="{StaticResource AppSpacingSection}">
-                <tk:SettingsExpander
-                    Description="Rectangle modifier, tools, and right-click shortcuts."
-                    Header="Drawing behavior (details)">
-                    <tk:SettingsExpander.HeaderIcon>
-                        <FontIcon Glyph="&#xE946;" />
-                    </tk:SettingsExpander.HeaderIcon>
+                    <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Shortcut" />
+
+                    <tk:SettingsCard
+                        Description="The shortcut that is active when Live Draw is enabled."
+                        Header="Current shortcut">
+                        <tk:SettingsCard.HeaderIcon>
+                            <FontIcon Glyph="&#xEDA7;" />
+                        </tk:SettingsCard.HeaderIcon>
+                        <controls:HotkeyChordStrip x:Name="LiveDrawCurrentChordStrip" />
+                    </tk:SettingsCard>
+
+                    <tk:SettingsCard Description="Hold these while pressing the sequence keys." Header="Modifiers">
+                        <tk:SettingsCard.HeaderIcon>
+                            <FontIcon Glyph="&#xEDA7;" />
+                        </tk:SettingsCard.HeaderIcon>
+                        <StackPanel Orientation="Horizontal" Spacing="{StaticResource AppSpacingContent}">
+                            <CheckBox
+                                x:Name="LiveDrawCtrlModifierCheckBox"
+                                Checked="LiveDrawModifierCheckBox_Changed"
+                                Content="Ctrl"
+                                Unchecked="LiveDrawModifierCheckBox_Changed" />
+                            <CheckBox
+                                x:Name="LiveDrawAltModifierCheckBox"
+                                Checked="LiveDrawModifierCheckBox_Changed"
+                                Content="Alt"
+                                Unchecked="LiveDrawModifierCheckBox_Changed" />
+                            <CheckBox
+                                x:Name="LiveDrawShiftModifierCheckBox"
+                                Checked="LiveDrawModifierCheckBox_Changed"
+                                Content="Shift"
+                                Unchecked="LiveDrawModifierCheckBox_Changed" />
+                        </StackPanel>
+                    </tk:SettingsCard>
+
+                    <tk:SettingsExpander Description="Set one to five keys in order." Header="Activation sequence">
+                        <tk:SettingsExpander.HeaderIcon>
+                            <FontIcon Glyph="&#xEDA7;" />
+                        </tk:SettingsExpander.HeaderIcon>
+                        <tk:SettingsExpander.Items>
+                            <TextBlock
+                                x:Name="LiveDrawHotkeyInstructionText"
+                                Style="{StaticResource SettingsSectionDescriptionTextStyle}"
+                                Text=""
+                                TextWrapping="WrapWholeWords" />
+                            <tk:SettingsCard Header="Steps">
+                                <Grid ColumnSpacing="{StaticResource AppSpacingContent}" RowSpacing="{StaticResource AppSpacingStack}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="Step 1" />
+                                    <controls:HotkeyChordStrip x:Name="LiveDrawStep1KeyChordStrip" Grid.Row="0" Grid.Column="1" VerticalAlignment="Center" />
+                                    <Button
+                                        Grid.Row="0"
+                                        Grid.Column="2"
+                                        Click="LiveDrawListenStep1Button_Click"
+                                        Content="Listen"
+                                        Style="{StaticResource SettingsInlineButtonStyle}" />
+                                    <Button
+                                        Grid.Row="0"
+                                        Grid.Column="3"
+                                        Click="LiveDrawClearStep1Button_Click"
+                                        Content="Clear"
+                                        Style="{StaticResource SettingsInlineButtonStyle}" />
+                                    <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Text="Step 2" />
+                                    <controls:HotkeyChordStrip x:Name="LiveDrawStep2KeyChordStrip" Grid.Row="1" Grid.Column="1" VerticalAlignment="Center" />
+                                    <Button
+                                        Grid.Row="1"
+                                        Grid.Column="2"
+                                        Click="LiveDrawListenStep2Button_Click"
+                                        Content="Listen"
+                                        Style="{StaticResource SettingsInlineButtonStyle}" />
+                                    <Button
+                                        Grid.Row="1"
+                                        Grid.Column="3"
+                                        Click="LiveDrawClearStep2Button_Click"
+                                        Content="Clear"
+                                        Style="{StaticResource SettingsInlineButtonStyle}" />
+                                    <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Text="Step 3" />
+                                    <controls:HotkeyChordStrip x:Name="LiveDrawStep3KeyChordStrip" Grid.Row="2" Grid.Column="1" VerticalAlignment="Center" />
+                                    <Button
+                                        Grid.Row="2"
+                                        Grid.Column="2"
+                                        Click="LiveDrawListenStep3Button_Click"
+                                        Content="Listen"
+                                        Style="{StaticResource SettingsInlineButtonStyle}" />
+                                    <Button
+                                        Grid.Row="2"
+                                        Grid.Column="3"
+                                        Click="LiveDrawClearStep3Button_Click"
+                                        Content="Clear"
+                                        Style="{StaticResource SettingsInlineButtonStyle}" />
+                                    <TextBlock Grid.Row="3" Grid.Column="0" VerticalAlignment="Center" Text="Step 4" />
+                                    <controls:HotkeyChordStrip x:Name="LiveDrawStep4KeyChordStrip" Grid.Row="3" Grid.Column="1" VerticalAlignment="Center" />
+                                    <Button
+                                        Grid.Row="3"
+                                        Grid.Column="2"
+                                        Click="LiveDrawListenStep4Button_Click"
+                                        Content="Listen"
+                                        Style="{StaticResource SettingsInlineButtonStyle}" />
+                                    <Button
+                                        Grid.Row="3"
+                                        Grid.Column="3"
+                                        Click="LiveDrawClearStep4Button_Click"
+                                        Content="Clear"
+                                        Style="{StaticResource SettingsInlineButtonStyle}" />
+                                    <TextBlock Grid.Row="4" Grid.Column="0" VerticalAlignment="Center" Text="Step 5" />
+                                    <controls:HotkeyChordStrip x:Name="LiveDrawStep5KeyChordStrip" Grid.Row="4" Grid.Column="1" VerticalAlignment="Center" />
+                                    <Button
+                                        Grid.Row="4"
+                                        Grid.Column="2"
+                                        Click="LiveDrawListenStep5Button_Click"
+                                        Content="Listen"
+                                        Style="{StaticResource SettingsInlineButtonStyle}" />
+                                    <Button
+                                        Grid.Row="4"
+                                        Grid.Column="3"
+                                        Click="LiveDrawClearStep5Button_Click"
+                                        Content="Clear"
+                                        Style="{StaticResource SettingsInlineButtonStyle}" />
+                                </Grid>
+                            </tk:SettingsCard>
+                        </tk:SettingsExpander.Items>
+                    </tk:SettingsExpander>
+
+                    <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Shape shortcuts" />
                     <TextBlock
                         Style="{StaticResource SettingsSectionDescriptionTextStyle}"
-                        Text="Transparent overlay (GDI chroma key under transparent WinUI). Esc exits. Default Rectangle modifier is Shift: Shift+drag draws rectangles; Alt+drag draws arrows; Ctrl+drag draws straight lines. Modifier changes remap shape tools (see in-app help for full matrix). Right-click shows a sparkle; Shift+right drag circle; Alt+right drag ellipse. Shape styling matches capture border effects."
+                        Text="Assign Shift, Ctrl, Alt, Win, or None (unbound) to each shape. Left-button tools: each non-None modifier must be unique. Circle and ellipse: must differ unless one is None. Free draw and sparkle behaviors are fixed."
                         TextWrapping="WrapWholeWords" />
-                </tk:SettingsExpander>
 
-                <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Shortcut" />
+                    <tk:SettingsCard
+                        Description="Left mouse button while holding this modifier."
+                        Header="Rectangle">
+                        <tk:SettingsCard.HeaderIcon>
+                            <FontIcon Glyph="&#xEC4E;" />
+                        </tk:SettingsCard.HeaderIcon>
+                        <ComboBox
+                            x:Name="LiveDrawShapeRectangleComboBox"
+                            MinWidth="{StaticResource SettingActionControlMinWidth}"
+                            SelectionChanged="LiveDrawShapeModifierComboBox_SelectionChanged"
+                            Style="{StaticResource SettingsInlineComboBoxStyle}">
+                            <ComboBoxItem Content="None" Tag="None" />
+                            <ComboBoxItem Content="Shift" Tag="Shift" />
+                            <ComboBoxItem Content="Ctrl" Tag="Control" />
+                            <ComboBoxItem Content="Alt" Tag="Alt" />
+                            <ComboBoxItem Content="Win" Tag="Win" />
+                        </ComboBox>
+                    </tk:SettingsCard>
 
-                <tk:SettingsCard
-                    Description="The shortcut that is active when Live Draw is enabled."
-                    Header="Current shortcut">
-                    <tk:SettingsCard.HeaderIcon>
-                        <FontIcon Glyph="&#xEDA7;" />
-                    </tk:SettingsCard.HeaderIcon>
-                    <controls:HotkeyChordStrip x:Name="LiveDrawCurrentChordStrip" />
-                </tk:SettingsCard>
+                    <tk:SettingsCard
+                        Description="Left mouse button while holding this modifier."
+                        Header="Arrow">
+                        <tk:SettingsCard.HeaderIcon>
+                            <FontIcon Glyph="&#xEC4E;" />
+                        </tk:SettingsCard.HeaderIcon>
+                        <ComboBox
+                            x:Name="LiveDrawShapeArrowComboBox"
+                            MinWidth="{StaticResource SettingActionControlMinWidth}"
+                            SelectionChanged="LiveDrawShapeModifierComboBox_SelectionChanged"
+                            Style="{StaticResource SettingsInlineComboBoxStyle}">
+                            <ComboBoxItem Content="None" Tag="None" />
+                            <ComboBoxItem Content="Shift" Tag="Shift" />
+                            <ComboBoxItem Content="Ctrl" Tag="Control" />
+                            <ComboBoxItem Content="Alt" Tag="Alt" />
+                            <ComboBoxItem Content="Win" Tag="Win" />
+                        </ComboBox>
+                    </tk:SettingsCard>
 
-                <tk:SettingsCard Description="Which modifier selects rectangles with the left mouse button while drawing." Header="Rectangle modifier">
-                    <tk:SettingsCard.HeaderIcon>
-                        <FontIcon Glyph="&#xEC4E;" />
-                    </tk:SettingsCard.HeaderIcon>
-                    <ComboBox
-                        x:Name="LiveDrawRectangleModifierComboBox"
-                        Style="{StaticResource SettingsInlineComboBoxStyle}"
-                        MinWidth="{StaticResource SettingActionControlMinWidth}"
-                        SelectionChanged="LiveDrawRectangleModifierComboBox_SelectionChanged">
-                        <ComboBoxItem Content="Shift" Tag="Shift" />
-                        <ComboBoxItem Content="Ctrl" Tag="Control" />
-                        <ComboBoxItem Content="Alt" Tag="Alt" />
-                        <ComboBoxItem Content="Win" Tag="Win" />
-                    </ComboBox>
-                </tk:SettingsCard>
+                    <tk:SettingsCard
+                        Description="Left mouse button while holding this modifier."
+                        Header="Straight line">
+                        <tk:SettingsCard.HeaderIcon>
+                            <FontIcon Glyph="&#xEC4E;" />
+                        </tk:SettingsCard.HeaderIcon>
+                        <ComboBox
+                            x:Name="LiveDrawShapeStraightLineComboBox"
+                            MinWidth="{StaticResource SettingActionControlMinWidth}"
+                            SelectionChanged="LiveDrawShapeModifierComboBox_SelectionChanged"
+                            Style="{StaticResource SettingsInlineComboBoxStyle}">
+                            <ComboBoxItem Content="None" Tag="None" />
+                            <ComboBoxItem Content="Shift" Tag="Shift" />
+                            <ComboBoxItem Content="Ctrl" Tag="Control" />
+                            <ComboBoxItem Content="Alt" Tag="Alt" />
+                            <ComboBoxItem Content="Win" Tag="Win" />
+                        </ComboBox>
+                    </tk:SettingsCard>
 
-                <tk:SettingsCard Description="Hold these while pressing the sequence keys." Header="Modifiers">
-                    <tk:SettingsCard.HeaderIcon>
-                        <FontIcon Glyph="&#xEDA7;" />
-                    </tk:SettingsCard.HeaderIcon>
-                    <StackPanel Orientation="Horizontal" Spacing="{StaticResource AppSpacingContent}">
-                        <CheckBox
-                            x:Name="LiveDrawCtrlModifierCheckBox"
-                            Checked="LiveDrawModifierCheckBox_Changed"
-                            Content="Ctrl"
-                            Unchecked="LiveDrawModifierCheckBox_Changed" />
-                        <CheckBox
-                            x:Name="LiveDrawAltModifierCheckBox"
-                            Checked="LiveDrawModifierCheckBox_Changed"
-                            Content="Alt"
-                            Unchecked="LiveDrawModifierCheckBox_Changed" />
-                        <CheckBox
-                            x:Name="LiveDrawShiftModifierCheckBox"
-                            Checked="LiveDrawModifierCheckBox_Changed"
-                            Content="Shift"
-                            Unchecked="LiveDrawModifierCheckBox_Changed" />
+                    <tk:SettingsCard
+                        Description="Right mouse button while holding this modifier."
+                        Header="Circle">
+                        <tk:SettingsCard.HeaderIcon>
+                            <FontIcon Glyph="&#xEC4E;" />
+                        </tk:SettingsCard.HeaderIcon>
+                        <ComboBox
+                            x:Name="LiveDrawShapeCircleRightComboBox"
+                            MinWidth="{StaticResource SettingActionControlMinWidth}"
+                            SelectionChanged="LiveDrawShapeModifierComboBox_SelectionChanged"
+                            Style="{StaticResource SettingsInlineComboBoxStyle}">
+                            <ComboBoxItem Content="None" Tag="None" />
+                            <ComboBoxItem Content="Shift" Tag="Shift" />
+                            <ComboBoxItem Content="Ctrl" Tag="Control" />
+                            <ComboBoxItem Content="Alt" Tag="Alt" />
+                            <ComboBoxItem Content="Win" Tag="Win" />
+                        </ComboBox>
+                    </tk:SettingsCard>
+
+                    <tk:SettingsCard
+                        Description="Right mouse button while holding this modifier."
+                        Header="Ellipse">
+                        <tk:SettingsCard.HeaderIcon>
+                            <FontIcon Glyph="&#xEC4E;" />
+                        </tk:SettingsCard.HeaderIcon>
+                        <ComboBox
+                            x:Name="LiveDrawShapeEllipseRightComboBox"
+                            MinWidth="{StaticResource SettingActionControlMinWidth}"
+                            SelectionChanged="LiveDrawShapeModifierComboBox_SelectionChanged"
+                            Style="{StaticResource SettingsInlineComboBoxStyle}">
+                            <ComboBoxItem Content="None" Tag="None" />
+                            <ComboBoxItem Content="Shift" Tag="Shift" />
+                            <ComboBoxItem Content="Ctrl" Tag="Control" />
+                            <ComboBoxItem Content="Alt" Tag="Alt" />
+                            <ComboBoxItem Content="Win" Tag="Win" />
+                        </ComboBox>
+                    </tk:SettingsCard>
+
+                    <tk:SettingsCard
+                        Description="Left drag or hold with no shape modifier; ink follows the pointer. This behavior is not remappable."
+                        Header="Free draw" />
+
+                    <tk:SettingsCard
+                        Description="Right click and hold with no circle or ellipse modifier; a pulsing sparkle follows the cursor. This behavior is not remappable."
+                        Header="Sparkle (right hold)" />
+
+                    <InfoBar
+                        x:Name="ListeningInfoBar"
+                        IsClosable="False"
+                        IsOpen="False"
+                        Message="Press a non-modifier key. Esc cancels."
+                        Severity="Informational"
+                        Title="Listening for key" />
+                    <TextBlock
+                        x:Name="LiveDrawBindingStatusText"
+                        Style="{StaticResource SettingsSectionDescriptionTextStyle}"
+                        Text="" />
+                    <StackPanel Orientation="Horizontal" Spacing="{StaticResource AppSpacingStack}">
+                        <Button
+                            x:Name="ApplyLiveDrawHotkeyButton"
+                            Click="ApplyLiveDrawHotkeyButton_Click"
+                            Content="Apply Live Draw hotkey"
+                            Style="{StaticResource SettingsInlineButtonStyle}" />
+                        <Button
+                            x:Name="UseDefaultLiveDrawHotkeyButton"
+                            Click="UseDefaultLiveDrawHotkeyButton_Click"
+                            Content="Use default"
+                            Style="{StaticResource SettingsInlineButtonStyle}" />
+                        <Button
+                            x:Name="RemoveLiveDrawHotkeyButton"
+                            Click="RemoveLiveDrawHotkeyButton_Click"
+                            Content="Remove Live Draw hotkey"
+                            Style="{StaticResource SettingsInlineButtonStyle}" />
                     </StackPanel>
-                </tk:SettingsCard>
-
-                <tk:SettingsExpander Description="Set one to five keys in order." Header="Activation sequence">
-                    <tk:SettingsExpander.HeaderIcon>
-                        <FontIcon Glyph="&#xEDA7;" />
-                    </tk:SettingsExpander.HeaderIcon>
-                    <tk:SettingsExpander.Items>
-                        <tk:SettingsCard Header="Steps">
-                            <Grid ColumnSpacing="{StaticResource AppSpacingContent}" RowSpacing="{StaticResource AppSpacingStack}">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                </Grid.RowDefinitions>
-                                <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="Step 1" />
-                                <controls:HotkeyChordStrip x:Name="LiveDrawStep1KeyChordStrip" Grid.Row="0" Grid.Column="1" VerticalAlignment="Center" />
-                                <Button
-                                    Grid.Row="0"
-                                    Grid.Column="2"
-                                    Click="LiveDrawListenStep1Button_Click"
-                                    Content="Listen"
-                                    Style="{StaticResource SettingsInlineButtonStyle}" />
-                                <Button
-                                    Grid.Row="0"
-                                    Grid.Column="3"
-                                    Click="LiveDrawClearStep1Button_Click"
-                                    Content="Clear"
-                                    Style="{StaticResource SettingsInlineButtonStyle}" />
-                                <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Text="Step 2" />
-                                <controls:HotkeyChordStrip x:Name="LiveDrawStep2KeyChordStrip" Grid.Row="1" Grid.Column="1" VerticalAlignment="Center" />
-                                <Button
-                                    Grid.Row="1"
-                                    Grid.Column="2"
-                                    Click="LiveDrawListenStep2Button_Click"
-                                    Content="Listen"
-                                    Style="{StaticResource SettingsInlineButtonStyle}" />
-                                <Button
-                                    Grid.Row="1"
-                                    Grid.Column="3"
-                                    Click="LiveDrawClearStep2Button_Click"
-                                    Content="Clear"
-                                    Style="{StaticResource SettingsInlineButtonStyle}" />
-                                <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Text="Step 3" />
-                                <controls:HotkeyChordStrip x:Name="LiveDrawStep3KeyChordStrip" Grid.Row="2" Grid.Column="1" VerticalAlignment="Center" />
-                                <Button
-                                    Grid.Row="2"
-                                    Grid.Column="2"
-                                    Click="LiveDrawListenStep3Button_Click"
-                                    Content="Listen"
-                                    Style="{StaticResource SettingsInlineButtonStyle}" />
-                                <Button
-                                    Grid.Row="2"
-                                    Grid.Column="3"
-                                    Click="LiveDrawClearStep3Button_Click"
-                                    Content="Clear"
-                                    Style="{StaticResource SettingsInlineButtonStyle}" />
-                                <TextBlock Grid.Row="3" Grid.Column="0" VerticalAlignment="Center" Text="Step 4" />
-                                <controls:HotkeyChordStrip x:Name="LiveDrawStep4KeyChordStrip" Grid.Row="3" Grid.Column="1" VerticalAlignment="Center" />
-                                <Button
-                                    Grid.Row="3"
-                                    Grid.Column="2"
-                                    Click="LiveDrawListenStep4Button_Click"
-                                    Content="Listen"
-                                    Style="{StaticResource SettingsInlineButtonStyle}" />
-                                <Button
-                                    Grid.Row="3"
-                                    Grid.Column="3"
-                                    Click="LiveDrawClearStep4Button_Click"
-                                    Content="Clear"
-                                    Style="{StaticResource SettingsInlineButtonStyle}" />
-                                <TextBlock Grid.Row="4" Grid.Column="0" VerticalAlignment="Center" Text="Step 5" />
-                                <controls:HotkeyChordStrip x:Name="LiveDrawStep5KeyChordStrip" Grid.Row="4" Grid.Column="1" VerticalAlignment="Center" />
-                                <Button
-                                    Grid.Row="4"
-                                    Grid.Column="2"
-                                    Click="LiveDrawListenStep5Button_Click"
-                                    Content="Listen"
-                                    Style="{StaticResource SettingsInlineButtonStyle}" />
-                                <Button
-                                    Grid.Row="4"
-                                    Grid.Column="3"
-                                    Click="LiveDrawClearStep5Button_Click"
-                                    Content="Clear"
-                                    Style="{StaticResource SettingsInlineButtonStyle}" />
-                            </Grid>
-                        </tk:SettingsCard>
-                    </tk:SettingsExpander.Items>
-                </tk:SettingsExpander>
-
-                <InfoBar
-                    x:Name="ListeningInfoBar"
-                    IsClosable="False"
-                    IsOpen="False"
-                    Message="Press a non-modifier key. Esc cancels."
-                    Severity="Informational"
-                    Title="Listening for key" />
-                <TextBlock
-                    x:Name="LiveDrawHotkeyInstructionText"
-                    Style="{StaticResource SettingsSectionDescriptionTextStyle}"
-                    Text="" />
-                <StackPanel x:Name="LiveDrawPreviewPanel" Spacing="{StaticResource AppSpacingTight}" Visibility="Collapsed">
-                    <TextBlock Style="{StaticResource SettingsSectionDescriptionTextStyle}" Text="Preview" />
-                    <controls:HotkeyChordStrip x:Name="LiveDrawPreviewChordStrip" />
-                </StackPanel>
-                <TextBlock
-                    x:Name="LiveDrawBindingStatusText"
-                    Style="{StaticResource SettingsSectionDescriptionTextStyle}"
-                    Text="" />
-                <StackPanel Orientation="Horizontal" Spacing="{StaticResource AppSpacingStack}">
-                    <Button
-                        x:Name="ApplyLiveDrawHotkeyButton"
-                        Click="ApplyLiveDrawHotkeyButton_Click"
-                        Content="Apply Live Draw hotkey"
-                        Style="{StaticResource SettingsInlineButtonStyle}" />
-                    <Button
-                        x:Name="UseDefaultLiveDrawHotkeyButton"
-                        Click="UseDefaultLiveDrawHotkeyButton_Click"
-                        Content="Use default"
-                        Style="{StaticResource SettingsInlineButtonStyle}" />
-                    <Button
-                        x:Name="RemoveLiveDrawHotkeyButton"
-                        Click="RemoveLiveDrawHotkeyButton_Click"
-                        Content="Remove Live Draw hotkey"
-                        Style="{StaticResource SettingsInlineButtonStyle}" />
-                </StackPanel>
                 </StackPanel>
             </ContentControl>
         </StackPanel>

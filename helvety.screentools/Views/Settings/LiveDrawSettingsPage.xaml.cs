@@ -17,7 +17,7 @@ namespace helvety.screentools.Views.Settings
 
         private readonly uint?[] _liveDrawEditorSequence = new uint?[MaxSequenceLength];
         private uint _liveDrawEditorModifiers;
-        private bool _isUpdatingLiveDrawRectangleModifier;
+        private bool _isUpdatingLiveDrawShapeModifiers;
         private bool _isUpdatingLiveDrawToggle;
         private bool _isCaptureMode;
         private HotkeyListenController? _listenController;
@@ -77,7 +77,6 @@ namespace helvety.screentools.Views.Settings
             _liveDrawEditorSequence[stepIndex] = virtualKey;
             StopStepCapture();
             UpdateLiveDrawStepTexts();
-            UpdateLiveDrawHotkeyPreview();
             LiveDrawBindingStatusText.Text = $"Step {stepIndex + 1} set to {HotkeyVisualMapper.GetKeyDisplayName(virtualKey)}.";
         }
 
@@ -103,22 +102,7 @@ namespace helvety.screentools.Views.Settings
 
         private void InitializeLiveDrawHotkeyUi()
         {
-            _isUpdatingLiveDrawRectangleModifier = true;
-            try
-            {
-                var mod = SettingsService.LoadLiveDrawRectangleModifier();
-                LiveDrawRectangleModifierComboBox.SelectedIndex = mod switch
-                {
-                    LiveDrawRectangleModifier.Control => 1,
-                    LiveDrawRectangleModifier.Alt => 2,
-                    LiveDrawRectangleModifier.Win => 3,
-                    _ => 0
-                };
-            }
-            finally
-            {
-                _isUpdatingLiveDrawRectangleModifier = false;
-            }
+            InitializeLiveDrawShapeModifierCombos();
 
             if (SettingsService.TryGetEffectiveHotkey(out var shot) &&
                 SettingsService.TryGetEffectiveLiveDrawHotkey(out var live) &&
@@ -151,28 +135,81 @@ namespace helvety.screentools.Views.Settings
             UpdateLiveDrawFeatureAvailability();
         }
 
-        private void LiveDrawRectangleModifierComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private void InitializeLiveDrawShapeModifierCombos()
         {
-            if (_isUpdatingLiveDrawRectangleModifier || LiveDrawRectangleModifierComboBox.SelectedItem is not ComboBoxItem item ||
-                item.Tag is not string tag)
+            _isUpdatingLiveDrawShapeModifiers = true;
+            try
+            {
+                var mods = SettingsService.LoadLiveDrawShapeModifiers();
+                SetShapeModifierComboIndex(LiveDrawShapeRectangleComboBox, mods.Rectangle);
+                SetShapeModifierComboIndex(LiveDrawShapeArrowComboBox, mods.Arrow);
+                SetShapeModifierComboIndex(LiveDrawShapeStraightLineComboBox, mods.StraightLine);
+                SetShapeModifierComboIndex(LiveDrawShapeCircleRightComboBox, mods.CircleRight);
+                SetShapeModifierComboIndex(LiveDrawShapeEllipseRightComboBox, mods.EllipseRight);
+            }
+            finally
+            {
+                _isUpdatingLiveDrawShapeModifiers = false;
+            }
+        }
+
+        private static void SetShapeModifierComboIndex(ComboBox box, LiveDrawRectangleModifier modifier)
+        {
+            box.SelectedIndex = modifier switch
+            {
+                LiveDrawRectangleModifier.None => 0,
+                LiveDrawRectangleModifier.Shift => 1,
+                LiveDrawRectangleModifier.Control => 2,
+                LiveDrawRectangleModifier.Alt => 3,
+                LiveDrawRectangleModifier.Win => 4,
+                _ => 0
+            };
+        }
+
+        private static LiveDrawRectangleModifier GetShapeModifierFromCombo(ComboBox box)
+        {
+            if (box.SelectedItem is not ComboBoxItem item || item.Tag is not string tag)
+            {
+                return LiveDrawRectangleModifier.None;
+            }
+
+            return tag switch
+            {
+                "None" => LiveDrawRectangleModifier.None,
+                "Shift" => LiveDrawRectangleModifier.Shift,
+                "Control" => LiveDrawRectangleModifier.Control,
+                "Alt" => LiveDrawRectangleModifier.Alt,
+                "Win" => LiveDrawRectangleModifier.Win,
+                _ => LiveDrawRectangleModifier.None
+            };
+        }
+
+        private void LiveDrawShapeModifierComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_isUpdatingLiveDrawShapeModifiers)
             {
                 return;
             }
 
-            var modifier = tag switch
+            var next = new LiveDrawShapeModifiers(
+                GetShapeModifierFromCombo(LiveDrawShapeRectangleComboBox),
+                GetShapeModifierFromCombo(LiveDrawShapeArrowComboBox),
+                GetShapeModifierFromCombo(LiveDrawShapeStraightLineComboBox),
+                GetShapeModifierFromCombo(LiveDrawShapeCircleRightComboBox),
+                GetShapeModifierFromCombo(LiveDrawShapeEllipseRightComboBox));
+
+            if (SettingsService.TrySaveLiveDrawShapeModifiers(next, out var errorMessage))
             {
-                "Control" => LiveDrawRectangleModifier.Control,
-                "Alt" => LiveDrawRectangleModifier.Alt,
-                "Win" => LiveDrawRectangleModifier.Win,
-                _ => LiveDrawRectangleModifier.Shift
-            };
-            SettingsService.SaveLiveDrawRectangleModifier(modifier);
+                return;
+            }
+
+            InAppToastService.Show(errorMessage);
+            InitializeLiveDrawShapeModifierCombos();
         }
 
         private void LiveDrawModifierCheckBox_Changed(object sender, RoutedEventArgs e)
         {
             _liveDrawEditorModifiers = BuildLiveDrawModifiersFromEditor();
-            UpdateLiveDrawHotkeyPreview();
             UpdateLiveDrawFeatureAvailability();
         }
 
@@ -221,7 +258,6 @@ namespace helvety.screentools.Views.Settings
             }
 
             UpdateLiveDrawStepTexts();
-            UpdateLiveDrawHotkeyPreview();
         }
 
         private void ResetLiveDrawEditor()
@@ -236,7 +272,6 @@ namespace helvety.screentools.Views.Settings
             LiveDrawAltModifierCheckBox.IsChecked = false;
             LiveDrawShiftModifierCheckBox.IsChecked = false;
             UpdateLiveDrawStepTexts();
-            UpdateLiveDrawHotkeyPreview();
         }
 
         private List<uint> BuildLiveDrawEditorSequence()
@@ -253,25 +288,6 @@ namespace helvety.screentools.Views.Settings
             }
 
             return sequence;
-        }
-
-        private void UpdateLiveDrawHotkeyPreview()
-        {
-            var sequence = BuildLiveDrawEditorSequence();
-            if (sequence.Count == 0)
-            {
-                LiveDrawPreviewPanel.Visibility = Visibility.Collapsed;
-                return;
-            }
-
-            LiveDrawPreviewPanel.Visibility = Visibility.Visible;
-            var keyNames = sequence.Select(HotkeyVisualMapper.GetKeyDisplayName).ToArray();
-            var display = HotkeyVisualMapper.BuildBindingDisplay(_liveDrawEditorModifiers, keyNames);
-            LiveDrawPreviewChordStrip.SetChord(
-                _liveDrawEditorModifiers,
-                sequence,
-                HotkeyChordAppearance.Default,
-                $"Preview: {display}");
         }
 
         private void UpdateLiveDrawFeatureAvailability()
@@ -325,7 +341,7 @@ namespace helvety.screentools.Views.Settings
             }
 
             _isCaptureMode = true;
-            _listenController.StartListen(stepIndex, HotkeyListenKind.LiveDraw);
+            _listenController.StartListen(stepIndex);
             ListeningInfoBar.Title = $"Live Draw — listening for step {stepIndex + 1}";
             ListeningInfoBar.Message = "Press a non-modifier key. Esc cancels.";
             ListeningInfoBar.IsOpen = true;
@@ -361,7 +377,6 @@ namespace helvety.screentools.Views.Settings
             }
 
             UpdateLiveDrawStepTexts();
-            UpdateLiveDrawHotkeyPreview();
             UpdateLiveDrawFeatureAvailability();
         }
 

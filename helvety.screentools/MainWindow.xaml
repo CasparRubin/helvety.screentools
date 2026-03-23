@@ -27,7 +27,31 @@
             <NavigationViewItem
                 Content="Settings"
                 Icon="Setting"
-                Tag="settings" />
+                IsExpanded="True"
+                SelectsOnInvoked="False">
+                <NavigationViewItem.MenuItems>
+                    <NavigationViewItem
+                        Content="General"
+                        Icon="Folder"
+                        Tag="general" />
+                    <NavigationViewItem
+                        Content="Animations"
+                        Icon="SlideShow"
+                        Tag="animations" />
+                    <NavigationViewItem
+                        Content="Screen capture"
+                        Icon="Camera"
+                        Tag="capture" />
+                    <NavigationViewItem
+                        Content="Live Draw"
+                        Icon="Edit"
+                        Tag="livedraw" />
+                    <NavigationViewItem
+                        Content="Danger zone"
+                        Icon="Important"
+                        Tag="danger" />
+                </NavigationViewItem.MenuItems>
+            </NavigationViewItem>
             <NavigationViewItem
                 Content="About"
                 Icon="Help"

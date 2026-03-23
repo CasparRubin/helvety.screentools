@@ -16,9 +16,8 @@ namespace helvety.screentools.Capture
     /// <summary>
     /// Live Draw vector overlay: full virtual-screen <see cref="UserControl"/> with a transparent root so the host
     /// can key out the GDI chroma fill from <see cref="LiveDrawNativeHost"/>; ink renders above the desktop.
-    /// Left mouse: freehand and shape tools (rectangle / arrow / straight line per Settings). Right mouse: pulsing sparkle
-    /// while held (no modifiers; follows the pointer), Shift+drag circle, Alt+drag ellipse (no Ctrl); right-button shortcuts are fixed and ignore
-    /// the rectangle modifier setting.
+    /// Left mouse: freehand when no shape modifier matches; rectangle, arrow, and straight line use the modifiers set in Settings.
+    /// Right mouse: circle or ellipse with the chosen modifiers; plain right hold is the sparkle animation (no modifier).
     /// </summary>
     internal sealed partial class LiveDrawOverlayContent : UserControl
     {
@@ -103,6 +102,10 @@ namespace helvety.screentools.Capture
 
             _snapBorderCompositionInitialized = true;
             _snapBorderChrome.InitializeCompositionAnimations();
+
+            var editorSettings = SettingsService.LoadEditorUiSettings();
+            var liveDrawMainStroke = Math.Max(1, editorSettings.PrimaryThickness) * LiveDrawArrowSizeScale;
+            _snapBorderChrome.ApplyLiveDrawStrokeThickness(liveDrawMainStroke);
 
             var dq = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
             _driftTimer = dq.CreateTimer();
@@ -250,23 +253,21 @@ namespace helvety.screentools.Capture
             _ = RootGrid.CapturePointer(e.Pointer);
             _host?.EnsureFocusedForKeyboard();
 
-            var rectMod = SettingsService.LoadLiveDrawRectangleModifier();
-            if (rectMod == LiveDrawRectangleModifier.Shift && IsShiftDown(e) && !IsControlDown(e) &&
-                !IsAltMenuWithoutCtrl(e))
+            var shapeMods = SettingsService.LoadLiveDrawShapeModifiers();
+            if (shapeMods.Rectangle != LiveDrawRectangleModifier.None &&
+                MatchesLiveDrawModifier(shapeMods.Rectangle, e))
             {
                 _activeTool = LiveDrawTool.Rectangle;
             }
-            else if (IsStraightLineModifierDown(rectMod, e))
-            {
-                _activeTool = LiveDrawTool.StraightLine;
-            }
-            else if (IsArrowModifierDown(rectMod, e))
+            else if (shapeMods.Arrow != LiveDrawRectangleModifier.None &&
+                     MatchesLiveDrawModifier(shapeMods.Arrow, e))
             {
                 _activeTool = LiveDrawTool.Arrow;
             }
-            else if (IsRectangleModifierDown(e))
+            else if (shapeMods.StraightLine != LiveDrawRectangleModifier.None &&
+                     MatchesLiveDrawModifier(shapeMods.StraightLine, e))
             {
-                _activeTool = LiveDrawTool.Rectangle;
+                _activeTool = LiveDrawTool.StraightLine;
             }
             else
             {
@@ -398,11 +399,14 @@ namespace helvety.screentools.Capture
         private void HandleRightPointerPressed(PointerRoutedEventArgs e)
         {
             var pos = e.GetCurrentPoint(RootGrid).Position;
-            if (IsShiftDown(e))
+            var shapeMods = SettingsService.LoadLiveDrawShapeModifiers();
+            if (shapeMods.CircleRight != LiveDrawRectangleModifier.None &&
+                MatchesLiveDrawModifier(shapeMods.CircleRight, e))
             {
                 _activeTool = LiveDrawTool.Circle;
             }
-            else if (IsAltMenuWithoutCtrl(e))
+            else if (shapeMods.EllipseRight != LiveDrawRectangleModifier.None &&
+                     MatchesLiveDrawModifier(shapeMods.EllipseRight, e))
             {
                 _activeTool = LiveDrawTool.Ellipse;
             }
@@ -734,31 +738,6 @@ namespace helvety.screentools.Capture
             CloseRequested?.Invoke();
         }
 
-        private static bool IsStraightLineModifierDown(LiveDrawRectangleModifier rectMod, PointerRoutedEventArgs? e)
-        {
-            if (rectMod == LiveDrawRectangleModifier.Control)
-            {
-                return false;
-            }
-
-            return IsControlDown(e);
-        }
-
-        private static bool IsArrowModifierDown(LiveDrawRectangleModifier rectMod, PointerRoutedEventArgs? e)
-        {
-            if (rectMod == LiveDrawRectangleModifier.Shift)
-            {
-                return IsAltMenuWithoutCtrl(e);
-            }
-
-            if (rectMod != LiveDrawRectangleModifier.Alt && IsAltMenuWithoutCtrl(e))
-            {
-                return true;
-            }
-
-            return IsShiftDown(e);
-        }
-
         private const int VkMenu = 0x12;
         private const int VkLMenu = 0xA4;
         private const int VkRMenu = 0xA5;
@@ -834,10 +813,11 @@ namespace helvety.screentools.Capture
                    (GetAsyncKeyState(VkRwin) & 0x8000) != 0;
         }
 
-        private bool IsRectangleModifierDown(PointerRoutedEventArgs? e = null)
+        private static bool MatchesLiveDrawModifier(LiveDrawRectangleModifier modifier, PointerRoutedEventArgs? e = null)
         {
-            return SettingsService.LoadLiveDrawRectangleModifier() switch
+            return modifier switch
             {
+                LiveDrawRectangleModifier.None => false,
                 LiveDrawRectangleModifier.Shift => IsShiftDown(e),
                 LiveDrawRectangleModifier.Control => IsControlDown(e),
                 LiveDrawRectangleModifier.Win => IsWinDown(e),

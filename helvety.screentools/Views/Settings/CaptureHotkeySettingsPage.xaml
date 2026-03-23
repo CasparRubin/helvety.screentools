@@ -15,9 +15,44 @@
                 <TextBlock Style="{StaticResource SettingsPageTitleTextStyle}" Text="Screen capture" />
                 <TextBlock
                     Style="{StaticResource SettingsSectionDescriptionTextStyle}"
-                    Text="Frozen-screen capture and your global shortcut. Turn off to keep the shortcut saved but inactive."
+                    Text="Save folder, frozen-screen shortcut, capture quality, and overlay instructions. Snap-border animation intensity (shared with Live Draw) is configured under Settings → Animations."
                     TextWrapping="WrapWholeWords" />
             </StackPanel>
+
+            <tk:SettingsCard
+                Description="Choose where captures are stored. A writable folder is required for frozen-screen capture."
+                Header="Save location">
+                <tk:SettingsCard.HeaderIcon>
+                    <FontIcon Glyph="&#xE8B7;" />
+                </tk:SettingsCard.HeaderIcon>
+                <StackPanel Spacing="{StaticResource AppSpacingContent}" MinWidth="{StaticResource SettingActionControlMinWidth}">
+                    <TextBlock
+                        x:Name="SaveFolderText"
+                        Text="Save Folder: (loading...)"
+                        TextWrapping="WrapWholeWords" />
+                    <StackPanel Orientation="Horizontal" Spacing="{StaticResource AppSpacingStack}">
+                        <Button
+                            x:Name="ChooseSaveFolderButton"
+                            Click="ChooseSaveFolderButton_Click"
+                            Content="Choose folder"
+                            Style="{StaticResource SettingsInlineButtonStyle}" />
+                        <Button
+                            x:Name="UseDefaultSaveFolderButton"
+                            Click="UseDefaultSaveFolderButton_Click"
+                            Content="Use default"
+                            Style="{StaticResource SettingsInlineButtonStyle}" />
+                        <Button
+                            x:Name="RemoveSaveFolderButton"
+                            Click="RemoveSaveFolderButton_Click"
+                            Content="Remove"
+                            Style="{StaticResource SettingsInlineButtonStyle}" />
+                    </StackPanel>
+                    <TextBlock
+                        x:Name="SaveFolderStatusText"
+                        Style="{StaticResource SettingsSectionDescriptionTextStyle}"
+                        Text="" />
+                </StackPanel>
+            </tk:SettingsCard>
 
             <tk:SettingsCard
                 Description="When off, the capture shortcut is not active. Your saved keys remain stored."
@@ -209,6 +244,53 @@
                 </StackPanel>
                 </StackPanel>
             </ContentControl>
+
+            <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Behavior" />
+            <tk:SettingsCard
+                Description="Click without dragging saves the snapped window (or full virtual screen); drag to draw a rectangle. Left-click saves, copies, and exits; right-click saves without copying and stays in capture mode."
+                Header="How capture works">
+                <tk:SettingsCard.HeaderIcon>
+                    <FontIcon Glyph="&#xE7B5;" />
+                </tk:SettingsCard.HeaderIcon>
+                <TextBlock
+                    Style="{StaticResource SettingsSectionDescriptionTextStyle}"
+                    Text="Use the shortcut section above to set your global capture hotkey."
+                    TextWrapping="WrapWholeWords" />
+            </tk:SettingsCard>
+
+            <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Capture quality" />
+            <tk:SettingsCard
+                Description="Fast is default. Optimized improves text; Heavy uses heavier processing on large selections."
+                Header="Quality mode">
+                <tk:SettingsCard.HeaderIcon>
+                    <FontIcon Glyph="&#xE9A9;" />
+                </tk:SettingsCard.HeaderIcon>
+                <ComboBox
+                    x:Name="ScreenshotQualityModeComboBox"
+                    Style="{StaticResource SettingsInlineComboBoxStyle}"
+                    MinWidth="{StaticResource SettingActionControlMinWidth}"
+                    IsTextSearchEnabled="False"
+                    SelectionChanged="ScreenshotQualityModeComboBox_SelectionChanged">
+                    <ComboBoxItem Content="Fast" Tag="Fast" />
+                    <ComboBoxItem Content="Optimized" Tag="Optimized" />
+                    <ComboBoxItem Content="Heavy" Tag="Heavy" />
+                </ComboBox>
+            </tk:SettingsCard>
+
+            <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Overlay" />
+            <tk:SettingsCard
+                Description="Show helper instructions in the capture overlay."
+                Header="Instructions">
+                <tk:SettingsCard.HeaderIcon>
+                    <FontIcon Glyph="&#xE946;" />
+                </tk:SettingsCard.HeaderIcon>
+                <ToggleSwitch
+                    x:Name="ShowOverlayInstructionsToggle"
+                    Style="{StaticResource SettingsInlineToggleSwitchStyle}"
+                    OffContent="Off"
+                    OnContent="On"
+                    Toggled="ShowOverlayInstructionsToggle_Toggled" />
+            </tk:SettingsCard>
         </StackPanel>
     </ScrollViewer>
 </Page>

@@ -8,6 +8,7 @@ using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Text;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Threading.Tasks;
@@ -17,7 +18,7 @@ using WinRT.Interop;
 namespace helvety.screentools
 {
     /// <summary>
-    /// Main shell: navigation to Screen Tools, Settings, and About; global issue banners; in-app toasts; tray integration.
+    /// Main shell: navigation to Screen Tools, settings sections (General, Animations, Screen capture, Live Draw, Danger zone), and About; global issue banners; in-app toasts; tray integration.
     /// </summary>
     public sealed partial class MainWindow : Window
     {
@@ -49,7 +50,7 @@ namespace helvety.screentools
         {
             try
             {
-                var iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "Square44x44Logo.scale-200.png");
+                var iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "TrayIcon.ico");
                 if (!File.Exists(iconPath))
                 {
                     return;
@@ -294,13 +295,46 @@ namespace helvety.screentools
             RefreshGlobalIssues();
         }
 
+        private static NavigationViewItem? FindNavigationViewItemByTag(IList<object> items, string tag)
+        {
+            var searchTag = tag == "settings" ? "general" : tag;
+            foreach (var o in items)
+            {
+                if (o is not NavigationViewItem nvi)
+                {
+                    continue;
+                }
+
+                if (nvi.Tag as string == searchTag)
+                {
+                    return nvi;
+                }
+
+                if (nvi.MenuItems.Count > 0)
+                {
+                    var nested = FindNavigationViewItemByTag(nvi.MenuItems, tag);
+                    if (nested is not null)
+                    {
+                        return nested;
+                    }
+                }
+            }
+
+            return null;
+        }
+
         private void NavigateToTag(string tag)
         {
-            var targetPage = tag switch
+            var normalized = tag == "settings" ? "general" : tag;
+            var targetPage = normalized switch
             {
                 "home" => typeof(ScreenToolsPage),
-                "settings" => typeof(SettingsShellPage),
                 "about" => typeof(AboutPage),
+                "general" => typeof(GeneralSettingsPage),
+                "animations" => typeof(AnimationsSettingsPage),
+                "capture" => typeof(CaptureHotkeySettingsPage),
+                "livedraw" => typeof(LiveDrawSettingsPage),
+                "danger" => typeof(DangerZoneSettingsPage),
                 _ => typeof(ScreenToolsPage)
             };
 
@@ -359,13 +393,10 @@ namespace helvety.screentools
                 return;
             }
 
-            foreach (var menuItem in AppNavigationView.MenuItems)
+            var navItem = FindNavigationViewItemByTag(AppNavigationView.MenuItems, tag);
+            if (navItem is not null)
             {
-                if (menuItem is NavigationViewItem item && item.Tag as string == tag)
-                {
-                    AppNavigationView.SelectedItem = item;
-                    break;
-                }
+                AppNavigationView.SelectedItem = navItem;
             }
 
             NavigateToTag(tag);

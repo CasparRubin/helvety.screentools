@@ -225,6 +225,35 @@ namespace helvety.screentools.Capture
             }
         }
 
+        /// <summary>
+        /// Live Draw only: scale snap-border rectangle/ellipse stroke weights so the main outline matches straight lines and arrows
+        /// (same <paramref name="mainStrokeThicknessDip"/> as <see cref="Editor.ArrowLayer.Thickness"/> from the editor primary width).
+        /// Selection overlay keeps the capture border intensity profile without calling this.
+        /// </summary>
+        internal void ApplyLiveDrawStrokeThickness(double mainStrokeThicknessDip)
+        {
+            var main = Math.Max(1.0, mainStrokeThicknessDip);
+            var p = _borderFxProfile;
+            var scale = main / p.BorderStrokeThickness;
+            if (scale <= 0 || double.IsNaN(scale) || double.IsInfinity(scale))
+            {
+                return;
+            }
+
+            _snapBorderRectangle.StrokeThickness = main;
+            _snapBorderChaseRectangle.StrokeThickness = Math.Max(1.0, p.ChaseStrokeThickness * scale);
+            _snapBorderCornerGlowRectangle.StrokeThickness = Math.Max(1.0, p.CornerGlowStrokeThickness * scale);
+            _snapBorderGlowRectangle.StrokeThickness = Math.Max(1.0, p.OuterGlowStrokeThickness * scale);
+
+            if (HasEllipseLayerTemplates)
+            {
+                _snapEllipseBorder!.StrokeThickness = main;
+                _snapEllipseChase!.StrokeThickness = Math.Max(1.0, p.ChaseStrokeThickness * scale);
+                _snapEllipseCornerGlow!.StrokeThickness = Math.Max(1.0, p.CornerGlowStrokeThickness * scale);
+                _snapEllipseGlow!.StrokeThickness = Math.Max(1.0, p.OuterGlowStrokeThickness * scale);
+            }
+        }
+
         /// <summary>Copies the four animated snap-border layers onto the canvas so they keep gradient drift and dash motion.</summary>
         internal void CommitSnapBorderToDrawCanvas(Canvas drawCanvas, double left, double top, double width, double height)
         {

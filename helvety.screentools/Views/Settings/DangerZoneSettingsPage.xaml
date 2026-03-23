@@ -19,7 +19,7 @@
             </StackPanel>
 
             <tk:SettingsCard
-                Description="Clears save location, hotkeys, editor preferences, border effects, capture quality, and related options."
+                Description="Clears save location, hotkeys, editor preferences, snap-border intensity (Animations), Live Draw options, capture quality, and other saved settings."
                 Header="Reset all settings">
                 <tk:SettingsCard.HeaderIcon>
                     <FontIcon Glyph="&#xE74D;" />

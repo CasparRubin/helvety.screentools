@@ -38,7 +38,7 @@ namespace helvety.screentools.Views.Settings
 
         internal bool IsListening => _isCaptureMode;
 
-        internal void StartListen(int stepIndex, HotkeyListenKind _)
+        internal void StartListen(int stepIndex)
         {
             _isCaptureMode = true;
             _activeStepIndex = stepIndex;

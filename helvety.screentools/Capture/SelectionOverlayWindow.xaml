@@ -87,7 +87,7 @@
                             FontSize="18"
                             FontWeight="SemiBold"
                             Foreground="White"
-                            Text="Capture mode" />
+                            Text="Screen capture" />
                         <TextBlock
                             Foreground="#FFE6E6E6"
                             Text="Click to capture the snapped window or the full screen; drag to select a rectangle."

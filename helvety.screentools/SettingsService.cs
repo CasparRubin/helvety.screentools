@@ -51,7 +51,7 @@ namespace helvety.screentools
         internal static event Action? SaveFolderPathChanged;
         internal static event Action? SettingsChanged;
 
-        private const int CurrentSettingsVersion = 3;
+        private const int CurrentSettingsVersion = 4;
         private const string DefaultCaptureFolderName = "Helvety Screen Tools captures";
         private const string SettingsVersionKey = "SettingsVersion";
         private const string SaveFolderPathKey = "SaveFolderPath";
@@ -66,6 +66,11 @@ namespace helvety.screentools
         private const string LiveDrawHotkeyDisplayKey = "LiveDrawHotkeyDisplay";
         private const string LiveDrawHotkeyClearedKey = "LiveDrawHotkeyCleared";
         private const string LiveDrawRectangleModifierKey = "LiveDrawRectangleModifier";
+        private const string LiveDrawShapeModRectangleKey = "LiveDrawShapeModRectangle";
+        private const string LiveDrawShapeModArrowKey = "LiveDrawShapeModArrow";
+        private const string LiveDrawShapeModStraightLineKey = "LiveDrawShapeModStraightLine";
+        private const string LiveDrawShapeModCircleRightKey = "LiveDrawShapeModCircleRight";
+        private const string LiveDrawShapeModEllipseRightKey = "LiveDrawShapeModEllipseRight";
         private const string CaptureHotkeyEnabledKey = "CaptureHotkeyEnabled";
         private const string LiveDrawEnabledKey = "LiveDrawEnabled";
         private const string SaveFolderClearedKey = "SaveFolderCleared";
@@ -117,6 +122,11 @@ namespace helvety.screentools
             LiveDrawHotkeyDisplayKey,
             LiveDrawHotkeyClearedKey,
             LiveDrawRectangleModifierKey,
+            LiveDrawShapeModRectangleKey,
+            LiveDrawShapeModArrowKey,
+            LiveDrawShapeModStraightLineKey,
+            LiveDrawShapeModCircleRightKey,
+            LiveDrawShapeModEllipseRightKey,
             CaptureHotkeyEnabledKey,
             LiveDrawEnabledKey,
             ScreenshotBorderIntensityKey,
@@ -287,6 +297,9 @@ namespace helvety.screentools
             SettingsChanged?.Invoke();
         }
 
+        /// <summary>
+        /// Persists global snap-border animation intensity (frozen-screen capture and Live Draw via <see cref="Capture.SnapBorderChromeController"/>).
+        /// </summary>
         internal static void SaveScreenshotBorderIntensity(ScreenshotBorderIntensity intensity)
         {
             var values = ApplicationData.Current.LocalSettings.Values;
@@ -401,6 +414,9 @@ namespace helvety.screentools
             SettingsChanged?.Invoke();
         }
 
+        /// <summary>
+        /// Clears all managed settings keys and reapplies defaults (including snap-border intensity, capture, Live Draw, danger zone, and editor state).
+        /// </summary>
         internal static void ResetAllSettingsToDefaults()
         {
             var values = ApplicationData.Current.LocalSettings.Values;
@@ -507,25 +523,157 @@ namespace helvety.screentools
             SettingsChanged?.Invoke();
         }
 
-        internal static void SaveLiveDrawRectangleModifier(LiveDrawRectangleModifier modifier)
+        internal static LiveDrawShapeModifiers LoadLiveDrawShapeModifiers()
         {
             var values = ApplicationData.Current.LocalSettings.Values;
             EnsureSettingsVersion(values);
-            values[LiveDrawRectangleModifierKey] = (int)modifier;
-            SettingsChanged?.Invoke();
+            return ReadLiveDrawShapeModifiers(values);
         }
 
-        internal static LiveDrawRectangleModifier LoadLiveDrawRectangleModifier()
+        internal static bool TrySaveLiveDrawShapeModifiers(LiveDrawShapeModifiers modifiers, out string errorMessage)
         {
-            var values = ApplicationData.Current.LocalSettings.Values;
-            EnsureSettingsVersion(values);
-            if (values.TryGetValue(LiveDrawRectangleModifierKey, out var raw) && raw is int i &&
-                Enum.IsDefined(typeof(LiveDrawRectangleModifier), i))
+            if (!ValidateLiveDrawShapeModifiers(modifiers, out errorMessage))
             {
-                return (LiveDrawRectangleModifier)i;
+                return false;
             }
 
-            return LiveDrawRectangleModifier.Shift;
+            var values = ApplicationData.Current.LocalSettings.Values;
+            EnsureSettingsVersion(values);
+            WriteLiveDrawShapeModifiers(values, modifiers);
+            SettingsChanged?.Invoke();
+            return true;
+        }
+
+        internal static bool ValidateLiveDrawShapeModifiers(LiveDrawShapeModifiers modifiers, out string errorMessage)
+        {
+            var left = new[] { modifiers.Rectangle, modifiers.Arrow, modifiers.StraightLine };
+            var leftActive = left.Where(m => m != LiveDrawRectangleModifier.None).ToArray();
+            if (leftActive.Length != leftActive.Distinct().Count())
+            {
+                errorMessage = "Left-button shapes: each non-None modifier must be unique.";
+                return false;
+            }
+
+            if (modifiers.CircleRight != LiveDrawRectangleModifier.None &&
+                modifiers.EllipseRight != LiveDrawRectangleModifier.None &&
+                modifiers.CircleRight == modifiers.EllipseRight)
+            {
+                errorMessage = "Circle and Ellipse must use different modifiers on the right mouse button (or set one to None).";
+                return false;
+            }
+
+            errorMessage = string.Empty;
+            return true;
+        }
+
+        private static LiveDrawShapeModifiers ReadLiveDrawShapeModifiers(IPropertySet values)
+        {
+            if (!values.ContainsKey(LiveDrawShapeModRectangleKey))
+            {
+                EnsureLiveDrawShapeModifiers(values);
+            }
+
+            static LiveDrawRectangleModifier Read(IPropertySet v, string key, LiveDrawRectangleModifier fallback)
+            {
+                if (v.TryGetValue(key, out var raw) && raw is int i && Enum.IsDefined(typeof(LiveDrawRectangleModifier), i))
+                {
+                    return (LiveDrawRectangleModifier)i;
+                }
+
+                return fallback;
+            }
+
+            return new LiveDrawShapeModifiers(
+                Read(values, LiveDrawShapeModRectangleKey, LiveDrawRectangleModifier.Shift),
+                Read(values, LiveDrawShapeModArrowKey, LiveDrawRectangleModifier.Alt),
+                Read(values, LiveDrawShapeModStraightLineKey, LiveDrawRectangleModifier.Control),
+                Read(values, LiveDrawShapeModCircleRightKey, LiveDrawRectangleModifier.Shift),
+                Read(values, LiveDrawShapeModEllipseRightKey, LiveDrawRectangleModifier.Alt));
+        }
+
+        private static void WriteLiveDrawShapeModifiers(IPropertySet values, LiveDrawShapeModifiers modifiers)
+        {
+            values[LiveDrawShapeModRectangleKey] = (int)modifiers.Rectangle;
+            values[LiveDrawShapeModArrowKey] = (int)modifiers.Arrow;
+            values[LiveDrawShapeModStraightLineKey] = (int)modifiers.StraightLine;
+            values[LiveDrawShapeModCircleRightKey] = (int)modifiers.CircleRight;
+            values[LiveDrawShapeModEllipseRightKey] = (int)modifiers.EllipseRight;
+        }
+
+        private static void WriteDefaultLiveDrawShapeModifiers(IPropertySet values)
+        {
+            if (!TryBuildDefaultLiveDrawShapeModifiers(out var defaults))
+            {
+                return;
+            }
+
+            WriteLiveDrawShapeModifiers(values, defaults);
+        }
+
+        private static bool TryBuildDefaultLiveDrawShapeModifiers(out LiveDrawShapeModifiers modifiers)
+        {
+            modifiers = BuildDistinctLeftTripleFromRectangle(LiveDrawRectangleModifier.Shift);
+            return ValidateLiveDrawShapeModifiers(modifiers, out _);
+        }
+
+        private static void EnsureLiveDrawShapeModifiers(IPropertySet values)
+        {
+            if (values.ContainsKey(LiveDrawShapeModRectangleKey) &&
+                values.ContainsKey(LiveDrawShapeModArrowKey) &&
+                values.ContainsKey(LiveDrawShapeModStraightLineKey) &&
+                values.ContainsKey(LiveDrawShapeModCircleRightKey) &&
+                values.ContainsKey(LiveDrawShapeModEllipseRightKey))
+            {
+                return;
+            }
+
+            LiveDrawRectangleModifier legacy;
+            if (values.TryGetValue(LiveDrawRectangleModifierKey, out var legacyRaw) && legacyRaw is int li &&
+                Enum.IsDefined(typeof(LiveDrawRectangleModifier), li))
+            {
+                legacy = (LiveDrawRectangleModifier)li;
+            }
+            else
+            {
+                legacy = LiveDrawRectangleModifier.Shift;
+            }
+
+            var left = BuildDistinctLeftTripleFromRectangle(legacy);
+            var circle = LiveDrawRectangleModifier.Shift;
+            var ellipse = LiveDrawRectangleModifier.Alt;
+            if (circle == ellipse)
+            {
+                ellipse = LiveDrawRectangleModifier.Control;
+            }
+
+            var combined = new LiveDrawShapeModifiers(
+                left.Rectangle,
+                left.Arrow,
+                left.StraightLine,
+                circle,
+                ellipse);
+
+            if (!ValidateLiveDrawShapeModifiers(combined, out _))
+            {
+                TryBuildDefaultLiveDrawShapeModifiers(out combined);
+            }
+
+            WriteLiveDrawShapeModifiers(values, combined);
+        }
+
+        private static LiveDrawShapeModifiers BuildDistinctLeftTripleFromRectangle(LiveDrawRectangleModifier rectangle)
+        {
+            var order = new[]
+            {
+                LiveDrawRectangleModifier.Shift,
+                LiveDrawRectangleModifier.Alt,
+                LiveDrawRectangleModifier.Control,
+                LiveDrawRectangleModifier.Win
+            };
+
+            var arrow = order.First(m => m != rectangle);
+            var line = order.First(m => m != rectangle && m != arrow);
+            return new LiveDrawShapeModifiers(rectangle, arrow, line, LiveDrawRectangleModifier.Shift, LiveDrawRectangleModifier.Alt);
         }
 
         internal static bool IsLiveDrawHotkeyExplicitlyCleared()
@@ -816,6 +964,11 @@ namespace helvety.screentools
                 }
             }
 
+            if (storedVersion < 4)
+            {
+                EnsureLiveDrawShapeModifiers(values);
+            }
+
             values[SettingsVersionKey] = CurrentSettingsVersion;
         }
 
@@ -840,6 +993,8 @@ namespace helvety.screentools
             {
                 values[LiveDrawRectangleModifierKey] = (int)LiveDrawRectangleModifier.Shift;
             }
+
+            EnsureLiveDrawShapeModifiers(values);
         }
 
         private static void ApplyDefaultSettings(IPropertySet values)
@@ -871,6 +1026,7 @@ namespace helvety.screentools
             values[LiveDrawHotkeyDisplayKey] = defaultLiveDrawHotkey.Display;
             values[LiveDrawHotkeyClearedKey] = false;
             values[LiveDrawRectangleModifierKey] = (int)LiveDrawRectangleModifier.Shift;
+            WriteDefaultLiveDrawShapeModifiers(values);
             values[CaptureHotkeyEnabledKey] = DefaultCaptureHotkeyEnabled;
             values[LiveDrawEnabledKey] = DefaultLiveDrawFeatureEnabled;
 
@@ -1028,6 +1184,7 @@ namespace helvety.screentools
         HotkeySettings? Hotkey,
         bool IsHotkeyCleared,
         bool IsSaveFolderCleared,
+        /// <summary>Global snap-border intensity for capture selection overlay and Live Draw.</summary>
         ScreenshotBorderIntensity ScreenshotBorderIntensity,
         ScreenshotQualityMode ScreenshotQualityMode,
         bool ShowScreenshotOverlayInstructions,
@@ -1061,6 +1218,9 @@ namespace helvety.screentools
         bool PerformanceModeEnabled,
         bool GpuEffectsEnabled);
 
+    /// <summary>
+    /// Visual strength of shared snap-border chrome (gradients, dashing, pulse) for frozen-screen capture and Live Draw.
+    /// </summary>
     internal enum ScreenshotBorderIntensity
     {
         Subtle = 0,
@@ -1075,12 +1235,20 @@ namespace helvety.screentools
         Heavy = 2
     }
 
+    internal readonly record struct LiveDrawShapeModifiers(
+        LiveDrawRectangleModifier Rectangle,
+        LiveDrawRectangleModifier Arrow,
+        LiveDrawRectangleModifier StraightLine,
+        LiveDrawRectangleModifier CircleRight,
+        LiveDrawRectangleModifier EllipseRight);
+
     internal enum LiveDrawRectangleModifier
     {
         Shift = 0,
         Control = 1,
         Win = 2,
-        Alt = 3
+        Alt = 3,
+        None = 4
     }
 
     internal sealed record GlobalSetupIssue(

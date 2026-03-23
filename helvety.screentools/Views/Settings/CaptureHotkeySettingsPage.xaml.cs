@@ -9,6 +9,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
+using Windows.Storage.Pickers;
+using WinRT.Interop;
 
 namespace helvety.screentools.Views.Settings
 {
@@ -28,6 +30,8 @@ namespace helvety.screentools.Views.Settings
         private uint _editorModifiers;
         private bool _isUpdatingCaptureToggle;
         private HotkeyListenController? _listenController;
+        private bool _isUpdatingScreenshotQualitySelection;
+        private bool _isUpdatingOverlayInstructionSelection;
 
         public CaptureHotkeySettingsPage()
         {
@@ -41,6 +45,8 @@ namespace helvety.screentools.Views.Settings
             InitializeCaptureModuleToggle();
             InitializeSettings();
             RegisterInitialBinding();
+            InitializeScreenshotQualitySelection();
+            InitializeOverlayInstructionSelection();
 
             SettingsService.SaveFolderPathChanged += SettingsService_SaveFolderPathChanged;
             SettingsService.SettingsChanged += SettingsService_SettingsChanged;
@@ -81,6 +87,8 @@ namespace helvety.screentools.Views.Settings
                 InitializeCaptureModuleToggle();
                 InitializeSettings();
                 RegisterInitialBinding();
+                InitializeScreenshotQualitySelection();
+                InitializeOverlayInstructionSelection();
             });
         }
 
@@ -103,6 +111,8 @@ namespace helvety.screentools.Views.Settings
         {
             base.OnNavigatedTo(e);
             RefreshSaveFolderState();
+            InitializeScreenshotQualitySelection();
+            InitializeOverlayInstructionSelection();
         }
 
         private void CaptureHotkeySettingsPage_Unloaded(object sender, RoutedEventArgs e)
@@ -169,17 +179,171 @@ namespace helvety.screentools.Views.Settings
             if (string.IsNullOrWhiteSpace(_saveFolderPath))
             {
                 _hasValidSaveFolder = false;
+                SaveFolderText.Text = "Save Folder: (none)";
+                SaveFolderStatusText.Text = "No save location set.";
+                RemoveSaveFolderButton.IsEnabled = false;
             }
-            else if (SettingsService.TryValidateWritableFolder(_saveFolderPath, out _))
+            else if (SettingsService.TryValidateWritableFolder(_saveFolderPath, out var validationError))
             {
                 _hasValidSaveFolder = true;
+                SettingsService.SaveFolderPath(_saveFolderPath);
+                SaveFolderText.Text = $"Save Folder: {_saveFolderPath}";
+                SaveFolderStatusText.Text = string.Empty;
+                RemoveSaveFolderButton.IsEnabled = true;
             }
             else
             {
                 _hasValidSaveFolder = false;
+                SaveFolderText.Text = $"Save Folder: {_saveFolderPath}";
+                SaveFolderStatusText.Text = $"Choose a writable folder ({validationError}).";
+                RemoveSaveFolderButton.IsEnabled = true;
             }
 
             UpdateFeatureAvailability();
+        }
+
+        private async void ChooseSaveFolderButton_Click(object sender, RoutedEventArgs e)
+        {
+            ChooseSaveFolderButton.IsEnabled = false;
+            UseDefaultSaveFolderButton.IsEnabled = false;
+            RemoveSaveFolderButton.IsEnabled = false;
+            SaveFolderStatusText.Text = "Choosing folder...";
+
+            try
+            {
+                var folderPicker = new FolderPicker
+                {
+                    SuggestedStartLocation = PickerLocationId.Desktop
+                };
+                folderPicker.FileTypeFilter.Add("*");
+
+                if (App.MainAppWindow is null)
+                {
+                    SaveFolderStatusText.Text = "Unable to open folder picker.";
+                    return;
+                }
+
+                var windowHandle = WindowNative.GetWindowHandle(App.MainAppWindow);
+                InitializeWithWindow.Initialize(folderPicker, windowHandle);
+
+                var selectedFolder = await folderPicker.PickSingleFolderAsync();
+                if (selectedFolder is null)
+                {
+                    SaveFolderStatusText.Text = _hasValidSaveFolder
+                        ? string.Empty
+                        : "Choose a writable folder.";
+                    return;
+                }
+
+                var candidatePath = selectedFolder.Path;
+                if (!SettingsService.TryValidateWritableFolder(candidatePath, out var pickValidationError))
+                {
+                    SaveFolderStatusText.Text = _hasValidSaveFolder
+                        ? $"Folder not writable ({pickValidationError})."
+                        : $"Choose a writable folder ({pickValidationError}).";
+                    return;
+                }
+
+                _saveFolderPath = candidatePath;
+                SettingsService.SaveFolderPath(_saveFolderPath);
+                UpdateSaveFolderState();
+            }
+            catch (Exception ex)
+            {
+                SaveFolderStatusText.Text = $"Could not set folder ({ex.Message}).";
+            }
+            finally
+            {
+                ChooseSaveFolderButton.IsEnabled = true;
+                UseDefaultSaveFolderButton.IsEnabled = true;
+                RemoveSaveFolderButton.IsEnabled = !string.IsNullOrWhiteSpace(_saveFolderPath);
+            }
+        }
+
+        private void UseDefaultSaveFolderButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (!SettingsService.TryEnsureDefaultDesktopFolder(out var defaultPath))
+            {
+                SaveFolderStatusText.Text = "Could not create default folder.";
+                return;
+            }
+
+            if (!SettingsService.TryValidateWritableFolder(defaultPath, out var validationError))
+            {
+                SaveFolderStatusText.Text = $"Default folder not writable ({validationError}).";
+                return;
+            }
+
+            _saveFolderPath = defaultPath;
+            SettingsService.SaveFolderPath(_saveFolderPath);
+            UpdateSaveFolderState();
+        }
+
+        private void RemoveSaveFolderButton_Click(object sender, RoutedEventArgs e)
+        {
+            SettingsService.ClearSaveFolderPath();
+            _saveFolderPath = string.Empty;
+            UpdateSaveFolderState();
+        }
+
+        private void InitializeOverlayInstructionSelection()
+        {
+            var settings = SettingsService.Load();
+            _isUpdatingOverlayInstructionSelection = true;
+            try
+            {
+                ShowOverlayInstructionsToggle.IsOn = settings.ShowScreenshotOverlayInstructions;
+            }
+            finally
+            {
+                _isUpdatingOverlayInstructionSelection = false;
+            }
+        }
+
+        private void InitializeScreenshotQualitySelection()
+        {
+            var settings = SettingsService.Load();
+            _isUpdatingScreenshotQualitySelection = true;
+            try
+            {
+                ScreenshotQualityModeComboBox.SelectedIndex = settings.ScreenshotQualityMode switch
+                {
+                    ScreenshotQualityMode.Optimized => 1,
+                    ScreenshotQualityMode.Heavy => 2,
+                    _ => 0
+                };
+            }
+            finally
+            {
+                _isUpdatingScreenshotQualitySelection = false;
+            }
+        }
+
+        private void ShowOverlayInstructionsToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (_isUpdatingOverlayInstructionSelection)
+            {
+                return;
+            }
+
+            SettingsService.SaveShowScreenshotOverlayInstructions(ShowOverlayInstructionsToggle.IsOn);
+        }
+
+        private void ScreenshotQualityModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_isUpdatingScreenshotQualitySelection)
+            {
+                return;
+            }
+
+            var selectedQualityMode = ScreenshotQualityModeComboBox.SelectedIndex switch
+            {
+                1 => ScreenshotQualityMode.Optimized,
+                2 => ScreenshotQualityMode.Heavy,
+                _ => ScreenshotQualityMode.Fast
+            };
+
+            SettingsService.SaveScreenshotQualityMode(selectedQualityMode);
         }
 
         private void UpdateFeatureAvailability()
@@ -475,7 +639,7 @@ namespace helvety.screentools.Views.Settings
             }
 
             _isCaptureMode = true;
-            _listenController.StartListen(stepIndex, HotkeyListenKind.Screenshot);
+            _listenController.StartListen(stepIndex);
             ListeningInfoBar.Title = $"Listening for step {stepIndex + 1}";
             ListeningInfoBar.Message = "Press a non-modifier key. Esc cancels.";
             ListeningInfoBar.IsOpen = true;
