@@ -17,7 +17,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using helvety.screentools;
 using helvety.screentools.Capture;
-using helvety.screentools.Views.Controls;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Graphics.Imaging;
 using Windows.Storage;
@@ -27,10 +26,10 @@ using Windows.Storage.Streams;
 namespace helvety.screentools.Views
 {
     /// <summary>
-    /// Home "Screen Tools" page: lists files from the configured save folder with thumbnails and metadata.
+    /// Home page (nav label "General", page title "Helvety Screen Tools"): lists files from the configured save folder with thumbnails and metadata.
     /// Left-click on an image opens the editor; right-click copies that image to the clipboard.
     /// Refreshes enumerate the folder on a background thread, then apply updates under a short lock. After a capture, the list reloads the same way as on navigation.
-    /// When the gallery lists captures, the page header shows the configured capture shortcut and (if set) the Live Draw shortcut as accent-styled key-chord strips.
+    /// The page intentionally stays minimal and focuses on browsing saved files.
     /// </summary>
     public sealed partial class ScreenToolsPage : Page
     {
@@ -47,7 +46,6 @@ namespace helvety.screentools.Views
         };
 
         private readonly ObservableCollection<GalleryFileItem> _imageFiles = new();
-        private readonly ObservableCollection<GalleryFileItem> _otherFiles = new();
         /// <summary>Cancellation only on page unload so in-flight thumbnail loads are not dropped when the gallery refreshes.</summary>
         private CancellationTokenSource? _thumbnailLoadLifetimeCts;
         /// <summary>Serializes gallery updates so <see cref="_imageFiles"/> is not modified concurrently.</summary>
@@ -60,7 +58,6 @@ namespace helvety.screentools.Views
         {
             InitializeComponent();
             ImageFilesGridView.ItemsSource = _imageFiles;
-            OtherFilesListView.ItemsSource = _otherFiles;
             _watcherRefreshTimer = DispatcherQueue.CreateTimer();
             _watcherRefreshTimer.Interval = TimeSpan.FromMilliseconds(120);
             _watcherRefreshTimer.IsRepeating = false;
@@ -211,17 +208,20 @@ namespace helvety.screentools.Views
 
         private void ApplyGalleryRefreshPlan(GalleryRefreshPlan plan)
         {
-            var hasSaveFolder = plan.Kind != GalleryRefreshKind.NoSaveFolder;
-            SaveFolderPathText.Text = hasSaveFolder && !string.IsNullOrEmpty(plan.FolderPath)
-                ? plan.FolderPath!
-                : "No save folder selected.";
-
-            HotkeysHintPanel.Visibility = Visibility.Collapsed;
+            var captureBindingText = SettingsService.TryGetEffectiveHotkey(out var captureHotkey) &&
+                                     !string.IsNullOrWhiteSpace(captureHotkey.Display)
+                ? captureHotkey.Display
+                : "not set";
+            var liveDrawBindingText = SettingsService.TryGetEffectiveLiveDrawHotkey(out var liveDrawHotkey) &&
+                                      !string.IsNullOrWhiteSpace(liveDrawHotkey.Display)
+                ? liveDrawHotkey.Display
+                : "not set";
+            AppHeroDescriptionText.Text =
+                $"Capture your screen with smart snap selection ({captureBindingText}), draw live on your desktop in fullscreen ({liveDrawBindingText}), and edit saved images with crop, blur, highlight, text, borders, and arrows in the built-in editor.";
 
             if (plan.Kind == GalleryRefreshKind.NoSaveFolder)
             {
                 _imageFiles.Clear();
-                _otherFiles.Clear();
                 DisposeSaveFolderWatcher();
                 GalleryScrollViewer.Visibility = Visibility.Collapsed;
                 EmptyStateMessageText.Text = "Set a save location to store captures.";
@@ -232,7 +232,6 @@ namespace helvety.screentools.Views
             if (plan.Kind == GalleryRefreshKind.NoHotkey)
             {
                 _imageFiles.Clear();
-                _otherFiles.Clear();
                 DisposeSaveFolderWatcher();
                 GalleryScrollViewer.Visibility = Visibility.Collapsed;
                 var liveHint = plan.HasLiveDrawHotkey
@@ -246,7 +245,6 @@ namespace helvety.screentools.Views
             if (plan.Kind == GalleryRefreshKind.FolderMissing)
             {
                 _imageFiles.Clear();
-                _otherFiles.Clear();
                 DisposeSaveFolderWatcher();
                 GalleryScrollViewer.Visibility = Visibility.Collapsed;
                 EmptyStateMessageText.Text = "Save folder is missing. Reconfigure it in Settings.";
@@ -260,7 +258,6 @@ namespace helvety.screentools.Views
             if (plan.Kind == GalleryRefreshKind.EmptyFolder || allFiles.Length == 0)
             {
                 _imageFiles.Clear();
-                _otherFiles.Clear();
                 GalleryScrollViewer.Visibility = Visibility.Collapsed;
                 var liveLine = plan.HasLiveDrawHotkey
                     ? $" Live Draw: {plan.LiveHotkey.Display}."
@@ -271,9 +268,7 @@ namespace helvety.screentools.Views
             }
 
             var previousImagesByPath = _imageFiles.ToDictionary(x => x.Path, StringComparer.OrdinalIgnoreCase);
-            var previousOthersByPath = _otherFiles.ToDictionary(x => x.Path, StringComparer.OrdinalIgnoreCase);
             _imageFiles.Clear();
-            _otherFiles.Clear();
 
             EnsureThumbnailLoadLifetime();
             var token = _thumbnailLoadLifetimeCts!.Token;
@@ -307,55 +302,11 @@ namespace helvety.screentools.Views
                         _ = LoadThumbnailAsync(imageItem, token);
                     }
                 }
-                else
-                {
-                    if (previousOthersByPath.TryGetValue(file.FullName, out var reusedOther) && GalleryItemMatchesFile(reusedOther, file))
-                    {
-                        _otherFiles.Add(reusedOther);
-                    }
-                    else
-                    {
-                        _otherFiles.Add(new GalleryFileItem(
-                            file.FullName,
-                            file.Name,
-                            BuildFileInfoText(file),
-                            string.Empty,
-                            string.Empty,
-                            false,
-                            "📄",
-                            file.LastWriteTimeUtc.Ticks,
-                            file.Length));
-                    }
-                }
             }
 
             EmptyFolderCallout.Visibility = Visibility.Collapsed;
             GalleryScrollViewer.Visibility = Visibility.Visible;
 
-            CaptureHotkeyHintStrip.SetChord(
-                plan.Hotkey.Modifiers,
-                plan.Hotkey.Sequence,
-                HotkeyChordAppearance.Accent,
-                $"Capture: {plan.Hotkey.Display}");
-            if (plan.HasLiveDrawHotkey)
-            {
-                LiveDrawHintSeparator.Visibility = Visibility.Visible;
-                LiveDrawHintLabel.Visibility = Visibility.Visible;
-                LiveDrawHotkeyHintStrip.Visibility = Visibility.Visible;
-                LiveDrawHotkeyHintStrip.SetChord(
-                    plan.LiveHotkey.Modifiers,
-                    plan.LiveHotkey.Sequence,
-                    HotkeyChordAppearance.Accent,
-                    $"Live Draw: {plan.LiveHotkey.Display}");
-            }
-            else
-            {
-                LiveDrawHintSeparator.Visibility = Visibility.Collapsed;
-                LiveDrawHintLabel.Visibility = Visibility.Collapsed;
-                LiveDrawHotkeyHintStrip.Visibility = Visibility.Collapsed;
-            }
-
-            HotkeysHintPanel.Visibility = Visibility.Visible;
         }
 
         private enum GalleryRefreshKind

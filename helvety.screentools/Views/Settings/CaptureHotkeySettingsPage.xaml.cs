@@ -17,8 +17,6 @@ namespace helvety.screentools.Views.Settings
     public sealed partial class CaptureHotkeySettingsPage : Page
     {
         private const int ProbeHotkeyId = 40001;
-        private const string DefaultHotkeySequenceInstructionText = "Click Listen for a step, then press any non-modifier key.";
-        private const string CaptureBlockedInstructionText = "Choose a save location first.";
         private static readonly int MaxSequenceLength = SettingsService.MaxHotkeySequenceLength;
 
         private string _saveFolderPath = string.Empty;
@@ -29,6 +27,7 @@ namespace helvety.screentools.Views.Settings
         private readonly uint?[] _editorSequence = new uint?[MaxSequenceLength];
         private uint _editorModifiers;
         private bool _isUpdatingCaptureToggle;
+        private int _captureHotkeyEditorSuppress;
         private HotkeyListenController? _listenController;
         private bool _isUpdatingScreenshotQualitySelection;
         private bool _isUpdatingOverlayInstructionSelection;
@@ -97,14 +96,14 @@ namespace helvety.screentools.Views.Settings
             _editorSequence[stepIndex] = virtualKey;
             StopStepCapture();
             UpdateStepTexts();
-            UpdateCapturePreview();
-            BindingStatusText.Text = $"Step {stepIndex + 1} set to {HotkeyVisualMapper.GetKeyDisplayName(virtualKey)}.";
+            SetBindingStatus($"Step {stepIndex + 1} set to {HotkeyVisualMapper.GetKeyDisplayName(virtualKey)}.");
+            TryAutoSaveCaptureHotkey();
         }
 
         private void ListenController_EscapePressed()
         {
             StopStepCapture();
-            BindingStatusText.Text = "Capture canceled.";
+            SetBindingStatus("Capture canceled.");
         }
 
         protected override void OnNavigatedTo(NavigationEventArgs e)
@@ -179,27 +178,60 @@ namespace helvety.screentools.Views.Settings
             if (string.IsNullOrWhiteSpace(_saveFolderPath))
             {
                 _hasValidSaveFolder = false;
-                SaveFolderText.Text = "Save Folder: (none)";
-                SaveFolderStatusText.Text = "No save location set.";
+                SaveLocationCard.Description = "Save Folder: (none)";
+                SetSaveFolderStatus("No save location set.");
                 RemoveSaveFolderButton.IsEnabled = false;
             }
             else if (SettingsService.TryValidateWritableFolder(_saveFolderPath, out var validationError))
             {
                 _hasValidSaveFolder = true;
                 SettingsService.SaveFolderPath(_saveFolderPath);
-                SaveFolderText.Text = $"Save Folder: {_saveFolderPath}";
-                SaveFolderStatusText.Text = string.Empty;
+                SaveLocationCard.Description = $"Save Folder: {FormatSaveFolderForCard(_saveFolderPath)}";
+                SetSaveFolderStatus(string.Empty);
                 RemoveSaveFolderButton.IsEnabled = true;
             }
             else
             {
                 _hasValidSaveFolder = false;
-                SaveFolderText.Text = $"Save Folder: {_saveFolderPath}";
-                SaveFolderStatusText.Text = $"Choose a writable folder ({validationError}).";
+                SaveLocationCard.Description = $"Save Folder: {FormatSaveFolderForCard(_saveFolderPath)}";
+                SetSaveFolderStatus($"Choose a writable folder ({validationError}).");
                 RemoveSaveFolderButton.IsEnabled = true;
             }
 
             UpdateFeatureAvailability();
+        }
+
+        private void SetSaveFolderStatus(string message)
+        {
+            SaveFolderStatusText.Text = message;
+            SaveFolderStatusText.Visibility = string.IsNullOrWhiteSpace(message)
+                ? Visibility.Collapsed
+                : Visibility.Visible;
+        }
+
+        private static string FormatSaveFolderForCard(string path)
+        {
+            const int maxLength = 58;
+            if (path.Length <= maxLength)
+            {
+                return path;
+            }
+
+            var firstSeparator = path.IndexOfAny(new[] { '\\', '/' });
+            if (firstSeparator < 0 || firstSeparator >= path.Length - 1)
+            {
+                return path[..Math.Min(path.Length, maxLength - 3)] + "...";
+            }
+
+            var root = path[..(firstSeparator + 1)];
+            var tailLength = maxLength - root.Length - 3;
+            if (tailLength <= 0)
+            {
+                return path[..Math.Min(path.Length, maxLength - 3)] + "...";
+            }
+
+            var tail = path[^Math.Min(path.Length, tailLength)..];
+            return $"{root}...{tail}";
         }
 
         private async void ChooseSaveFolderButton_Click(object sender, RoutedEventArgs e)
@@ -207,7 +239,7 @@ namespace helvety.screentools.Views.Settings
             ChooseSaveFolderButton.IsEnabled = false;
             UseDefaultSaveFolderButton.IsEnabled = false;
             RemoveSaveFolderButton.IsEnabled = false;
-            SaveFolderStatusText.Text = "Choosing folder...";
+            SetSaveFolderStatus("Choosing folder...");
 
             try
             {
@@ -219,7 +251,7 @@ namespace helvety.screentools.Views.Settings
 
                 if (App.MainAppWindow is null)
                 {
-                    SaveFolderStatusText.Text = "Unable to open folder picker.";
+                    SetSaveFolderStatus("Unable to open folder picker.");
                     return;
                 }
 
@@ -229,18 +261,18 @@ namespace helvety.screentools.Views.Settings
                 var selectedFolder = await folderPicker.PickSingleFolderAsync();
                 if (selectedFolder is null)
                 {
-                    SaveFolderStatusText.Text = _hasValidSaveFolder
+                    SetSaveFolderStatus(_hasValidSaveFolder
                         ? string.Empty
-                        : "Choose a writable folder.";
+                        : "Choose a writable folder.");
                     return;
                 }
 
                 var candidatePath = selectedFolder.Path;
                 if (!SettingsService.TryValidateWritableFolder(candidatePath, out var pickValidationError))
                 {
-                    SaveFolderStatusText.Text = _hasValidSaveFolder
+                    SetSaveFolderStatus(_hasValidSaveFolder
                         ? $"Folder not writable ({pickValidationError})."
-                        : $"Choose a writable folder ({pickValidationError}).";
+                        : $"Choose a writable folder ({pickValidationError}).");
                     return;
                 }
 
@@ -250,7 +282,7 @@ namespace helvety.screentools.Views.Settings
             }
             catch (Exception ex)
             {
-                SaveFolderStatusText.Text = $"Could not set folder ({ex.Message}).";
+                SetSaveFolderStatus($"Could not set folder ({ex.Message}).");
             }
             finally
             {
@@ -264,13 +296,13 @@ namespace helvety.screentools.Views.Settings
         {
             if (!SettingsService.TryEnsureDefaultDesktopFolder(out var defaultPath))
             {
-                SaveFolderStatusText.Text = "Could not create default folder.";
+                SetSaveFolderStatus("Could not create default folder.");
                 return;
             }
 
             if (!SettingsService.TryValidateWritableFolder(defaultPath, out var validationError))
             {
-                SaveFolderStatusText.Text = $"Default folder not writable ({validationError}).";
+                SetSaveFolderStatus($"Default folder not writable ({validationError}).");
                 return;
             }
 
@@ -348,31 +380,23 @@ namespace helvety.screentools.Views.Settings
 
         private void UpdateFeatureAvailability()
         {
-            ApplyHotkeyButton.IsEnabled = _hasValidSaveFolder && !_isCaptureMode && BuildEditorSequence().Count > 0 &&
-                !TryScreenshotEditorConflictsWithLiveHotkey();
-            UseDefaultHotkeyButton.IsEnabled = _hasValidSaveFolder && !_isCaptureMode;
-            RemoveHotkeyButton.IsEnabled = !_isCaptureMode && _currentBinding is not null;
-            CaptureInstructionText.Text = _hasValidSaveFolder
-                ? DefaultHotkeySequenceInstructionText
-                : CaptureBlockedInstructionText;
-
             if (_hasValidSaveFolder && BindingStatusText.Text.StartsWith("Save location needed", StringComparison.Ordinal))
             {
-                BindingStatusText.Text = string.Empty;
+                SetBindingStatus(string.Empty);
             }
             else if (!_hasValidSaveFolder)
             {
                 if (string.IsNullOrWhiteSpace(_saveFolderPath))
                 {
-                    BindingStatusText.Text = "Save location needed: no folder selected.";
+                    SetBindingStatus("Save location needed: no folder selected.");
                 }
                 else if (SettingsService.TryValidateWritableFolder(_saveFolderPath, out var validationError))
                 {
-                    BindingStatusText.Text = "Save location needed: choose a writable folder.";
+                    SetBindingStatus("Save location needed: choose a writable folder.");
                 }
                 else
                 {
-                    BindingStatusText.Text = $"Save location needed: {validationError}";
+                    SetBindingStatus($"Save location needed: {validationError}");
                 }
             }
         }
@@ -384,52 +408,66 @@ namespace helvety.screentools.Views.Settings
                 _currentBinding = null;
                 ResetEditor();
                 CaptureCurrentChordStrip.SetEmpty("(none)", "Capture hotkey: (none)");
-                BindingStatusText.Text = "No capture hotkey set.";
+                SetBindingStatus("No capture hotkey set.");
                 UpdateFeatureAvailability();
                 return;
             }
 
             if (TryApplyBinding(_startupBinding.Value, out var statusMessage))
             {
-                BindingStatusText.Text = string.Empty;
+                SetBindingStatus(string.Empty);
                 return;
             }
 
-            BindingStatusText.Text = statusMessage;
+            SetBindingStatus(statusMessage);
             AddMessage(statusMessage);
         }
 
         private void ResetEditor()
         {
-            _editorModifiers = 0;
-            for (var i = 0; i < MaxSequenceLength; i++)
+            _captureHotkeyEditorSuppress++;
+            try
             {
-                _editorSequence[i] = null;
-            }
+                _editorModifiers = 0;
+                for (var i = 0; i < MaxSequenceLength; i++)
+                {
+                    _editorSequence[i] = null;
+                }
 
-            CtrlModifierCheckBox.IsChecked = false;
-            AltModifierCheckBox.IsChecked = false;
-            ShiftModifierCheckBox.IsChecked = false;
-            UpdateStepTexts();
-            UpdateCapturePreview();
+                CtrlModifierCheckBox.IsChecked = false;
+                AltModifierCheckBox.IsChecked = false;
+                ShiftModifierCheckBox.IsChecked = false;
+                UpdateStepTexts();
+            }
+            finally
+            {
+                _captureHotkeyEditorSuppress--;
+            }
         }
 
         private void SetEditorFromBinding(HotkeyBinding binding)
         {
-            _editorModifiers = binding.Modifiers & (ModControl | ModAlt | ModShift);
-            CtrlModifierCheckBox.IsChecked = (_editorModifiers & ModControl) != 0;
-            AltModifierCheckBox.IsChecked = (_editorModifiers & ModAlt) != 0;
-            ShiftModifierCheckBox.IsChecked = (_editorModifiers & ModShift) != 0;
-
-            for (var i = 0; i < MaxSequenceLength; i++)
+            _captureHotkeyEditorSuppress++;
+            try
             {
-                _editorSequence[i] = i < binding.Sequence.Length
-                    ? binding.Sequence[i]
-                    : null;
-            }
+                _editorModifiers = binding.Modifiers & (ModControl | ModAlt | ModShift);
+                CtrlModifierCheckBox.IsChecked = (_editorModifiers & ModControl) != 0;
+                AltModifierCheckBox.IsChecked = (_editorModifiers & ModAlt) != 0;
+                ShiftModifierCheckBox.IsChecked = (_editorModifiers & ModShift) != 0;
 
-            UpdateStepTexts();
-            UpdateCapturePreview();
+                for (var i = 0; i < MaxSequenceLength; i++)
+                {
+                    _editorSequence[i] = i < binding.Sequence.Length
+                        ? binding.Sequence[i]
+                        : null;
+                }
+
+                UpdateStepTexts();
+            }
+            finally
+            {
+                _captureHotkeyEditorSuppress--;
+            }
         }
 
         private List<uint> BuildEditorSequence()
@@ -478,34 +516,6 @@ namespace helvety.screentools.Views.Settings
             Step5KeyChordStrip.SetSingleKey(_editorSequence[4], HotkeyChordAppearance.Default, null);
         }
 
-        private void UseDefaultHotkeyButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (!_hasValidSaveFolder)
-            {
-                const string blockedMessage = "Set a save location before changing hotkeys.";
-                BindingStatusText.Text = blockedMessage;
-                AddMessage(blockedMessage);
-                return;
-            }
-
-            var defaultHotkey = SettingsService.GetDefaultHotkey();
-            SetEditorFromBinding(new HotkeyBinding(defaultHotkey.Modifiers, defaultHotkey.Sequence.ToArray(), defaultHotkey.Display));
-
-            if (TryApplyEditorBinding(out var statusMessage))
-            {
-                BindingStatusText.Text = statusMessage;
-                if (!string.IsNullOrWhiteSpace(statusMessage))
-                {
-                    AddMessage(statusMessage);
-                }
-
-                return;
-            }
-
-            BindingStatusText.Text = statusMessage;
-            AddMessage(statusMessage);
-        }
-
         private bool TryApplyBinding(HotkeyBinding requestedBinding, out string statusMessage)
         {
             if (_listenController is null || !_listenController.IsInstalled)
@@ -528,33 +538,6 @@ namespace helvety.screentools.Views.Settings
                 : string.Empty;
 
             return true;
-        }
-
-        private void RemoveHotkeyButton_Click(object sender, RoutedEventArgs e)
-        {
-            StopStepCapture();
-            _currentBinding = null;
-            SettingsService.ClearHotkey();
-            ResetEditor();
-            CaptureCurrentChordStrip.SetEmpty("(none)", "Capture hotkey: (none)");
-            BindingStatusText.Text = "No capture hotkey set.";
-            UpdateFeatureAvailability();
-        }
-
-        private void ApplyHotkeyButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (TryApplyEditorBinding(out var statusMessage))
-            {
-                BindingStatusText.Text = statusMessage;
-                if (!string.IsNullOrWhiteSpace(statusMessage))
-                {
-                    AddMessage(statusMessage);
-                }
-                return;
-            }
-
-            BindingStatusText.Text = statusMessage;
-            AddMessage(statusMessage);
         }
 
         private bool TryApplyEditorBinding(out string statusMessage)
@@ -585,29 +568,11 @@ namespace helvety.screentools.Views.Settings
             return TryApplyBinding(binding, out statusMessage);
         }
 
-        private bool TryScreenshotEditorConflictsWithLiveHotkey()
-        {
-            var sequence = BuildEditorSequence();
-            if (sequence.Count == 0)
-            {
-                return false;
-            }
-
-            if (!SettingsService.TryGetEffectiveLiveDrawHotkey(out var live))
-            {
-                return false;
-            }
-
-            var display = HotkeyVisualMapper.BuildBindingDisplay(_editorModifiers, sequence.Select(HotkeyVisualMapper.GetKeyDisplayName).ToArray());
-            var candidate = new HotkeySettings(_editorModifiers, sequence, display);
-            return SettingsService.HotkeyModifiersAndSequenceEqual(candidate, live);
-        }
-
         private void ModifierCheckBox_Changed(object sender, RoutedEventArgs e)
         {
             _editorModifiers = BuildModifiersFromEditor();
-            UpdateCapturePreview();
             UpdateFeatureAvailability();
+            TryAutoSaveCaptureHotkey();
         }
 
         private void ListenStep1Button_Click(object sender, RoutedEventArgs e) => StartStepCapture(0);
@@ -627,14 +592,14 @@ namespace helvety.screentools.Views.Settings
             if (!_hasValidSaveFolder)
             {
                 const string blockedMessage = "Set a save location before changing hotkeys.";
-                BindingStatusText.Text = blockedMessage;
+                SetBindingStatus(blockedMessage);
                 AddMessage(blockedMessage);
                 return;
             }
 
             if (_listenController is null || !_listenController.IsInstalled)
             {
-                BindingStatusText.Text = "Keyboard hook failed to install.";
+                SetBindingStatus("Keyboard hook failed to install.");
                 return;
             }
 
@@ -669,8 +634,43 @@ namespace helvety.screentools.Views.Settings
             }
 
             UpdateStepTexts();
-            UpdateCapturePreview();
             UpdateFeatureAvailability();
+            TryAutoSaveCaptureHotkey();
+        }
+
+        private void TryAutoSaveCaptureHotkey()
+        {
+            if (_captureHotkeyEditorSuppress > 0 || _isCaptureMode)
+            {
+                return;
+            }
+
+            var sequence = BuildEditorSequence();
+            if (sequence.Count == 0)
+            {
+                StopStepCapture();
+                _currentBinding = null;
+                SettingsService.ClearHotkey();
+                ResetEditor();
+                CaptureCurrentChordStrip.SetEmpty("(none)", "Capture hotkey: (none)");
+                SetBindingStatus("No capture hotkey set.");
+                UpdateFeatureAvailability();
+                return;
+            }
+
+            if (TryApplyEditorBinding(out var statusMessage))
+            {
+                SetBindingStatus(statusMessage);
+                if (!string.IsNullOrWhiteSpace(statusMessage))
+                {
+                    AddMessage(statusMessage);
+                }
+
+                return;
+            }
+
+            SetBindingStatus(statusMessage);
+            AddMessage(statusMessage);
         }
 
         private static bool IsLikelyClaimedByAnotherHotkey(HotkeyBinding binding)
@@ -689,28 +689,17 @@ namespace helvety.screentools.Views.Settings
             return true;
         }
 
-        private void UpdateCapturePreview()
-        {
-            var sequence = BuildEditorSequence();
-            if (sequence.Count == 0)
-            {
-                CapturePreviewPanel.Visibility = Visibility.Collapsed;
-                return;
-            }
-
-            CapturePreviewPanel.Visibility = Visibility.Visible;
-            var keyNames = sequence.Select(HotkeyVisualMapper.GetKeyDisplayName).ToArray();
-            var display = HotkeyVisualMapper.BuildBindingDisplay(_editorModifiers, keyNames);
-            CapturePreviewChordStrip.SetChord(
-                _editorModifiers,
-                sequence,
-                HotkeyChordAppearance.Default,
-                $"Preview: {display}");
-        }
-
         private void AddMessage(string message)
         {
             InAppToastService.Show(message);
+        }
+
+        private void SetBindingStatus(string message)
+        {
+            BindingStatusText.Text = message;
+            BindingStatusText.Visibility = string.IsNullOrWhiteSpace(message)
+                ? Visibility.Collapsed
+                : Visibility.Visible;
         }
 
         private readonly record struct HotkeyBinding(uint Modifiers, uint[] Sequence, string Display);

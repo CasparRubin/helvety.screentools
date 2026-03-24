@@ -21,7 +21,7 @@
         SelectionChanged="AppNavigationView_SelectionChanged">
         <NavigationView.MenuItems>
             <NavigationViewItem
-                Content="Screen Tools"
+                Content="General"
                 Icon="Pictures"
                 Tag="home" />
             <NavigationViewItem
@@ -35,10 +35,6 @@
                         Icon="Folder"
                         Tag="general" />
                     <NavigationViewItem
-                        Content="Animations"
-                        Icon="SlideShow"
-                        Tag="animations" />
-                    <NavigationViewItem
                         Content="Screen capture"
                         Icon="Camera"
                         Tag="capture" />
@@ -46,10 +42,6 @@
                         Content="Live Draw"
                         Icon="Edit"
                         Tag="livedraw" />
-                    <NavigationViewItem
-                        Content="Danger zone"
-                        Icon="Important"
-                        Tag="danger" />
                 </NavigationViewItem.MenuItems>
             </NavigationViewItem>
             <NavigationViewItem

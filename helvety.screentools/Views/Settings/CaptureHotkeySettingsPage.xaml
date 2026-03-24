@@ -15,21 +15,32 @@
                 <TextBlock Style="{StaticResource SettingsPageTitleTextStyle}" Text="Screen capture" />
                 <TextBlock
                     Style="{StaticResource SettingsSectionDescriptionTextStyle}"
-                    Text="Save folder, frozen-screen shortcut, capture quality, and overlay instructions. Snap-border animation intensity (shared with Live Draw) is configured under Settings → Animations."
+                    Text="Enable or disable capture, choose a save folder, set capture quality and overlay instructions, and use the Shortcut section below for your global hotkey. Snap-border animation intensity (shared with Live Draw) is under Settings → General. In the capture overlay, click without dragging to save the snapped window or the full virtual screen; drag to draw a rectangle. Left-click saves, copies to the clipboard, and exits; right-click saves without copying and stays in capture mode."
                     TextWrapping="WrapWholeWords" />
             </StackPanel>
 
             <tk:SettingsCard
-                Description="Choose where captures are stored. A writable folder is required for frozen-screen capture."
+                Description="When off, the capture shortcut is not active. Your saved keys remain stored."
+                Header="Screen capture">
+                <tk:SettingsCard.HeaderIcon>
+                    <FontIcon Glyph="&#xE722;" />
+                </tk:SettingsCard.HeaderIcon>
+                <ToggleSwitch
+                    x:Name="CaptureModuleToggle"
+                    Style="{StaticResource SettingsInlineToggleSwitchStyle}"
+                    OffContent="Off"
+                    OnContent="On"
+                    Toggled="CaptureModuleToggle_Toggled" />
+            </tk:SettingsCard>
+
+            <tk:SettingsCard
+                x:Name="SaveLocationCard"
+                Description="Save Folder: (loading...)"
                 Header="Save location">
                 <tk:SettingsCard.HeaderIcon>
                     <FontIcon Glyph="&#xE8B7;" />
                 </tk:SettingsCard.HeaderIcon>
-                <StackPanel Spacing="{StaticResource AppSpacingContent}" MinWidth="{StaticResource SettingActionControlMinWidth}">
-                    <TextBlock
-                        x:Name="SaveFolderText"
-                        Text="Save Folder: (loading...)"
-                        TextWrapping="WrapWholeWords" />
+                <StackPanel Spacing="{StaticResource AppSpacingTight}" MinWidth="{StaticResource SettingActionControlMinWidth}">
                     <StackPanel Orientation="Horizontal" Spacing="{StaticResource AppSpacingStack}">
                         <Button
                             x:Name="ChooseSaveFolderButton"
@@ -49,23 +60,10 @@
                     </StackPanel>
                     <TextBlock
                         x:Name="SaveFolderStatusText"
+                        Visibility="Collapsed"
                         Style="{StaticResource SettingsSectionDescriptionTextStyle}"
                         Text="" />
                 </StackPanel>
-            </tk:SettingsCard>
-
-            <tk:SettingsCard
-                Description="When off, the capture shortcut is not active. Your saved keys remain stored."
-                Header="Screen capture">
-                <tk:SettingsCard.HeaderIcon>
-                    <FontIcon Glyph="&#xE722;" />
-                </tk:SettingsCard.HeaderIcon>
-                <ToggleSwitch
-                    x:Name="CaptureModuleToggle"
-                    Style="{StaticResource SettingsInlineToggleSwitchStyle}"
-                    OffContent="Off"
-                    OnContent="On"
-                    Toggled="CaptureModuleToggle_Toggled" />
             </tk:SettingsCard>
 
             <ContentControl x:Name="CaptureDetailsPanel" Style="{StaticResource AppSettingsDetailHostStyle}">
@@ -214,49 +212,12 @@
                     Severity="Informational"
                     Title="Listening for key" />
                 <TextBlock
-                    x:Name="CaptureInstructionText"
-                    Style="{StaticResource SettingsSectionDescriptionTextStyle}"
-                    Text="" />
-                <StackPanel x:Name="CapturePreviewPanel" Spacing="{StaticResource AppSpacingTight}" Visibility="Collapsed">
-                    <TextBlock Style="{StaticResource SettingsSectionDescriptionTextStyle}" Text="Preview" />
-                    <controls:HotkeyChordStrip x:Name="CapturePreviewChordStrip" />
-                </StackPanel>
-                <TextBlock
                     x:Name="BindingStatusText"
+                    Visibility="Collapsed"
                     Style="{StaticResource SettingsSectionDescriptionTextStyle}"
                     Text="" />
-                <StackPanel Orientation="Horizontal" Spacing="{StaticResource AppSpacingStack}">
-                    <Button
-                        x:Name="ApplyHotkeyButton"
-                        Click="ApplyHotkeyButton_Click"
-                        Content="Apply capture hotkey"
-                        Style="{StaticResource SettingsInlineButtonStyle}" />
-                    <Button
-                        x:Name="UseDefaultHotkeyButton"
-                        Click="UseDefaultHotkeyButton_Click"
-                        Content="Use default"
-                        Style="{StaticResource SettingsInlineButtonStyle}" />
-                    <Button
-                        x:Name="RemoveHotkeyButton"
-                        Click="RemoveHotkeyButton_Click"
-                        Content="Remove capture hotkey"
-                        Style="{StaticResource SettingsInlineButtonStyle}" />
-                </StackPanel>
                 </StackPanel>
             </ContentControl>
-
-            <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Behavior" />
-            <tk:SettingsCard
-                Description="Click without dragging saves the snapped window (or full virtual screen); drag to draw a rectangle. Left-click saves, copies, and exits; right-click saves without copying and stays in capture mode."
-                Header="How capture works">
-                <tk:SettingsCard.HeaderIcon>
-                    <FontIcon Glyph="&#xE7B5;" />
-                </tk:SettingsCard.HeaderIcon>
-                <TextBlock
-                    Style="{StaticResource SettingsSectionDescriptionTextStyle}"
-                    Text="Use the shortcut section above to set your global capture hotkey."
-                    TextWrapping="WrapWholeWords" />
-            </tk:SettingsCard>
 
             <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Capture quality" />
             <tk:SettingsCard

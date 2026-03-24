@@ -47,6 +47,39 @@
                     OnContent="On"
                     Toggled="EditorPerformanceModeToggle_Toggled" />
             </tk:SettingsCard>
+
+            <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Animations" />
+            <tk:SettingsCard
+                Description="How strong the animated selection border looks (same for capture and Live Draw)."
+                Header="Snap border intensity">
+                <tk:SettingsCard.HeaderIcon>
+                    <FontIcon Glyph="&#xE790;" />
+                </tk:SettingsCard.HeaderIcon>
+                <ComboBox
+                    x:Name="BorderIntensityComboBox"
+                    MinWidth="{StaticResource SettingActionControlMinWidth}"
+                    IsTextSearchEnabled="False"
+                    SelectionChanged="BorderIntensityComboBox_SelectionChanged"
+                    Style="{StaticResource SettingsInlineComboBoxStyle}">
+                    <ComboBoxItem Content="Subtle" Tag="Subtle" />
+                    <ComboBoxItem Content="Balanced" Tag="Balanced" />
+                    <ComboBoxItem Content="Bold" Tag="Bold" />
+                </ComboBox>
+            </tk:SettingsCard>
+
+            <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Danger zone" />
+            <tk:SettingsCard
+                Description="Clears save location, hotkeys, editor preferences, snap-border intensity, Live Draw options, capture quality, and other saved settings."
+                Header="Reset all settings">
+                <tk:SettingsCard.HeaderIcon>
+                    <FontIcon Glyph="&#xE74D;" />
+                </tk:SettingsCard.HeaderIcon>
+                <Button
+                    x:Name="ResetSettingsButton"
+                    Click="ResetSettingsButton_Click"
+                    Content="Reset to defaults"
+                    Style="{StaticResource SettingsInlineButtonStyle}" />
+            </tk:SettingsCard>
         </StackPanel>
     </ScrollViewer>
 </Page>

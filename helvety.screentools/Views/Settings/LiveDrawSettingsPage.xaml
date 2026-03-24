@@ -178,9 +178,6 @@
                     <tk:SettingsCard
                         Description="Left mouse button while holding this modifier."
                         Header="Rectangle">
-                        <tk:SettingsCard.HeaderIcon>
-                            <FontIcon Glyph="&#xEC4E;" />
-                        </tk:SettingsCard.HeaderIcon>
                         <ComboBox
                             x:Name="LiveDrawShapeRectangleComboBox"
                             MinWidth="{StaticResource SettingActionControlMinWidth}"
@@ -197,9 +194,6 @@
                     <tk:SettingsCard
                         Description="Left mouse button while holding this modifier."
                         Header="Arrow">
-                        <tk:SettingsCard.HeaderIcon>
-                            <FontIcon Glyph="&#xEC4E;" />
-                        </tk:SettingsCard.HeaderIcon>
                         <ComboBox
                             x:Name="LiveDrawShapeArrowComboBox"
                             MinWidth="{StaticResource SettingActionControlMinWidth}"
@@ -216,9 +210,6 @@
                     <tk:SettingsCard
                         Description="Left mouse button while holding this modifier."
                         Header="Straight line">
-                        <tk:SettingsCard.HeaderIcon>
-                            <FontIcon Glyph="&#xEC4E;" />
-                        </tk:SettingsCard.HeaderIcon>
                         <ComboBox
                             x:Name="LiveDrawShapeStraightLineComboBox"
                             MinWidth="{StaticResource SettingActionControlMinWidth}"
@@ -235,9 +226,6 @@
                     <tk:SettingsCard
                         Description="Right mouse button while holding this modifier."
                         Header="Circle">
-                        <tk:SettingsCard.HeaderIcon>
-                            <FontIcon Glyph="&#xEC4E;" />
-                        </tk:SettingsCard.HeaderIcon>
                         <ComboBox
                             x:Name="LiveDrawShapeCircleRightComboBox"
                             MinWidth="{StaticResource SettingActionControlMinWidth}"
@@ -254,9 +242,6 @@
                     <tk:SettingsCard
                         Description="Right mouse button while holding this modifier."
                         Header="Ellipse">
-                        <tk:SettingsCard.HeaderIcon>
-                            <FontIcon Glyph="&#xEC4E;" />
-                        </tk:SettingsCard.HeaderIcon>
                         <ComboBox
                             x:Name="LiveDrawShapeEllipseRightComboBox"
                             MinWidth="{StaticResource SettingActionControlMinWidth}"
@@ -287,25 +272,9 @@
                         Title="Listening for key" />
                     <TextBlock
                         x:Name="LiveDrawBindingStatusText"
+                        Visibility="Collapsed"
                         Style="{StaticResource SettingsSectionDescriptionTextStyle}"
                         Text="" />
-                    <StackPanel Orientation="Horizontal" Spacing="{StaticResource AppSpacingStack}">
-                        <Button
-                            x:Name="ApplyLiveDrawHotkeyButton"
-                            Click="ApplyLiveDrawHotkeyButton_Click"
-                            Content="Apply Live Draw hotkey"
-                            Style="{StaticResource SettingsInlineButtonStyle}" />
-                        <Button
-                            x:Name="UseDefaultLiveDrawHotkeyButton"
-                            Click="UseDefaultLiveDrawHotkeyButton_Click"
-                            Content="Use default"
-                            Style="{StaticResource SettingsInlineButtonStyle}" />
-                        <Button
-                            x:Name="RemoveLiveDrawHotkeyButton"
-                            Click="RemoveLiveDrawHotkeyButton_Click"
-                            Content="Remove Live Draw hotkey"
-                            Style="{StaticResource SettingsInlineButtonStyle}" />
-                    </StackPanel>
                 </StackPanel>
             </ContentControl>
         </StackPanel>

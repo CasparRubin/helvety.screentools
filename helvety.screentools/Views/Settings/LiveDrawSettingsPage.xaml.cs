@@ -19,6 +19,7 @@ namespace helvety.screentools.Views.Settings
         private uint _liveDrawEditorModifiers;
         private bool _isUpdatingLiveDrawShapeModifiers;
         private bool _isUpdatingLiveDrawToggle;
+        private int _liveDrawHotkeyEditorSuppress;
         private bool _isCaptureMode;
         private HotkeyListenController? _listenController;
 
@@ -77,13 +78,14 @@ namespace helvety.screentools.Views.Settings
             _liveDrawEditorSequence[stepIndex] = virtualKey;
             StopStepCapture();
             UpdateLiveDrawStepTexts();
-            LiveDrawBindingStatusText.Text = $"Step {stepIndex + 1} set to {HotkeyVisualMapper.GetKeyDisplayName(virtualKey)}.";
+            SetLiveDrawBindingStatus($"Step {stepIndex + 1} set to {HotkeyVisualMapper.GetKeyDisplayName(virtualKey)}.");
+            TryAutoSaveLiveDrawHotkey();
         }
 
         private void ListenController_EscapePressed()
         {
             StopStepCapture();
-            LiveDrawBindingStatusText.Text = "Listen canceled.";
+            SetLiveDrawBindingStatus("Listen canceled.");
         }
 
         private void LiveDrawSettingsPage_Unloaded(object sender, RoutedEventArgs e)
@@ -108,7 +110,7 @@ namespace helvety.screentools.Views.Settings
                 SettingsService.TryGetEffectiveLiveDrawHotkey(out var live) &&
                 SettingsService.HotkeyModifiersAndSequenceEqual(shot, live))
             {
-                LiveDrawBindingStatusText.Text = "Live Draw matches capture hotkey; change one so both stay distinct.";
+                SetLiveDrawBindingStatus("Live Draw matches capture hotkey; change one so both stay distinct.");
             }
 
             RegisterInitialLiveDrawBinding();
@@ -120,7 +122,7 @@ namespace helvety.screentools.Views.Settings
             {
                 ResetLiveDrawEditor();
                 LiveDrawCurrentChordStrip.SetEmpty("(none)", "Live Draw: (none)");
-                LiveDrawBindingStatusText.Text = "No Live Draw hotkey set.";
+                SetLiveDrawBindingStatus("No Live Draw hotkey set.");
                 UpdateLiveDrawFeatureAvailability();
                 return;
             }
@@ -131,7 +133,7 @@ namespace helvety.screentools.Views.Settings
                 effective.Sequence,
                 HotkeyChordAppearance.Accent,
                 $"Live Draw: {effective.Display}");
-            LiveDrawBindingStatusText.Text = string.Empty;
+            SetLiveDrawBindingStatus(string.Empty);
             UpdateLiveDrawFeatureAvailability();
         }
 
@@ -211,6 +213,7 @@ namespace helvety.screentools.Views.Settings
         {
             _liveDrawEditorModifiers = BuildLiveDrawModifiersFromEditor();
             UpdateLiveDrawFeatureAvailability();
+            TryAutoSaveLiveDrawHotkey();
         }
 
         private uint BuildLiveDrawModifiersFromEditor()
@@ -245,33 +248,49 @@ namespace helvety.screentools.Views.Settings
 
         private void SetLiveDrawEditorFromBinding(HotkeyBinding binding)
         {
-            _liveDrawEditorModifiers = binding.Modifiers & (ModControl | ModAlt | ModShift);
-            LiveDrawCtrlModifierCheckBox.IsChecked = (_liveDrawEditorModifiers & ModControl) != 0;
-            LiveDrawAltModifierCheckBox.IsChecked = (_liveDrawEditorModifiers & ModAlt) != 0;
-            LiveDrawShiftModifierCheckBox.IsChecked = (_liveDrawEditorModifiers & ModShift) != 0;
-
-            for (var i = 0; i < MaxSequenceLength; i++)
+            _liveDrawHotkeyEditorSuppress++;
+            try
             {
-                _liveDrawEditorSequence[i] = i < binding.Sequence.Length
-                    ? binding.Sequence[i]
-                    : null;
-            }
+                _liveDrawEditorModifiers = binding.Modifiers & (ModControl | ModAlt | ModShift);
+                LiveDrawCtrlModifierCheckBox.IsChecked = (_liveDrawEditorModifiers & ModControl) != 0;
+                LiveDrawAltModifierCheckBox.IsChecked = (_liveDrawEditorModifiers & ModAlt) != 0;
+                LiveDrawShiftModifierCheckBox.IsChecked = (_liveDrawEditorModifiers & ModShift) != 0;
 
-            UpdateLiveDrawStepTexts();
+                for (var i = 0; i < MaxSequenceLength; i++)
+                {
+                    _liveDrawEditorSequence[i] = i < binding.Sequence.Length
+                        ? binding.Sequence[i]
+                        : null;
+                }
+
+                UpdateLiveDrawStepTexts();
+            }
+            finally
+            {
+                _liveDrawHotkeyEditorSuppress--;
+            }
         }
 
         private void ResetLiveDrawEditor()
         {
-            _liveDrawEditorModifiers = 0;
-            for (var i = 0; i < MaxSequenceLength; i++)
+            _liveDrawHotkeyEditorSuppress++;
+            try
             {
-                _liveDrawEditorSequence[i] = null;
-            }
+                _liveDrawEditorModifiers = 0;
+                for (var i = 0; i < MaxSequenceLength; i++)
+                {
+                    _liveDrawEditorSequence[i] = null;
+                }
 
-            LiveDrawCtrlModifierCheckBox.IsChecked = false;
-            LiveDrawAltModifierCheckBox.IsChecked = false;
-            LiveDrawShiftModifierCheckBox.IsChecked = false;
-            UpdateLiveDrawStepTexts();
+                LiveDrawCtrlModifierCheckBox.IsChecked = false;
+                LiveDrawAltModifierCheckBox.IsChecked = false;
+                LiveDrawShiftModifierCheckBox.IsChecked = false;
+                UpdateLiveDrawStepTexts();
+            }
+            finally
+            {
+                _liveDrawHotkeyEditorSuppress--;
+            }
         }
 
         private List<uint> BuildLiveDrawEditorSequence()
@@ -292,11 +311,6 @@ namespace helvety.screentools.Views.Settings
 
         private void UpdateLiveDrawFeatureAvailability()
         {
-            var hasSeq = BuildLiveDrawEditorSequence().Count > 0;
-            var dup = TryGetDuplicateHotkeyConflict(out _);
-            ApplyLiveDrawHotkeyButton.IsEnabled = !_isCaptureMode && hasSeq && !dup;
-            UseDefaultLiveDrawHotkeyButton.IsEnabled = !_isCaptureMode;
-            RemoveLiveDrawHotkeyButton.IsEnabled = !_isCaptureMode;
             LiveDrawHotkeyInstructionText.Text = DefaultHotkeySequenceInstructionText;
         }
 
@@ -336,7 +350,7 @@ namespace helvety.screentools.Views.Settings
         {
             if (_listenController is null || !_listenController.IsInstalled)
             {
-                LiveDrawBindingStatusText.Text = "Keyboard hook failed to install.";
+                SetLiveDrawBindingStatus("Keyboard hook failed to install.");
                 return;
             }
 
@@ -378,52 +392,43 @@ namespace helvety.screentools.Views.Settings
 
             UpdateLiveDrawStepTexts();
             UpdateLiveDrawFeatureAvailability();
+            TryAutoSaveLiveDrawHotkey();
         }
 
-        private void ApplyLiveDrawHotkeyButton_Click(object sender, RoutedEventArgs e)
+        private void TryAutoSaveLiveDrawHotkey()
         {
-            if (TryApplyLiveDrawEditorBinding(out var statusMessage))
+            if (_liveDrawHotkeyEditorSuppress > 0 || _isCaptureMode)
             {
-                LiveDrawBindingStatusText.Text = statusMessage;
-                if (!string.IsNullOrWhiteSpace(statusMessage))
-                {
-                    InAppToastService.Show(statusMessage);
-                }
-
                 return;
             }
 
-            LiveDrawBindingStatusText.Text = statusMessage;
-            InAppToastService.Show(statusMessage);
-        }
-
-        private void UseDefaultLiveDrawHotkeyButton_Click(object sender, RoutedEventArgs e)
-        {
-            var def = SettingsService.GetDefaultLiveDrawHotkey();
-            SetLiveDrawEditorFromBinding(new HotkeyBinding(def.Modifiers, def.Sequence.ToArray(), def.Display));
-            if (TryApplyLiveDrawEditorBinding(out var statusMessage))
+            var sequence = BuildLiveDrawEditorSequence();
+            if (sequence.Count == 0)
             {
-                LiveDrawBindingStatusText.Text = statusMessage;
-                if (!string.IsNullOrWhiteSpace(statusMessage))
-                {
-                    InAppToastService.Show(statusMessage);
-                }
-
+                SettingsService.ClearLiveDrawHotkey();
+                LiveDrawCurrentChordStrip.SetEmpty("(none)", "Live Draw: (none)");
+                SetLiveDrawBindingStatus("No Live Draw hotkey set.");
+                UpdateLiveDrawFeatureAvailability();
                 return;
             }
 
-            LiveDrawBindingStatusText.Text = statusMessage;
-            InAppToastService.Show(statusMessage);
-        }
+            if (TryGetDuplicateHotkeyConflict(out var dupMsg))
+            {
+                SetLiveDrawBindingStatus(dupMsg);
+                return;
+            }
 
-        private void RemoveLiveDrawHotkeyButton_Click(object sender, RoutedEventArgs e)
-        {
-            StopStepCapture();
-            SettingsService.ClearLiveDrawHotkey();
-            ResetLiveDrawEditor();
-            LiveDrawCurrentChordStrip.SetEmpty("(none)", "Live Draw: (none)");
-            LiveDrawBindingStatusText.Text = "No Live Draw hotkey set.";
-            UpdateLiveDrawFeatureAvailability();
+            if (TryApplyLiveDrawEditorBinding(out var statusMessage))
+            {
+                SetLiveDrawBindingStatus(statusMessage);
+                return;
+            }
+
+            SetLiveDrawBindingStatus(statusMessage);
+            if (!string.IsNullOrWhiteSpace(statusMessage))
+            {
+                InAppToastService.Show(statusMessage);
+            }
         }
 
         private bool TryApplyLiveDrawEditorBinding(out string statusMessage)
@@ -451,6 +456,14 @@ namespace helvety.screentools.Views.Settings
             statusMessage = string.Empty;
             UpdateLiveDrawFeatureAvailability();
             return true;
+        }
+
+        private void SetLiveDrawBindingStatus(string message)
+        {
+            LiveDrawBindingStatusText.Text = message;
+            LiveDrawBindingStatusText.Visibility = string.IsNullOrWhiteSpace(message)
+                ? Visibility.Collapsed
+                : Visibility.Visible;
         }
 
         private readonly record struct HotkeyBinding(uint Modifiers, uint[] Sequence, string Display);

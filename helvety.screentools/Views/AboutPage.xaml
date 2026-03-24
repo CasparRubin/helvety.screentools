@@ -5,50 +5,55 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:tk="using:CommunityToolkit.WinUI.Controls"
     mc:Ignorable="d">
 
     <ScrollViewer>
         <StackPanel Padding="{StaticResource AppPaddingPage}" Spacing="{StaticResource AppSpacingSection}">
-            <TextBlock Style="{StaticResource AppPageTitleTextStyle}" Text="About" />
+            <StackPanel Spacing="{StaticResource AppSpacingStack}">
+                <TextBlock Style="{StaticResource AppPageTitleTextStyle}" Text="About" />
+                <TextBlock
+                    Style="{StaticResource SettingsSectionDescriptionTextStyle}"
+                    Text="Use a global shortcut to capture your screen—snap to a window or drag a rectangle, then save or copy to the clipboard. Draw on your desktop with Live Draw, browse saved captures in a gallery, and open images in the built-in editor to crop, blur, highlight, add text, and more."
+                    TextWrapping="WrapWholeWords" />
+            </StackPanel>
 
-            <Border Style="{StaticResource SettingsCardBorderStyle}">
-                <StackPanel Spacing="{StaticResource AppSpacingContent}">
-                    <TextBlock Style="{StaticResource SettingsSectionTitleTextStyle}" Text="Helvety Screen Tools" />
-                    <TextBlock
-                        Style="{StaticResource SettingsSectionDescriptionTextStyle}"
-                        Text="WinUI 3 desktop app for Windows: frozen-screen capture with snap-to-window selection, full-screen Live Draw overlay, a gallery of saved captures, and a built-in layer image editor."
-                        TextWrapping="WrapWholeWords" />
-                    <StackPanel Spacing="{StaticResource AppSpacingTight}">
-                        <TextBlock Style="{StaticResource SettingsSectionDescriptionTextStyle}" Text="Build" />
-                        <TextBlock
-                            Style="{StaticResource SettingsSectionDescriptionTextStyle}"
-                            Text="Compile-time stamp yyMMdd_HHmmss (local machine clock when the project was built). Rebuild to refresh."
-                            TextWrapping="WrapWholeWords" />
-                        <TextBlock
-                            x:Name="BuildStampText"
-                            FontFamily="Consolas"
-                            FontSize="14"
-                            FontWeight="SemiBold"
-                            TextWrapping="WrapWholeWords" />
-                    </StackPanel>
-                </StackPanel>
-            </Border>
+            <StackPanel Spacing="{StaticResource AppSpacingStack}">
+                <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Links" />
+                <tk:SettingsCard
+                    Description="Helvety homepage, products, and news."
+                    Header="Developer website">
+                    <tk:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE774;" />
+                    </tk:SettingsCard.HeaderIcon>
+                    <HyperlinkButton
+                        AutomationProperties.Name="Open helvety.com in the browser"
+                        Content="helvety.com"
+                        NavigateUri="https://helvety.com/" />
+                </tk:SettingsCard>
+                <tk:SettingsCard
+                    Description="Source code, issues, and how to contribute."
+                    Header="Open source on GitHub">
+                    <tk:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE943;" />
+                    </tk:SettingsCard.HeaderIcon>
+                    <HyperlinkButton
+                        AutomationProperties.Name="Open Helvety Screen Tools on GitHub in the browser"
+                        Content="github.com/CasparRubin/helvety.screentools"
+                        NavigateUri="https://github.com/CasparRubin/helvety.screentools" />
+                </tk:SettingsCard>
+            </StackPanel>
 
-            <Border Style="{StaticResource SettingsCardBorderStyle}">
-                <StackPanel Spacing="{StaticResource AppSpacingContent}">
-                    <TextBlock Style="{StaticResource SettingsSectionTitleTextStyle}" Text="Links" />
-                    <StackPanel Spacing="{StaticResource AppSpacingTight}">
-                        <HyperlinkButton
-                            AutomationProperties.Name="Open helvety.com in the browser"
-                            Content="helvety.com"
-                            NavigateUri="https://helvety.com/" />
-                        <HyperlinkButton
-                            AutomationProperties.Name="Open Helvety Screen Tools on GitHub in the browser"
-                            Content="github.com/CasparRubin/helvety.screentools"
-                            NavigateUri="https://github.com/CasparRubin/helvety.screentools" />
-                    </StackPanel>
-                </StackPanel>
-            </Border>
+            <tk:SettingsCard Header="Build Version">
+                <tk:SettingsCard.HeaderIcon>
+                    <FontIcon Glyph="&#xE946;" />
+                </tk:SettingsCard.HeaderIcon>
+                <TextBlock
+                    x:Name="BuildVersionText"
+                    FontSize="14"
+                    FontWeight="SemiBold"
+                    TextWrapping="WrapWholeWords" />
+            </tk:SettingsCard>
         </StackPanel>
     </ScrollViewer>
 </Page>

@@ -18,7 +18,7 @@ using WinRT.Interop;
 namespace helvety.screentools
 {
     /// <summary>
-    /// Main shell: navigation to Screen Tools, settings sections (General, Animations, Screen capture, Live Draw, Danger zone), and About; global issue banners; in-app toasts; tray integration.
+    /// Main shell: navigation to General (home), settings sections (General, Screen capture, Live Draw), and About; global issue banners; in-app toasts; tray integration.
     /// </summary>
     public sealed partial class MainWindow : Window
     {
@@ -331,10 +331,8 @@ namespace helvety.screentools
                 "home" => typeof(ScreenToolsPage),
                 "about" => typeof(AboutPage),
                 "general" => typeof(GeneralSettingsPage),
-                "animations" => typeof(AnimationsSettingsPage),
                 "capture" => typeof(CaptureHotkeySettingsPage),
                 "livedraw" => typeof(LiveDrawSettingsPage),
-                "danger" => typeof(DangerZoneSettingsPage),
                 _ => typeof(ScreenToolsPage)
             };
 
