@@ -96,9 +96,14 @@ namespace helvety.screentools.Capture
 
         private const double ClickSparkleSizeDip = 56.0;
         private const int ClickSparkleHoldPulseMs = 640;
+        private const int ClickSparkleHoldFallbackTickMs = 50;
+        private static readonly float[] ClickSparkleRingSpinDegreesPerSecond = { 132f, -96f, 68f, -42f };
         private Canvas? _clickSparkleHoldDrawCanvas;
         private Canvas? _clickSparkleHoldContainer;
         private Visual? _clickSparkleHoldVisual;
+        private readonly List<Ellipse> _clickSparkleHoldRings = new();
+        private readonly List<Visual> _clickSparkleHoldRingVisuals = new();
+        private readonly List<RotateTransform> _clickSparkleHoldRingFallbackRotates = new();
         private CompositeTransform? _clickSparkleHoldFallbackTransform;
         private DispatcherQueueTimer? _clickSparkleHoldFallbackTimer;
         private double _clickSparkleHoldFallbackPhase;
@@ -416,6 +421,7 @@ namespace helvety.screentools.Capture
 
             _clickSparkleHoldDrawCanvas = drawCanvas;
             _clickSparkleHoldContainer = container;
+            BindHoldSparkleRings(container);
 
             if (_compositor is null)
             {
@@ -438,6 +444,7 @@ namespace helvety.screentools.Capture
 
             v.StartAnimation("Opacity", CreateClickSparkleHoldOpacityAnimation());
             v.StartAnimation("Scale", CreateClickSparkleHoldScaleAnimation());
+            StartClickSparkleHoldRingSpinAnimations();
         }
 
         internal void UpdateClickSparkleHoldPosition(Canvas drawCanvas, Point center)
@@ -475,6 +482,14 @@ namespace helvety.screentools.Capture
                 _clickSparkleHoldVisual.StopAnimation("Scale");
                 _clickSparkleHoldVisual = null;
             }
+            foreach (var ringVisual in _clickSparkleHoldRingVisuals)
+            {
+                ringVisual.StopAnimation("RotationAngleInDegrees");
+            }
+
+            _clickSparkleHoldRingVisuals.Clear();
+            _clickSparkleHoldRingFallbackRotates.Clear();
+            _clickSparkleHoldRings.Clear();
 
             if (_clickSparkleHoldContainer is not null && _clickSparkleHoldDrawCanvas is not null)
             {
@@ -506,13 +521,13 @@ namespace helvety.screentools.Capture
             container.RenderTransform = ct;
             _clickSparkleHoldFallbackTransform = ct;
 
-            var phaseStep = (Math.PI * 2.0 * 50.0) / ClickSparkleHoldPulseMs;
+            var phaseStep = (Math.PI * 2.0 * ClickSparkleHoldFallbackTickMs) / ClickSparkleHoldPulseMs;
             _clickSparkleHoldFallbackPhase = 0;
 
             ApplyClickSparkleHoldFallbackFrame();
 
             var timer = dq.CreateTimer();
-            timer.Interval = TimeSpan.FromMilliseconds(50);
+            timer.Interval = TimeSpan.FromMilliseconds(ClickSparkleHoldFallbackTickMs);
             timer.Tick += (_, _) =>
             {
                 _clickSparkleHoldFallbackPhase += phaseStep;
@@ -535,6 +550,93 @@ namespace helvety.screentools.Capture
             var scale = 0.72 + 0.50 * t;
             _clickSparkleHoldFallbackTransform.ScaleX = scale;
             _clickSparkleHoldFallbackTransform.ScaleY = scale;
+
+            var elapsedSeconds = ClickSparkleHoldFallbackTickMs / 1000f;
+            for (var i = 0; i < _clickSparkleHoldRingFallbackRotates.Count; i++)
+            {
+                var rotate = _clickSparkleHoldRingFallbackRotates[i];
+                var speed = GetClickSparkleRingSpinSpeed(i);
+                rotate.Angle += speed * elapsedSeconds;
+            }
+        }
+
+        private void BindHoldSparkleRings(Canvas container)
+        {
+            _clickSparkleHoldRings.Clear();
+            _clickSparkleHoldRingVisuals.Clear();
+            _clickSparkleHoldRingFallbackRotates.Clear();
+            for (var i = 0; i < container.Children.Count; i++)
+            {
+                if (container.Children[i] is Ellipse ring)
+                {
+                    _clickSparkleHoldRings.Add(ring);
+                }
+            }
+        }
+
+        private void StartClickSparkleHoldRingSpinAnimations()
+        {
+            if (_compositor is null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < _clickSparkleHoldRings.Count; i++)
+            {
+                var ring = _clickSparkleHoldRings[i];
+                var visual = ElementCompositionPreview.GetElementVisual(ring);
+                if (visual is null)
+                {
+                    continue;
+                }
+
+                visual.CenterPoint = new Vector3(
+                    (float)(ring.Width / 2.0),
+                    (float)(ring.Height / 2.0),
+                    0f);
+                visual.StartAnimation(
+                    "RotationAngleInDegrees",
+                    CreateClickSparkleRingSpinAnimation(GetClickSparkleRingSpinSpeed(i)));
+                _clickSparkleHoldRingVisuals.Add(visual);
+            }
+
+            EnsureHoldSparkleFallbackRingTransforms();
+        }
+
+        private ScalarKeyFrameAnimation CreateClickSparkleRingSpinAnimation(float degreesPerSecond)
+        {
+            var a = _compositor!.CreateScalarKeyFrameAnimation();
+            a.InsertKeyFrame(0.0f, 0.0f);
+            a.InsertKeyFrame(1.0f, degreesPerSecond);
+            a.Duration = TimeSpan.FromSeconds(1);
+            a.IterationBehavior = AnimationIterationBehavior.Forever;
+            return a;
+        }
+
+        private static float GetClickSparkleRingSpinSpeed(int ringIndex)
+        {
+            if (ClickSparkleRingSpinDegreesPerSecond.Length == 0)
+            {
+                return 0f;
+            }
+
+            var index = ringIndex % ClickSparkleRingSpinDegreesPerSecond.Length;
+            return ClickSparkleRingSpinDegreesPerSecond[index];
+        }
+
+        private void EnsureHoldSparkleFallbackRingTransforms()
+        {
+            _clickSparkleHoldRingFallbackRotates.Clear();
+            foreach (var ring in _clickSparkleHoldRings)
+            {
+                var rotate = new RotateTransform
+                {
+                    CenterX = ring.Width / 2.0,
+                    CenterY = ring.Height / 2.0
+                };
+                ring.RenderTransform = rotate;
+                _clickSparkleHoldRingFallbackRotates.Add(rotate);
+            }
         }
 
         private ScalarKeyFrameAnimation CreateClickSparkleHoldOpacityAnimation()

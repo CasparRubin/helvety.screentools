@@ -41,6 +41,7 @@ namespace helvety.screentools.Capture
         private bool _isPointerDown;
         private ActivePointerKind _activePointerKind;
         private bool _snapBorderCompositionInitialized;
+        private bool _activationPulsePlayed;
         private Microsoft.UI.Dispatching.DispatcherQueueTimer? _driftTimer;
         private LiveDrawNativeHost? _host;
 
@@ -166,6 +167,7 @@ namespace helvety.screentools.Capture
         internal Task RunSessionAsync()
         {
             var activationCompleted = false;
+            _activationPulsePlayed = false;
 
             void CompleteActivation()
             {
@@ -176,6 +178,7 @@ namespace helvety.screentools.Capture
 
                 activationCompleted = true;
                 RootGrid.Focus(FocusState.Programmatic);
+                PlayActivationPulseAtCursorOnce();
                 if (_sessionCompletion.Task.IsCompleted)
                 {
                     _sessionCompletion = new TaskCompletionSource<bool>();
@@ -666,6 +669,36 @@ namespace helvety.screentools.Capture
             return true;
         }
 
+        private void PlayActivationPulseAtCursorOnce()
+        {
+            if (_activationPulsePlayed)
+            {
+                return;
+            }
+
+            if (!TryGetCursorLocalPosition(out var localPoint))
+            {
+                return;
+            }
+
+            _activationPulsePlayed = true;
+            _snapBorderChrome.PlayClickSparkle(DrawCanvas, localPoint);
+        }
+
+        private bool TryGetCursorLocalPosition(out Point localPoint)
+        {
+            localPoint = default;
+            if (!GetCursorPos(out var cursorScreen))
+            {
+                return false;
+            }
+
+            var x = Math.Clamp(cursorScreen.X - _virtualBounds.X, 0, _virtualBounds.Width);
+            var y = Math.Clamp(cursorScreen.Y - _virtualBounds.Y, 0, _virtualBounds.Height);
+            localPoint = new Point(x, y);
+            return true;
+        }
+
         private static double SegmentLengthDip(Point a, Point b)
         {
             var dx = b.X - a.X;
@@ -750,6 +783,17 @@ namespace helvety.screentools.Capture
 
         [System.Runtime.InteropServices.DllImport("user32.dll")]
         private static extern short GetAsyncKeyState(int vKey);
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
+        private static extern bool GetCursorPos(out PointStruct lpPoint);
+
+        [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+        private struct PointStruct
+        {
+            public int X;
+            public int Y;
+        }
 
         private static bool IsShiftDown(PointerRoutedEventArgs? e = null)
         {
