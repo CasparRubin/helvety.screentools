@@ -55,6 +55,21 @@ namespace helvety.screentools.Views.Settings
         private void InitializeCaptureModuleToggle()
         {
             var enabled = SettingsService.Load().CaptureHotkeyEnabled;
+            ApplyCaptureModuleState(enabled, persistSetting: false);
+        }
+
+        private void CaptureModuleToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (_isUpdatingCaptureToggle)
+            {
+                return;
+            }
+
+            ApplyCaptureModuleState(CaptureModuleToggle.IsOn, persistSetting: true);
+        }
+
+        private void ApplyCaptureModuleState(bool enabled, bool persistSetting)
+        {
             _isUpdatingCaptureToggle = true;
             try
             {
@@ -65,18 +80,13 @@ namespace helvety.screentools.Views.Settings
             {
                 _isUpdatingCaptureToggle = false;
             }
-        }
 
-        private void CaptureModuleToggle_Toggled(object sender, RoutedEventArgs e)
-        {
-            if (_isUpdatingCaptureToggle)
+            if (persistSetting)
             {
-                return;
+                SettingsService.SaveCaptureHotkeyEnabled(enabled);
             }
 
-            var on = CaptureModuleToggle.IsOn;
-            SettingsService.SaveCaptureHotkeyEnabled(on);
-            CaptureDetailsPanel.IsEnabled = on;
+            RefreshCaptureCurrentShortcutVisual();
         }
 
         private void SettingsService_SettingsChanged()
@@ -407,13 +417,13 @@ namespace helvety.screentools.Views.Settings
             {
                 _currentBinding = null;
                 ResetEditor();
-                CaptureCurrentChordStrip.SetEmpty("(none)", "Capture hotkey: (none)");
+                RefreshCaptureCurrentShortcutVisual();
                 SetBindingStatus("No capture hotkey set.");
                 UpdateFeatureAvailability();
                 return;
             }
 
-            if (TryApplyBinding(_startupBinding.Value, out var statusMessage))
+            if (TryApplyBinding(_startupBinding.Value, persistSetting: false, out var statusMessage))
             {
                 SetBindingStatus(string.Empty);
                 return;
@@ -516,7 +526,7 @@ namespace helvety.screentools.Views.Settings
             Step5KeyChordStrip.SetSingleKey(_editorSequence[4], HotkeyChordAppearance.Default, null);
         }
 
-        private bool TryApplyBinding(HotkeyBinding requestedBinding, out string statusMessage)
+        private bool TryApplyBinding(HotkeyBinding requestedBinding, bool persistSetting, out string statusMessage)
         {
             if (_listenController is null || !_listenController.IsInstalled)
             {
@@ -525,12 +535,11 @@ namespace helvety.screentools.Views.Settings
             }
 
             _currentBinding = requestedBinding;
-            CaptureCurrentChordStrip.SetChord(
-                requestedBinding.Modifiers,
-                requestedBinding.Sequence,
-                HotkeyChordAppearance.Accent,
-                $"Capture hotkey: {requestedBinding.Display}");
-            SettingsService.SaveHotkey(requestedBinding.Modifiers, requestedBinding.Sequence, requestedBinding.Display);
+            RefreshCaptureCurrentShortcutVisual();
+            if (persistSetting)
+            {
+                SettingsService.SaveHotkey(requestedBinding.Modifiers, requestedBinding.Sequence, requestedBinding.Display);
+            }
             UpdateFeatureAvailability();
             SetEditorFromBinding(requestedBinding);
             statusMessage = IsLikelyClaimedByAnotherHotkey(requestedBinding)
@@ -565,7 +574,7 @@ namespace helvety.screentools.Views.Settings
             }
 
             var binding = new HotkeyBinding(_editorModifiers, sequence.ToArray(), display);
-            return TryApplyBinding(binding, out statusMessage);
+            return TryApplyBinding(binding, persistSetting: true, out statusMessage);
         }
 
         private void ModifierCheckBox_Changed(object sender, RoutedEventArgs e)
@@ -652,7 +661,7 @@ namespace helvety.screentools.Views.Settings
                 _currentBinding = null;
                 SettingsService.ClearHotkey();
                 ResetEditor();
-                CaptureCurrentChordStrip.SetEmpty("(none)", "Capture hotkey: (none)");
+                RefreshCaptureCurrentShortcutVisual();
                 SetBindingStatus("No capture hotkey set.");
                 UpdateFeatureAvailability();
                 return;
@@ -700,6 +709,29 @@ namespace helvety.screentools.Views.Settings
             BindingStatusText.Visibility = string.IsNullOrWhiteSpace(message)
                 ? Visibility.Collapsed
                 : Visibility.Visible;
+        }
+
+        private void RefreshCaptureCurrentShortcutVisual()
+        {
+            if (_currentBinding is null)
+            {
+                CaptureCurrentChordStrip.SetEmpty("(none)", "Capture hotkey: (none)");
+                return;
+            }
+
+            var binding = _currentBinding.Value;
+            CaptureCurrentChordStrip.SetChord(
+                binding.Modifiers,
+                binding.Sequence,
+                GetCurrentShortcutAppearance(),
+                $"Capture hotkey: {binding.Display}");
+        }
+
+        private HotkeyChordAppearance GetCurrentShortcutAppearance()
+        {
+            return CaptureModuleToggle.IsOn
+                ? HotkeyChordAppearance.Accent
+                : HotkeyChordAppearance.Disabled;
         }
 
         private readonly record struct HotkeyBinding(uint Modifiers, uint[] Sequence, string Display);

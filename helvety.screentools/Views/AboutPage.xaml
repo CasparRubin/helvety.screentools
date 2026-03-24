@@ -9,7 +9,7 @@
     mc:Ignorable="d">
 
     <ScrollViewer>
-        <StackPanel Padding="{StaticResource AppPaddingPage}" Spacing="{StaticResource AppSpacingSection}">
+        <StackPanel Padding="{StaticResource AppPaddingPageBottomHeavy}" Spacing="{StaticResource AppSpacingSection}">
             <StackPanel Spacing="{StaticResource AppSpacingStack}">
                 <TextBlock Style="{StaticResource AppPageTitleTextStyle}" Text="About" />
                 <TextBlock
@@ -42,18 +42,17 @@
                         Content="github.com/CasparRubin/helvety.screentools"
                         NavigateUri="https://github.com/CasparRubin/helvety.screentools" />
                 </tk:SettingsCard>
+                <tk:SettingsCard Header="Build version">
+                    <tk:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE946;" />
+                    </tk:SettingsCard.HeaderIcon>
+                    <TextBlock
+                        x:Name="BuildVersionText"
+                        FontSize="14"
+                        FontWeight="SemiBold"
+                        TextWrapping="WrapWholeWords" />
+                </tk:SettingsCard>
             </StackPanel>
-
-            <tk:SettingsCard Header="Build Version">
-                <tk:SettingsCard.HeaderIcon>
-                    <FontIcon Glyph="&#xE946;" />
-                </tk:SettingsCard.HeaderIcon>
-                <TextBlock
-                    x:Name="BuildVersionText"
-                    FontSize="14"
-                    FontWeight="SemiBold"
-                    TextWrapping="WrapWholeWords" />
-            </tk:SettingsCard>
         </StackPanel>
     </ScrollViewer>
 </Page>

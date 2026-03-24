@@ -68,49 +68,50 @@
 
             <ContentControl x:Name="CaptureDetailsPanel" Style="{StaticResource AppSettingsDetailHostStyle}">
                 <StackPanel Spacing="{StaticResource AppSpacingSection}">
-                <TextBlock
-                    Style="{StaticResource SettingsSubsectionTitleTextStyle}"
-                    Text="Shortcut" />
+                    <StackPanel Spacing="{StaticResource AppSpacingStack}">
+                        <TextBlock
+                            Style="{StaticResource SettingsSubsectionTitleTextStyle}"
+                            Text="Shortcut" />
 
-                <tk:SettingsCard
-                    Description="The shortcut that is currently active when capture is enabled."
-                    Header="Current shortcut">
-                    <tk:SettingsCard.HeaderIcon>
-                        <FontIcon Glyph="&#xEDA7;" />
-                    </tk:SettingsCard.HeaderIcon>
-                    <controls:HotkeyChordStrip x:Name="CaptureCurrentChordStrip" />
-                </tk:SettingsCard>
+                        <tk:SettingsCard
+                            Description="The shortcut that is currently active when capture is enabled."
+                            Header="Current shortcut">
+                            <tk:SettingsCard.HeaderIcon>
+                                <FontIcon Glyph="&#xEDA7;" />
+                            </tk:SettingsCard.HeaderIcon>
+                            <controls:HotkeyChordStrip x:Name="CaptureCurrentChordStrip" />
+                        </tk:SettingsCard>
 
-                <tk:SettingsCard Description="Hold these while pressing the sequence keys." Header="Modifiers">
-                    <tk:SettingsCard.HeaderIcon>
-                        <FontIcon Glyph="&#xEDA7;" />
-                    </tk:SettingsCard.HeaderIcon>
-                    <StackPanel Orientation="Horizontal" Spacing="{StaticResource AppSpacingContent}">
-                        <CheckBox
-                            x:Name="CtrlModifierCheckBox"
-                            Checked="ModifierCheckBox_Changed"
-                            Content="Ctrl"
-                            Unchecked="ModifierCheckBox_Changed" />
-                        <CheckBox
-                            x:Name="AltModifierCheckBox"
-                            Checked="ModifierCheckBox_Changed"
-                            Content="Alt"
-                            Unchecked="ModifierCheckBox_Changed" />
-                        <CheckBox
-                            x:Name="ShiftModifierCheckBox"
-                            Checked="ModifierCheckBox_Changed"
-                            Content="Shift"
-                            Unchecked="ModifierCheckBox_Changed" />
-                    </StackPanel>
-                </tk:SettingsCard>
+                        <tk:SettingsCard Description="Hold these while pressing the sequence keys." Header="Modifiers">
+                            <tk:SettingsCard.HeaderIcon>
+                                <FontIcon Glyph="&#xEDA7;" />
+                            </tk:SettingsCard.HeaderIcon>
+                            <StackPanel Orientation="Horizontal" Spacing="{StaticResource AppSpacingContent}">
+                                <CheckBox
+                                    x:Name="CtrlModifierCheckBox"
+                                    Checked="ModifierCheckBox_Changed"
+                                    Content="Ctrl"
+                                    Unchecked="ModifierCheckBox_Changed" />
+                                <CheckBox
+                                    x:Name="AltModifierCheckBox"
+                                    Checked="ModifierCheckBox_Changed"
+                                    Content="Alt"
+                                    Unchecked="ModifierCheckBox_Changed" />
+                                <CheckBox
+                                    x:Name="ShiftModifierCheckBox"
+                                    Checked="ModifierCheckBox_Changed"
+                                    Content="Shift"
+                                    Unchecked="ModifierCheckBox_Changed" />
+                            </StackPanel>
+                        </tk:SettingsCard>
 
-                <tk:SettingsExpander Description="Set one to five keys in order. Use Listen to record a key per step." Header="Activation sequence">
-                    <tk:SettingsExpander.HeaderIcon>
-                        <FontIcon Glyph="&#xEDA7;" />
-                    </tk:SettingsExpander.HeaderIcon>
-                    <tk:SettingsExpander.Items>
-                        <tk:SettingsCard Header="Steps">
-                            <Grid ColumnSpacing="{StaticResource AppSpacingContent}" RowSpacing="{StaticResource AppSpacingStack}">
+                        <tk:SettingsExpander Description="Set one to five keys in order. Use Listen to record a key per step." Header="Activation sequence">
+                            <tk:SettingsExpander.HeaderIcon>
+                                <FontIcon Glyph="&#xEDA7;" />
+                            </tk:SettingsExpander.HeaderIcon>
+                            <tk:SettingsExpander.Items>
+                                <tk:SettingsCard Header="Steps">
+                                    <Grid ColumnSpacing="{StaticResource AppSpacingContent}" RowSpacing="{StaticResource AppSpacingStack}">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="*" />
@@ -199,59 +200,64 @@
                                     Click="ClearStep5Button_Click"
                                     Content="Clear"
                                     Style="{StaticResource SettingsInlineButtonStyle}" />
-                            </Grid>
-                        </tk:SettingsCard>
-                    </tk:SettingsExpander.Items>
-                </tk:SettingsExpander>
+                                    </Grid>
+                                </tk:SettingsCard>
+                            </tk:SettingsExpander.Items>
+                        </tk:SettingsExpander>
 
-                <InfoBar
-                    x:Name="ListeningInfoBar"
-                    IsClosable="False"
-                    IsOpen="False"
-                    Message="Press a non-modifier key. Esc cancels."
-                    Severity="Informational"
-                    Title="Listening for key" />
-                <TextBlock
-                    x:Name="BindingStatusText"
-                    Visibility="Collapsed"
-                    Style="{StaticResource SettingsSectionDescriptionTextStyle}"
-                    Text="" />
+                        <InfoBar
+                            x:Name="ListeningInfoBar"
+                            IsClosable="False"
+                            IsOpen="False"
+                            Message="Press a non-modifier key. Esc cancels."
+                            Severity="Informational"
+                            Title="Listening for key" />
+                        <TextBlock
+                            x:Name="BindingStatusText"
+                            Visibility="Collapsed"
+                            Style="{StaticResource SettingsSectionDescriptionTextStyle}"
+                            Text="" />
+                    </StackPanel>
                 </StackPanel>
             </ContentControl>
 
-            <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Capture quality" />
-            <tk:SettingsCard
-                Description="Fast is default. Optimized improves text; Heavy uses heavier processing on large selections."
-                Header="Quality mode">
-                <tk:SettingsCard.HeaderIcon>
-                    <FontIcon Glyph="&#xE9A9;" />
-                </tk:SettingsCard.HeaderIcon>
-                <ComboBox
-                    x:Name="ScreenshotQualityModeComboBox"
-                    Style="{StaticResource SettingsInlineComboBoxStyle}"
-                    MinWidth="{StaticResource SettingActionControlMinWidth}"
-                    IsTextSearchEnabled="False"
-                    SelectionChanged="ScreenshotQualityModeComboBox_SelectionChanged">
-                    <ComboBoxItem Content="Fast" Tag="Fast" />
-                    <ComboBoxItem Content="Optimized" Tag="Optimized" />
-                    <ComboBoxItem Content="Heavy" Tag="Heavy" />
-                </ComboBox>
-            </tk:SettingsCard>
+            <StackPanel Spacing="{StaticResource AppSpacingStack}">
+                <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Capture quality" />
+                <tk:SettingsCard
+                    Description="Fast is default. Optimized improves text; Heavy uses heavier processing on large selections."
+                    Header="Quality mode">
+                    <tk:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE9A9;" />
+                    </tk:SettingsCard.HeaderIcon>
+                    <ComboBox
+                        x:Name="ScreenshotQualityModeComboBox"
+                        Style="{StaticResource SettingsInlineComboBoxStyle}"
+                        MinWidth="{StaticResource SettingActionControlMinWidth}"
+                        IsTextSearchEnabled="False"
+                        SelectionChanged="ScreenshotQualityModeComboBox_SelectionChanged">
+                        <ComboBoxItem Content="Fast" Tag="Fast" />
+                        <ComboBoxItem Content="Optimized" Tag="Optimized" />
+                        <ComboBoxItem Content="Heavy" Tag="Heavy" />
+                    </ComboBox>
+                </tk:SettingsCard>
+            </StackPanel>
 
-            <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Overlay" />
-            <tk:SettingsCard
-                Description="Show helper instructions in the capture overlay."
-                Header="Instructions">
-                <tk:SettingsCard.HeaderIcon>
-                    <FontIcon Glyph="&#xE946;" />
-                </tk:SettingsCard.HeaderIcon>
-                <ToggleSwitch
-                    x:Name="ShowOverlayInstructionsToggle"
-                    Style="{StaticResource SettingsInlineToggleSwitchStyle}"
-                    OffContent="Off"
-                    OnContent="On"
-                    Toggled="ShowOverlayInstructionsToggle_Toggled" />
-            </tk:SettingsCard>
+            <StackPanel Spacing="{StaticResource AppSpacingStack}">
+                <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Overlay" />
+                <tk:SettingsCard
+                    Description="Show helper instructions in the capture overlay."
+                    Header="Instructions">
+                    <tk:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE946;" />
+                    </tk:SettingsCard.HeaderIcon>
+                    <ToggleSwitch
+                        x:Name="ShowOverlayInstructionsToggle"
+                        Style="{StaticResource SettingsInlineToggleSwitchStyle}"
+                        OffContent="Off"
+                        OnContent="On"
+                        Toggled="ShowOverlayInstructionsToggle_Toggled" />
+                </tk:SettingsCard>
+            </StackPanel>
         </StackPanel>
     </ScrollViewer>
 </Page>

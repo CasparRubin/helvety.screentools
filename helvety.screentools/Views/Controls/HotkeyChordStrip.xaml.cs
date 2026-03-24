@@ -16,6 +16,7 @@ namespace helvety.screentools.Views.Controls
     {
         Default,
         Accent,
+        Disabled,
     }
 
     /// <summary>
@@ -156,6 +157,11 @@ namespace helvety.screentools.Views.Controls
                 return (Brush)Application.Current.Resources["TextOnAccentFillColorPrimaryBrush"];
             }
 
+            if (appearance == HotkeyChordAppearance.Disabled)
+            {
+                return (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"];
+            }
+
             return (Brush)Application.Current.Resources["TextFillColorPrimaryBrush"];
         }
 
@@ -172,6 +178,21 @@ namespace helvety.screentools.Views.Controls
                     BorderBrush = (Brush)Application.Current.Resources["AccentControlElevationBorderBrush"],
                     BorderThickness = new Thickness(1),
                     BackgroundSizing = BackgroundSizing.OuterBorderEdge,
+                    VerticalAlignment = VerticalAlignment.Center,
+                };
+            }
+
+            if (appearance == HotkeyChordAppearance.Disabled)
+            {
+                return new Border
+                {
+                    MinHeight = 28,
+                    Padding = new Thickness(10, 6, 10, 6),
+                    CornerRadius = (CornerRadius)Application.Current.Resources["ControlCornerRadius"],
+                    Background = (Brush)Application.Current.Resources["CardBackgroundFillColorSecondaryBrush"],
+                    BorderBrush = (Brush)Application.Current.Resources["CardStrokeColorDefaultBrush"],
+                    BorderThickness = (Thickness)Application.Current.Resources["ButtonBorderThemeThickness"],
+                    BackgroundSizing = BackgroundSizing.InnerBorderEdge,
                     VerticalAlignment = VerticalAlignment.Center,
                 };
             }

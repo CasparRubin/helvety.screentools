@@ -26,9 +26,9 @@ namespace helvety.screentools.Capture
         private nint _keyboardHookHandle;
         private KeyboardHookProc? _keyboardHookProc;
         private bool _isKeyboardHookInstalled;
-        private bool _hasValidSaveFolder;
         private HotkeyBinding? _captureBinding;
         private HotkeyBinding? _liveDrawBinding;
+        private readonly object _stateLock = new();
 
         private HotkeySequenceRuntimeState _captureState;
         private HotkeySequenceRuntimeState _liveDrawState;
@@ -66,94 +66,108 @@ namespace helvety.screentools.Capture
 
         private void ReloadConfiguration()
         {
-            _hasValidSaveFolder = SettingsService.TryGetEffectiveSaveFolderPath(out _);
+            var hasValidSaveFolder = SettingsService.TryGetEffectiveSaveFolderPath(out _);
             var app = SettingsService.Load();
-
-            if (!app.CaptureHotkeyEnabled ||
-                !SettingsService.TryGetEffectiveHotkey(out var captureHotkey) ||
-                !_hasValidSaveFolder)
-            {
-                _captureBinding = null;
-            }
-            else
-            {
-                _captureBinding = new HotkeyBinding(captureHotkey.Modifiers, CopySequence(captureHotkey.Sequence), captureHotkey.Display);
-            }
-
-            _liveDrawBinding = app.LiveDrawEnabled &&
-                               SettingsService.TryGetEffectiveLiveDrawHotkey(out var liveHotkey)
+            HotkeyBinding? captureBinding = (!app.CaptureHotkeyEnabled ||
+                                             !SettingsService.TryGetEffectiveHotkey(out var captureHotkey) ||
+                                             !hasValidSaveFolder)
+                ? null
+                : new HotkeyBinding(captureHotkey.Modifiers, CopySequence(captureHotkey.Sequence), captureHotkey.Display);
+            HotkeyBinding? liveDrawBinding = app.LiveDrawEnabled &&
+                                             SettingsService.TryGetEffectiveLiveDrawHotkey(out var liveHotkey)
                 ? new HotkeyBinding(liveHotkey.Modifiers, CopySequence(liveHotkey.Sequence), liveHotkey.Display)
                 : null;
 
-            ResetCaptureSequenceState();
-            ResetLiveDrawSequenceState();
+            lock (_stateLock)
+            {
+                _captureBinding = captureBinding;
+                _liveDrawBinding = liveDrawBinding;
+                ResetCaptureSequenceState();
+                ResetLiveDrawSequenceState();
+            }
         }
 
         private nint KeyboardHookCallback(int nCode, nuint wParam, nint lParam)
         {
+            HotkeySessionKind? triggeredSession = null;
+            string? triggeredDisplay = null;
+
             if (nCode >= 0)
             {
                 var message = (uint)wParam;
                 var keyData = Marshal.PtrToStructure<KbdLlHookStruct>(lParam);
 
-                if (message is WmKeydown or WmSyskeydown)
+                lock (_stateLock)
                 {
-                    if (keyData.VkCode == VkEscape && ActiveOverlayCancelService.TryCancelFromEscape())
+                    if (message is WmKeydown or WmSyskeydown)
                     {
-                        return (nint)1;
-                    }
+                        if (keyData.VkCode == VkEscape && ActiveOverlayCancelService.TryCancelFromEscape())
+                        {
+                            return (nint)1;
+                        }
 
-                    if (_captureBinding is not null)
-                    {
-                        HandleRuntimeKeyDown(keyData.VkCode, _captureBinding.Value, ref _captureState);
-                    }
+                        if (_captureBinding is not null)
+                        {
+                            HandleRuntimeKeyDown(keyData.VkCode, _captureBinding.Value, ref _captureState);
+                        }
 
-                    if (_liveDrawBinding is not null)
+                        if (_liveDrawBinding is not null)
+                        {
+                            HandleRuntimeKeyDown(keyData.VkCode, _liveDrawBinding.Value, ref _liveDrawState);
+                        }
+                    }
+                    else if (message is WmKeyup or WmSyskeyup)
                     {
-                        HandleRuntimeKeyDown(keyData.VkCode, _liveDrawBinding.Value, ref _liveDrawState);
+                        var captureCompleted = false;
+                        var liveCompleted = false;
+                        var captureBinding = _captureBinding;
+                        var liveDrawBinding = _liveDrawBinding;
+
+                        if (captureBinding is not null)
+                        {
+                            captureCompleted = TryCompleteSequenceStepOnKeyUp(keyData.VkCode, captureBinding.Value, ref _captureState);
+                        }
+
+                        if (liveDrawBinding is not null)
+                        {
+                            liveCompleted = TryCompleteSequenceStepOnKeyUp(keyData.VkCode, liveDrawBinding.Value, ref _liveDrawState);
+                        }
+
+                        if (captureCompleted && liveCompleted && BindingsEqual(captureBinding, liveDrawBinding))
+                        {
+                            ResetLiveDrawSequenceState();
+                            if (ActiveOverlayCancelService.TryCancelFromRepeatHotkey(HotkeySessionKind.Screenshot) ||
+                                ActiveOverlayCancelService.TryCancelFromRepeatHotkey(HotkeySessionKind.LiveDraw))
+                            {
+                                return CallNextHookEx(_keyboardHookHandle, nCode, wParam, lParam);
+                            }
+
+                            triggeredSession = HotkeySessionKind.Screenshot;
+                            triggeredDisplay = captureBinding?.Display;
+                        }
+                        else if (captureCompleted)
+                        {
+                            if (!ActiveOverlayCancelService.TryCancelFromRepeatHotkey(HotkeySessionKind.Screenshot))
+                            {
+                                triggeredSession = HotkeySessionKind.Screenshot;
+                                triggeredDisplay = captureBinding?.Display;
+                            }
+                        }
+                        else if (liveCompleted)
+                        {
+                            if (!ActiveOverlayCancelService.TryCancelFromRepeatHotkey(HotkeySessionKind.LiveDraw))
+                            {
+                                triggeredSession = HotkeySessionKind.LiveDraw;
+                                triggeredDisplay = liveDrawBinding?.Display;
+                            }
+                        }
                     }
                 }
-                else if (message is WmKeyup or WmSyskeyup)
-                {
-                    var captureCompleted = false;
-                    var liveCompleted = false;
+            }
 
-                    if (_captureBinding is not null)
-                    {
-                        captureCompleted = TryCompleteSequenceStepOnKeyUp(keyData.VkCode, _captureBinding.Value, ref _captureState);
-                    }
-
-                    if (_liveDrawBinding is not null)
-                    {
-                        liveCompleted = TryCompleteSequenceStepOnKeyUp(keyData.VkCode, _liveDrawBinding.Value, ref _liveDrawState);
-                    }
-
-                    if (captureCompleted && liveCompleted && BindingsEqual(_captureBinding, _liveDrawBinding))
-                    {
-                        ResetLiveDrawSequenceState();
-                        if (ActiveOverlayCancelService.TryCancelFromRepeatHotkey(HotkeySessionKind.Screenshot) ||
-                            ActiveOverlayCancelService.TryCancelFromRepeatHotkey(HotkeySessionKind.LiveDraw))
-                        {
-                            return CallNextHookEx(_keyboardHookHandle, nCode, wParam, lParam);
-                        }
-
-                        HotkeyPressed?.Invoke(HotkeySessionKind.Screenshot, _captureBinding!.Value.Display);
-                    }
-                    else if (captureCompleted)
-                    {
-                        if (!ActiveOverlayCancelService.TryCancelFromRepeatHotkey(HotkeySessionKind.Screenshot))
-                        {
-                            HotkeyPressed?.Invoke(HotkeySessionKind.Screenshot, _captureBinding!.Value.Display);
-                        }
-                    }
-                    else if (liveCompleted)
-                    {
-                        if (!ActiveOverlayCancelService.TryCancelFromRepeatHotkey(HotkeySessionKind.LiveDraw))
-                        {
-                            HotkeyPressed?.Invoke(HotkeySessionKind.LiveDraw, _liveDrawBinding!.Value.Display);
-                        }
-                    }
-                }
+            if (triggeredSession.HasValue && !string.IsNullOrWhiteSpace(triggeredDisplay))
+            {
+                HotkeyPressed?.Invoke(triggeredSession.Value, triggeredDisplay);
             }
 
             return CallNextHookEx(_keyboardHookHandle, nCode, wParam, lParam);

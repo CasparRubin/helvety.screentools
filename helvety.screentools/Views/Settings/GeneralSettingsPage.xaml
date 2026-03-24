@@ -18,68 +18,76 @@
                     TextWrapping="WrapWholeWords" />
             </StackPanel>
 
-            <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Window" />
-            <tk:SettingsCard
-                Description="Keep Helvety Screen Tools running when you close the window so global hotkeys keep working."
-                Header="Notification area">
-                <tk:SettingsCard.HeaderIcon>
-                    <FontIcon Glyph="&#xE7E8;" />
-                </tk:SettingsCard.HeaderIcon>
-                <ToggleSwitch
-                    x:Name="MinimizeToTrayToggle"
-                    Style="{StaticResource SettingsInlineToggleSwitchStyle}"
-                    OffContent="Off"
-                    OnContent="On"
-                    Toggled="MinimizeToTrayToggle_Toggled" />
-            </tk:SettingsCard>
+            <StackPanel Spacing="{StaticResource AppSpacingStack}">
+                <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Window" />
+                <tk:SettingsCard
+                    Description="Keep Helvety Screen Tools running when you close the window so global hotkeys keep working."
+                    Header="Notification area">
+                    <tk:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE7E8;" />
+                    </tk:SettingsCard.HeaderIcon>
+                    <ToggleSwitch
+                        x:Name="MinimizeToTrayToggle"
+                        Style="{StaticResource SettingsInlineToggleSwitchStyle}"
+                        OffContent="Off"
+                        OnContent="On"
+                        Toggled="MinimizeToTrayToggle_Toggled" />
+                </tk:SettingsCard>
+            </StackPanel>
 
-            <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Image editor" />
-            <tk:SettingsCard
-                Description="Reduces expensive effects while dragging or resizing for smoother editing. Disable only if you need full preview during movement."
-                Header="Editor performance mode">
-                <tk:SettingsCard.HeaderIcon>
-                    <FontIcon Glyph="&#xE9F5;" />
-                </tk:SettingsCard.HeaderIcon>
-                <ToggleSwitch
-                    x:Name="EditorPerformanceModeToggle"
-                    Style="{StaticResource SettingsInlineToggleSwitchStyle}"
-                    OffContent="Off"
-                    OnContent="On"
-                    Toggled="EditorPerformanceModeToggle_Toggled" />
-            </tk:SettingsCard>
+            <StackPanel Spacing="{StaticResource AppSpacingStack}">
+                <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Image editor" />
+                <tk:SettingsCard
+                    Description="Reduces expensive effects while dragging or resizing for smoother editing. Disable only if you need full preview during movement."
+                    Header="Editor performance mode">
+                    <tk:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE9F5;" />
+                    </tk:SettingsCard.HeaderIcon>
+                    <ToggleSwitch
+                        x:Name="EditorPerformanceModeToggle"
+                        Style="{StaticResource SettingsInlineToggleSwitchStyle}"
+                        OffContent="Off"
+                        OnContent="On"
+                        Toggled="EditorPerformanceModeToggle_Toggled" />
+                </tk:SettingsCard>
+            </StackPanel>
 
-            <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Animations" />
-            <tk:SettingsCard
-                Description="How strong the animated selection border looks (same for capture and Live Draw)."
-                Header="Snap border intensity">
-                <tk:SettingsCard.HeaderIcon>
-                    <FontIcon Glyph="&#xE790;" />
-                </tk:SettingsCard.HeaderIcon>
-                <ComboBox
-                    x:Name="BorderIntensityComboBox"
-                    MinWidth="{StaticResource SettingActionControlMinWidth}"
-                    IsTextSearchEnabled="False"
-                    SelectionChanged="BorderIntensityComboBox_SelectionChanged"
-                    Style="{StaticResource SettingsInlineComboBoxStyle}">
-                    <ComboBoxItem Content="Subtle" Tag="Subtle" />
-                    <ComboBoxItem Content="Balanced" Tag="Balanced" />
-                    <ComboBoxItem Content="Bold" Tag="Bold" />
-                </ComboBox>
-            </tk:SettingsCard>
+            <StackPanel Spacing="{StaticResource AppSpacingStack}">
+                <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Animations" />
+                <tk:SettingsCard
+                    Description="How strong the animated selection border looks (same for capture and Live Draw)."
+                    Header="Snap border intensity">
+                    <tk:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE790;" />
+                    </tk:SettingsCard.HeaderIcon>
+                    <ComboBox
+                        x:Name="BorderIntensityComboBox"
+                        MinWidth="{StaticResource SettingActionControlMinWidth}"
+                        IsTextSearchEnabled="False"
+                        SelectionChanged="BorderIntensityComboBox_SelectionChanged"
+                        Style="{StaticResource SettingsInlineComboBoxStyle}">
+                        <ComboBoxItem Content="Subtle" Tag="Subtle" />
+                        <ComboBoxItem Content="Balanced" Tag="Balanced" />
+                        <ComboBoxItem Content="Bold" Tag="Bold" />
+                    </ComboBox>
+                </tk:SettingsCard>
+            </StackPanel>
 
-            <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Danger zone" />
-            <tk:SettingsCard
-                Description="Clears save location, hotkeys, editor preferences, snap-border intensity, Live Draw options, capture quality, and other saved settings."
-                Header="Reset all settings">
-                <tk:SettingsCard.HeaderIcon>
-                    <FontIcon Glyph="&#xE74D;" />
-                </tk:SettingsCard.HeaderIcon>
-                <Button
-                    x:Name="ResetSettingsButton"
-                    Click="ResetSettingsButton_Click"
-                    Content="Reset to defaults"
-                    Style="{StaticResource SettingsInlineButtonStyle}" />
-            </tk:SettingsCard>
+            <StackPanel Spacing="{StaticResource AppSpacingStack}">
+                <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Danger zone" />
+                <tk:SettingsCard
+                    Description="Clears save location, hotkeys, editor preferences, snap-border intensity, Live Draw options, capture quality, and other saved settings."
+                    Header="Reset all settings">
+                    <tk:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE74D;" />
+                    </tk:SettingsCard.HeaderIcon>
+                    <Button
+                        x:Name="ResetSettingsButton"
+                        Click="ResetSettingsButton_Click"
+                        Content="Reset to defaults"
+                        Style="{StaticResource SettingsInlineButtonStyle}" />
+                </tk:SettingsCard>
+            </StackPanel>
         </StackPanel>
     </ScrollViewer>
 </Page>

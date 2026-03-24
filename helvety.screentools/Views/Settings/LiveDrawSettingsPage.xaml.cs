@@ -41,6 +41,21 @@ namespace helvety.screentools.Views.Settings
         private void InitializeLiveDrawModuleToggle()
         {
             var enabled = SettingsService.Load().LiveDrawEnabled;
+            ApplyLiveDrawModuleState(enabled, persistSetting: false);
+        }
+
+        private void LiveDrawModuleToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (_isUpdatingLiveDrawToggle)
+            {
+                return;
+            }
+
+            ApplyLiveDrawModuleState(LiveDrawModuleToggle.IsOn, persistSetting: true);
+        }
+
+        private void ApplyLiveDrawModuleState(bool enabled, bool persistSetting)
+        {
             _isUpdatingLiveDrawToggle = true;
             try
             {
@@ -51,17 +66,13 @@ namespace helvety.screentools.Views.Settings
             {
                 _isUpdatingLiveDrawToggle = false;
             }
-        }
 
-        private void LiveDrawModuleToggle_Toggled(object sender, RoutedEventArgs e)
-        {
-            if (_isUpdatingLiveDrawToggle)
+            if (persistSetting)
             {
-                return;
+                SettingsService.SaveLiveDrawEnabled(enabled);
             }
 
-            SettingsService.SaveLiveDrawEnabled(LiveDrawModuleToggle.IsOn);
-            LiveDrawDetailsPanel.IsEnabled = LiveDrawModuleToggle.IsOn;
+            RefreshLiveDrawCurrentShortcutVisual();
         }
 
         private void SettingsService_SettingsChanged()
@@ -121,18 +132,14 @@ namespace helvety.screentools.Views.Settings
             if (!SettingsService.TryGetEffectiveLiveDrawHotkey(out var effective))
             {
                 ResetLiveDrawEditor();
-                LiveDrawCurrentChordStrip.SetEmpty("(none)", "Live Draw: (none)");
+                RefreshLiveDrawCurrentShortcutVisual(null);
                 SetLiveDrawBindingStatus("No Live Draw hotkey set.");
                 UpdateLiveDrawFeatureAvailability();
                 return;
             }
 
             SetLiveDrawEditorFromBinding(new HotkeyBinding(effective.Modifiers, effective.Sequence.ToArray(), effective.Display));
-            LiveDrawCurrentChordStrip.SetChord(
-                effective.Modifiers,
-                effective.Sequence,
-                HotkeyChordAppearance.Accent,
-                $"Live Draw: {effective.Display}");
+            RefreshLiveDrawCurrentShortcutVisual(new HotkeyBinding(effective.Modifiers, effective.Sequence.ToArray(), effective.Display));
             SetLiveDrawBindingStatus(string.Empty);
             UpdateLiveDrawFeatureAvailability();
         }
@@ -406,7 +413,7 @@ namespace helvety.screentools.Views.Settings
             if (sequence.Count == 0)
             {
                 SettingsService.ClearLiveDrawHotkey();
-                LiveDrawCurrentChordStrip.SetEmpty("(none)", "Live Draw: (none)");
+                RefreshLiveDrawCurrentShortcutVisual(null);
                 SetLiveDrawBindingStatus("No Live Draw hotkey set.");
                 UpdateLiveDrawFeatureAvailability();
                 return;
@@ -448,11 +455,7 @@ namespace helvety.screentools.Views.Settings
 
             var display = HotkeyVisualMapper.BuildBindingDisplay(_liveDrawEditorModifiers, sequence.Select(HotkeyVisualMapper.GetKeyDisplayName).ToArray());
             SettingsService.SaveLiveDrawHotkey(_liveDrawEditorModifiers, sequence, display);
-            LiveDrawCurrentChordStrip.SetChord(
-                _liveDrawEditorModifiers,
-                sequence,
-                HotkeyChordAppearance.Accent,
-                $"Live Draw: {display}");
+            RefreshLiveDrawCurrentShortcutVisual(new HotkeyBinding(_liveDrawEditorModifiers, sequence.ToArray(), display));
             statusMessage = string.Empty;
             UpdateLiveDrawFeatureAvailability();
             return true;
@@ -464,6 +467,34 @@ namespace helvety.screentools.Views.Settings
             LiveDrawBindingStatusText.Visibility = string.IsNullOrWhiteSpace(message)
                 ? Visibility.Collapsed
                 : Visibility.Visible;
+        }
+
+        private void RefreshLiveDrawCurrentShortcutVisual(HotkeyBinding? binding = null)
+        {
+            if (binding is null)
+            {
+                if (!SettingsService.TryGetEffectiveLiveDrawHotkey(out var effective))
+                {
+                    LiveDrawCurrentChordStrip.SetEmpty("(none)", "Live Draw: (none)");
+                    return;
+                }
+
+                binding = new HotkeyBinding(effective.Modifiers, effective.Sequence.ToArray(), effective.Display);
+            }
+
+            var value = binding.Value;
+            LiveDrawCurrentChordStrip.SetChord(
+                value.Modifiers,
+                value.Sequence,
+                GetCurrentShortcutAppearance(),
+                $"Live Draw: {value.Display}");
+        }
+
+        private HotkeyChordAppearance GetCurrentShortcutAppearance()
+        {
+            return LiveDrawModuleToggle.IsOn
+                ? HotkeyChordAppearance.Accent
+                : HotkeyChordAppearance.Disabled;
         }
 
         private readonly record struct HotkeyBinding(uint Modifiers, uint[] Sequence, string Display);

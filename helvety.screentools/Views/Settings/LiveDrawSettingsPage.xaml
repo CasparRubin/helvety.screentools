@@ -35,52 +35,53 @@
 
             <ContentControl x:Name="LiveDrawDetailsPanel" Style="{StaticResource AppSettingsDetailHostStyle}">
                 <StackPanel Spacing="{StaticResource AppSpacingSection}">
-                    <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Shortcut" />
+                    <StackPanel Spacing="{StaticResource AppSpacingStack}">
+                        <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Shortcut" />
 
-                    <tk:SettingsCard
-                        Description="The shortcut that is active when Live Draw is enabled."
-                        Header="Current shortcut">
-                        <tk:SettingsCard.HeaderIcon>
-                            <FontIcon Glyph="&#xEDA7;" />
-                        </tk:SettingsCard.HeaderIcon>
-                        <controls:HotkeyChordStrip x:Name="LiveDrawCurrentChordStrip" />
-                    </tk:SettingsCard>
+                        <tk:SettingsCard
+                            Description="The shortcut that is active when Live Draw is enabled."
+                            Header="Current shortcut">
+                            <tk:SettingsCard.HeaderIcon>
+                                <FontIcon Glyph="&#xEDA7;" />
+                            </tk:SettingsCard.HeaderIcon>
+                            <controls:HotkeyChordStrip x:Name="LiveDrawCurrentChordStrip" />
+                        </tk:SettingsCard>
 
-                    <tk:SettingsCard Description="Hold these while pressing the sequence keys." Header="Modifiers">
-                        <tk:SettingsCard.HeaderIcon>
-                            <FontIcon Glyph="&#xEDA7;" />
-                        </tk:SettingsCard.HeaderIcon>
-                        <StackPanel Orientation="Horizontal" Spacing="{StaticResource AppSpacingContent}">
-                            <CheckBox
-                                x:Name="LiveDrawCtrlModifierCheckBox"
-                                Checked="LiveDrawModifierCheckBox_Changed"
-                                Content="Ctrl"
-                                Unchecked="LiveDrawModifierCheckBox_Changed" />
-                            <CheckBox
-                                x:Name="LiveDrawAltModifierCheckBox"
-                                Checked="LiveDrawModifierCheckBox_Changed"
-                                Content="Alt"
-                                Unchecked="LiveDrawModifierCheckBox_Changed" />
-                            <CheckBox
-                                x:Name="LiveDrawShiftModifierCheckBox"
-                                Checked="LiveDrawModifierCheckBox_Changed"
-                                Content="Shift"
-                                Unchecked="LiveDrawModifierCheckBox_Changed" />
-                        </StackPanel>
-                    </tk:SettingsCard>
+                        <tk:SettingsCard Description="Hold these while pressing the sequence keys." Header="Modifiers">
+                            <tk:SettingsCard.HeaderIcon>
+                                <FontIcon Glyph="&#xEDA7;" />
+                            </tk:SettingsCard.HeaderIcon>
+                            <StackPanel Orientation="Horizontal" Spacing="{StaticResource AppSpacingContent}">
+                                <CheckBox
+                                    x:Name="LiveDrawCtrlModifierCheckBox"
+                                    Checked="LiveDrawModifierCheckBox_Changed"
+                                    Content="Ctrl"
+                                    Unchecked="LiveDrawModifierCheckBox_Changed" />
+                                <CheckBox
+                                    x:Name="LiveDrawAltModifierCheckBox"
+                                    Checked="LiveDrawModifierCheckBox_Changed"
+                                    Content="Alt"
+                                    Unchecked="LiveDrawModifierCheckBox_Changed" />
+                                <CheckBox
+                                    x:Name="LiveDrawShiftModifierCheckBox"
+                                    Checked="LiveDrawModifierCheckBox_Changed"
+                                    Content="Shift"
+                                    Unchecked="LiveDrawModifierCheckBox_Changed" />
+                            </StackPanel>
+                        </tk:SettingsCard>
 
-                    <tk:SettingsExpander Description="Set one to five keys in order." Header="Activation sequence">
-                        <tk:SettingsExpander.HeaderIcon>
-                            <FontIcon Glyph="&#xEDA7;" />
-                        </tk:SettingsExpander.HeaderIcon>
-                        <tk:SettingsExpander.Items>
-                            <TextBlock
-                                x:Name="LiveDrawHotkeyInstructionText"
-                                Style="{StaticResource SettingsSectionDescriptionTextStyle}"
-                                Text=""
-                                TextWrapping="WrapWholeWords" />
-                            <tk:SettingsCard Header="Steps">
-                                <Grid ColumnSpacing="{StaticResource AppSpacingContent}" RowSpacing="{StaticResource AppSpacingStack}">
+                        <tk:SettingsExpander Description="Set one to five keys in order." Header="Activation sequence">
+                            <tk:SettingsExpander.HeaderIcon>
+                                <FontIcon Glyph="&#xEDA7;" />
+                            </tk:SettingsExpander.HeaderIcon>
+                            <tk:SettingsExpander.Items>
+                                <TextBlock
+                                    x:Name="LiveDrawHotkeyInstructionText"
+                                    Style="{StaticResource SettingsSectionDescriptionTextStyle}"
+                                    Text=""
+                                    TextWrapping="WrapWholeWords" />
+                                <tk:SettingsCard Header="Steps">
+                                    <Grid ColumnSpacing="{StaticResource AppSpacingContent}" RowSpacing="{StaticResource AppSpacingStack}">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto" />
                                         <ColumnDefinition Width="*" />
@@ -164,117 +165,120 @@
                                         Click="LiveDrawClearStep5Button_Click"
                                         Content="Clear"
                                         Style="{StaticResource SettingsInlineButtonStyle}" />
-                                </Grid>
-                            </tk:SettingsCard>
-                        </tk:SettingsExpander.Items>
-                    </tk:SettingsExpander>
+                                    </Grid>
+                                </tk:SettingsCard>
+                            </tk:SettingsExpander.Items>
+                        </tk:SettingsExpander>
+                    </StackPanel>
 
-                    <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Shape shortcuts" />
-                    <TextBlock
-                        Style="{StaticResource SettingsSectionDescriptionTextStyle}"
-                        Text="Assign Shift, Ctrl, Alt, Win, or None (unbound) to each shape. Left-button tools: each non-None modifier must be unique. Circle and ellipse: must differ unless one is None. Free draw and sparkle behaviors are fixed."
-                        TextWrapping="WrapWholeWords" />
+                    <StackPanel Spacing="{StaticResource AppSpacingStack}">
+                        <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Shape shortcuts" />
+                        <TextBlock
+                            Style="{StaticResource SettingsSectionDescriptionTextStyle}"
+                            Text="Assign Shift, Ctrl, Alt, Win, or None (unbound) to each shape. Left-button tools: each non-None modifier must be unique. Circle and ellipse: must differ unless one is None. Free draw and sparkle behaviors are fixed."
+                            TextWrapping="WrapWholeWords" />
 
-                    <tk:SettingsCard
-                        Description="Left mouse button while holding this modifier."
-                        Header="Rectangle">
-                        <ComboBox
-                            x:Name="LiveDrawShapeRectangleComboBox"
-                            MinWidth="{StaticResource SettingActionControlMinWidth}"
-                            SelectionChanged="LiveDrawShapeModifierComboBox_SelectionChanged"
-                            Style="{StaticResource SettingsInlineComboBoxStyle}">
-                            <ComboBoxItem Content="None" Tag="None" />
-                            <ComboBoxItem Content="Shift" Tag="Shift" />
-                            <ComboBoxItem Content="Ctrl" Tag="Control" />
-                            <ComboBoxItem Content="Alt" Tag="Alt" />
-                            <ComboBoxItem Content="Win" Tag="Win" />
-                        </ComboBox>
-                    </tk:SettingsCard>
+                        <tk:SettingsCard
+                            Description="Left mouse button while holding this modifier."
+                            Header="Rectangle">
+                            <ComboBox
+                                x:Name="LiveDrawShapeRectangleComboBox"
+                                MinWidth="{StaticResource SettingActionControlMinWidth}"
+                                SelectionChanged="LiveDrawShapeModifierComboBox_SelectionChanged"
+                                Style="{StaticResource SettingsInlineComboBoxStyle}">
+                                <ComboBoxItem Content="None" Tag="None" />
+                                <ComboBoxItem Content="Shift" Tag="Shift" />
+                                <ComboBoxItem Content="Ctrl" Tag="Control" />
+                                <ComboBoxItem Content="Alt" Tag="Alt" />
+                                <ComboBoxItem Content="Win" Tag="Win" />
+                            </ComboBox>
+                        </tk:SettingsCard>
 
-                    <tk:SettingsCard
-                        Description="Left mouse button while holding this modifier."
-                        Header="Arrow">
-                        <ComboBox
-                            x:Name="LiveDrawShapeArrowComboBox"
-                            MinWidth="{StaticResource SettingActionControlMinWidth}"
-                            SelectionChanged="LiveDrawShapeModifierComboBox_SelectionChanged"
-                            Style="{StaticResource SettingsInlineComboBoxStyle}">
-                            <ComboBoxItem Content="None" Tag="None" />
-                            <ComboBoxItem Content="Shift" Tag="Shift" />
-                            <ComboBoxItem Content="Ctrl" Tag="Control" />
-                            <ComboBoxItem Content="Alt" Tag="Alt" />
-                            <ComboBoxItem Content="Win" Tag="Win" />
-                        </ComboBox>
-                    </tk:SettingsCard>
+                        <tk:SettingsCard
+                            Description="Left mouse button while holding this modifier."
+                            Header="Arrow">
+                            <ComboBox
+                                x:Name="LiveDrawShapeArrowComboBox"
+                                MinWidth="{StaticResource SettingActionControlMinWidth}"
+                                SelectionChanged="LiveDrawShapeModifierComboBox_SelectionChanged"
+                                Style="{StaticResource SettingsInlineComboBoxStyle}">
+                                <ComboBoxItem Content="None" Tag="None" />
+                                <ComboBoxItem Content="Shift" Tag="Shift" />
+                                <ComboBoxItem Content="Ctrl" Tag="Control" />
+                                <ComboBoxItem Content="Alt" Tag="Alt" />
+                                <ComboBoxItem Content="Win" Tag="Win" />
+                            </ComboBox>
+                        </tk:SettingsCard>
 
-                    <tk:SettingsCard
-                        Description="Left mouse button while holding this modifier."
-                        Header="Straight line">
-                        <ComboBox
-                            x:Name="LiveDrawShapeStraightLineComboBox"
-                            MinWidth="{StaticResource SettingActionControlMinWidth}"
-                            SelectionChanged="LiveDrawShapeModifierComboBox_SelectionChanged"
-                            Style="{StaticResource SettingsInlineComboBoxStyle}">
-                            <ComboBoxItem Content="None" Tag="None" />
-                            <ComboBoxItem Content="Shift" Tag="Shift" />
-                            <ComboBoxItem Content="Ctrl" Tag="Control" />
-                            <ComboBoxItem Content="Alt" Tag="Alt" />
-                            <ComboBoxItem Content="Win" Tag="Win" />
-                        </ComboBox>
-                    </tk:SettingsCard>
+                        <tk:SettingsCard
+                            Description="Left mouse button while holding this modifier."
+                            Header="Straight line">
+                            <ComboBox
+                                x:Name="LiveDrawShapeStraightLineComboBox"
+                                MinWidth="{StaticResource SettingActionControlMinWidth}"
+                                SelectionChanged="LiveDrawShapeModifierComboBox_SelectionChanged"
+                                Style="{StaticResource SettingsInlineComboBoxStyle}">
+                                <ComboBoxItem Content="None" Tag="None" />
+                                <ComboBoxItem Content="Shift" Tag="Shift" />
+                                <ComboBoxItem Content="Ctrl" Tag="Control" />
+                                <ComboBoxItem Content="Alt" Tag="Alt" />
+                                <ComboBoxItem Content="Win" Tag="Win" />
+                            </ComboBox>
+                        </tk:SettingsCard>
 
-                    <tk:SettingsCard
-                        Description="Right mouse button while holding this modifier."
-                        Header="Circle">
-                        <ComboBox
-                            x:Name="LiveDrawShapeCircleRightComboBox"
-                            MinWidth="{StaticResource SettingActionControlMinWidth}"
-                            SelectionChanged="LiveDrawShapeModifierComboBox_SelectionChanged"
-                            Style="{StaticResource SettingsInlineComboBoxStyle}">
-                            <ComboBoxItem Content="None" Tag="None" />
-                            <ComboBoxItem Content="Shift" Tag="Shift" />
-                            <ComboBoxItem Content="Ctrl" Tag="Control" />
-                            <ComboBoxItem Content="Alt" Tag="Alt" />
-                            <ComboBoxItem Content="Win" Tag="Win" />
-                        </ComboBox>
-                    </tk:SettingsCard>
+                        <tk:SettingsCard
+                            Description="Right mouse button while holding this modifier."
+                            Header="Circle">
+                            <ComboBox
+                                x:Name="LiveDrawShapeCircleRightComboBox"
+                                MinWidth="{StaticResource SettingActionControlMinWidth}"
+                                SelectionChanged="LiveDrawShapeModifierComboBox_SelectionChanged"
+                                Style="{StaticResource SettingsInlineComboBoxStyle}">
+                                <ComboBoxItem Content="None" Tag="None" />
+                                <ComboBoxItem Content="Shift" Tag="Shift" />
+                                <ComboBoxItem Content="Ctrl" Tag="Control" />
+                                <ComboBoxItem Content="Alt" Tag="Alt" />
+                                <ComboBoxItem Content="Win" Tag="Win" />
+                            </ComboBox>
+                        </tk:SettingsCard>
 
-                    <tk:SettingsCard
-                        Description="Right mouse button while holding this modifier."
-                        Header="Ellipse">
-                        <ComboBox
-                            x:Name="LiveDrawShapeEllipseRightComboBox"
-                            MinWidth="{StaticResource SettingActionControlMinWidth}"
-                            SelectionChanged="LiveDrawShapeModifierComboBox_SelectionChanged"
-                            Style="{StaticResource SettingsInlineComboBoxStyle}">
-                            <ComboBoxItem Content="None" Tag="None" />
-                            <ComboBoxItem Content="Shift" Tag="Shift" />
-                            <ComboBoxItem Content="Ctrl" Tag="Control" />
-                            <ComboBoxItem Content="Alt" Tag="Alt" />
-                            <ComboBoxItem Content="Win" Tag="Win" />
-                        </ComboBox>
-                    </tk:SettingsCard>
+                        <tk:SettingsCard
+                            Description="Right mouse button while holding this modifier."
+                            Header="Ellipse">
+                            <ComboBox
+                                x:Name="LiveDrawShapeEllipseRightComboBox"
+                                MinWidth="{StaticResource SettingActionControlMinWidth}"
+                                SelectionChanged="LiveDrawShapeModifierComboBox_SelectionChanged"
+                                Style="{StaticResource SettingsInlineComboBoxStyle}">
+                                <ComboBoxItem Content="None" Tag="None" />
+                                <ComboBoxItem Content="Shift" Tag="Shift" />
+                                <ComboBoxItem Content="Ctrl" Tag="Control" />
+                                <ComboBoxItem Content="Alt" Tag="Alt" />
+                                <ComboBoxItem Content="Win" Tag="Win" />
+                            </ComboBox>
+                        </tk:SettingsCard>
 
-                    <tk:SettingsCard
-                        Description="Left drag or hold with no shape modifier; ink follows the pointer. This behavior is not remappable."
-                        Header="Free draw" />
+                        <tk:SettingsCard
+                            Description="Left drag or hold with no shape modifier; ink follows the pointer. This behavior is not remappable."
+                            Header="Free draw" />
 
-                    <tk:SettingsCard
-                        Description="Right click and hold with no circle or ellipse modifier; a pulsing sparkle follows the cursor. This behavior is not remappable."
-                        Header="Sparkle (right hold)" />
+                        <tk:SettingsCard
+                            Description="Right click and hold with no circle or ellipse modifier; a pulsing sparkle follows the cursor. This behavior is not remappable."
+                            Header="Sparkle (right hold)" />
 
-                    <InfoBar
-                        x:Name="ListeningInfoBar"
-                        IsClosable="False"
-                        IsOpen="False"
-                        Message="Press a non-modifier key. Esc cancels."
-                        Severity="Informational"
-                        Title="Listening for key" />
-                    <TextBlock
-                        x:Name="LiveDrawBindingStatusText"
-                        Visibility="Collapsed"
-                        Style="{StaticResource SettingsSectionDescriptionTextStyle}"
-                        Text="" />
+                        <InfoBar
+                            x:Name="ListeningInfoBar"
+                            IsClosable="False"
+                            IsOpen="False"
+                            Message="Press a non-modifier key. Esc cancels."
+                            Severity="Informational"
+                            Title="Listening for key" />
+                        <TextBlock
+                            x:Name="LiveDrawBindingStatusText"
+                            Visibility="Collapsed"
+                            Style="{StaticResource SettingsSectionDescriptionTextStyle}"
+                            Text="" />
+                    </StackPanel>
                 </StackPanel>
             </ContentControl>
         </StackPanel>
