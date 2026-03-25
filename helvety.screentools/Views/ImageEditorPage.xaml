@@ -23,7 +23,6 @@
             CornerRadius="{StaticResource AppCornerRadiusCard}">
             <Border.Resources>
                 <Style BasedOn="{StaticResource SettingsInlineLabelTextStyle}" TargetType="TextBlock" />
-                <Style BasedOn="{StaticResource SettingsInlineToggleSwitchStyle}" TargetType="ToggleSwitch" />
                 <Style x:Key="ToolSettingItemBorderStyle" TargetType="Border">
                     <Setter Property="Padding" Value="{StaticResource AppPaddingToolSettingItem}" />
                     <Setter Property="Background" Value="{ThemeResource SubtleFillColorSecondaryBrush}" />
@@ -69,7 +68,7 @@
                                     <TextBlock Style="{StaticResource AppToolSettingCardTitleTextStyle}" Text="Edit" />
                                     <Button
                                         x:Name="EditSelectedTextButton"
-                                        Width="260"
+                                        Width="200"
                                         Height="34"
                                         Click="EditSelectedTextButton_Click"
                                         Content="Edit Selected Text"
@@ -89,6 +88,22 @@
                             </Border>
                             <Border Style="{StaticResource ToolSettingItemBorderStyle}">
                                 <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Style="{StaticResource AppToolSettingCardTitleTextStyle}" Text="Font color" />
+                                    <StackPanel Orientation="Horizontal" Spacing="{StaticResource AppSpacingStack}" VerticalAlignment="Center">
+                                        <ComboBox x:Name="TextColorComboBox" Width="108" Height="34" VerticalAlignment="Center" SelectionChanged="ToolSettingSelectionChanged">
+                                            <ComboBoxItem Content="Fuchsia Red" Tag="#FFD81B60" IsSelected="True" />
+                                            <ComboBoxItem Content="White" Tag="#FFFFFFFF" />
+                                            <ComboBoxItem Content="Black" Tag="#FF000000" />
+                                            <ComboBoxItem Content="Blue" Tag="#FF4285F4" />
+                                            <ComboBoxItem Content="Orange" Tag="#FFFFA500" />
+                                            <ComboBoxItem Content="Custom" Tag="#FFD81B60" />
+                                        </ComboBox>
+                                        <Button Content="Pick" Height="34" VerticalAlignment="Center" Click="PickTextColorButton_Click" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource ToolSettingItemBorderStyle}">
+                                <StackPanel VerticalAlignment="Center">
                                     <TextBlock Style="{StaticResource AppToolSettingCardTitleTextStyle}" Text="Size" />
                                     <Slider
                                         x:Name="TextSizeNumberBox"
@@ -104,18 +119,20 @@
                             </Border>
                             <Border Style="{StaticResource ToolSettingItemBorderStyle}">
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Style="{StaticResource AppToolSettingCardTitleTextStyle}" Text="Color" />
-                                    <StackPanel Orientation="Horizontal" Spacing="{StaticResource AppSpacingStack}" VerticalAlignment="Center">
-                                        <ComboBox x:Name="TextColorComboBox" Width="108" Height="34" VerticalAlignment="Center" SelectionChanged="ToolSettingSelectionChanged">
-                                            <ComboBoxItem Content="Fuchsia Red" Tag="#FFD81B60" IsSelected="True" />
-                                            <ComboBoxItem Content="White" Tag="#FFFFFFFF" />
-                                            <ComboBoxItem Content="Black" Tag="#FF000000" />
-                                            <ComboBoxItem Content="Blue" Tag="#FF4285F4" />
-                                            <ComboBoxItem Content="Orange" Tag="#FFFFA500" />
-                                            <ComboBoxItem Content="Custom" Tag="#FFD81B60" />
-                                        </ComboBox>
-                                        <Button Content="Pick" Height="34" VerticalAlignment="Center" Click="PickTextColorButton_Click" />
-                                    </StackPanel>
+                                    <TextBlock Style="{StaticResource AppToolSettingCardTitleTextStyle}" Text="Bold" />
+                                    <ToggleSwitch
+                                        x:Name="TextBoldToggle"
+                                        IsOn="True"
+                                        Toggled="ToolSettingToggled" />
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource ToolSettingItemBorderStyle}">
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Style="{StaticResource AppToolSettingCardTitleTextStyle}" Text="Italic" />
+                                    <ToggleSwitch
+                                        x:Name="TextItalicToggle"
+                                        IsOn="False"
+                                        Toggled="ToolSettingToggled" />
                                 </StackPanel>
                             </Border>
                             <Border Style="{StaticResource ToolSettingItemBorderStyle}">

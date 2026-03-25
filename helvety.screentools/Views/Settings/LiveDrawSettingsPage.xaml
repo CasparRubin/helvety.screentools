@@ -28,8 +28,6 @@
                 <ToggleSwitch
                     x:Name="LiveDrawModuleToggle"
                     Style="{StaticResource SettingsInlineToggleSwitchStyle}"
-                    OffContent="Off"
-                    OnContent="On"
                     Toggled="LiveDrawModuleToggle_Toggled" />
             </tk:SettingsCard>
 
@@ -256,6 +254,28 @@
                                 <ComboBoxItem Content="Alt" Tag="Alt" />
                                 <ComboBoxItem Content="Win" Tag="Win" />
                             </ComboBox>
+                        </tk:SettingsCard>
+
+                        <tk:SettingsCard
+                            Description="Thickness of Live Draw shapes and ink strokes."
+                            Header="Line thickness">
+                            <StackPanel Orientation="Horizontal" Spacing="{StaticResource AppSpacingStack}" VerticalAlignment="Center">
+                                <Slider
+                                    x:Name="LiveDrawLineThicknessSlider"
+                                    Width="180"
+                                    Height="34"
+                                    Minimum="1"
+                                    Maximum="24"
+                                    StepFrequency="1"
+                                    TickFrequency="1"
+                                    Value="4"
+                                    ValueChanged="LiveDrawLineThicknessSlider_ValueChanged" />
+                                <TextBlock
+                                    x:Name="LiveDrawLineThicknessValueText"
+                                    MinWidth="56"
+                                    VerticalAlignment="Center"
+                                    Text="4 px" />
+                            </StackPanel>
                         </tk:SettingsCard>
 
                         <tk:SettingsCard

@@ -20,6 +20,12 @@ namespace helvety.screentools.Editor
                 return;
             }
 
+            if (!string.Equals(Path.GetExtension(filePath), ".png", StringComparison.OrdinalIgnoreCase))
+            {
+                InAppToastService.Show("Only PNG files can be edited.", InAppToastSeverity.Warning);
+                return;
+            }
+
             if (OpenWindows.TryGetValue(filePath, out var existingWindow))
             {
                 existingWindow.Activate();

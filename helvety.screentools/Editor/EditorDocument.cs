@@ -138,6 +138,10 @@ namespace helvety.screentools.Editor
 
         internal string FontFamily { get; set; } = "Segoe UI";
 
+        internal bool IsBold { get; set; } = true;
+
+        internal bool IsItalic { get; set; }
+
         internal bool HasBorder { get; set; } = true;
 
         internal string BorderColorHex { get; set; } = "#FFFFFFFF";

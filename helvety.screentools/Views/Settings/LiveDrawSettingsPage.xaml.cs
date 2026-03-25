@@ -3,6 +3,7 @@ using static helvety.screentools.HotkeyVisualMapper;
 using helvety.screentools.Views.Controls;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Navigation;
 using System;
 using System.Collections.Generic;
@@ -19,6 +20,9 @@ namespace helvety.screentools.Views.Settings
         private uint _liveDrawEditorModifiers;
         private bool _isUpdatingLiveDrawShapeModifiers;
         private bool _isUpdatingLiveDrawToggle;
+        // ValueChanged can fire during XAML initialization before named fields are fully assigned.
+        // Keep this true until we've completed our initial UI sync to avoid NREs.
+        private bool _isUpdatingLiveDrawLineThickness = true;
         private int _liveDrawHotkeyEditorSuppress;
         private bool _isCaptureMode;
         private HotkeyListenController? _listenController;
@@ -34,6 +38,7 @@ namespace helvety.screentools.Views.Settings
 
             InitializeLiveDrawModuleToggle();
             InitializeLiveDrawHotkeyUi();
+            InitializeLiveDrawLineThickness();
             SettingsService.SettingsChanged += SettingsService_SettingsChanged;
             Unloaded += LiveDrawSettingsPage_Unloaded;
         }
@@ -81,7 +86,42 @@ namespace helvety.screentools.Views.Settings
             {
                 InitializeLiveDrawModuleToggle();
                 InitializeLiveDrawHotkeyUi();
+                InitializeLiveDrawLineThickness();
             });
+        }
+
+        private void InitializeLiveDrawLineThickness()
+        {
+            _isUpdatingLiveDrawLineThickness = true;
+            try
+            {
+                var thickness = SettingsService.LoadLiveDrawDrawingSettings().MainStrokeThickness;
+                LiveDrawLineThicknessSlider.Value = thickness;
+                LiveDrawLineThicknessValueText.Text = $"{thickness} px";
+            }
+            finally
+            {
+                _isUpdatingLiveDrawLineThickness = false;
+            }
+        }
+
+        private void LiveDrawLineThicknessSlider_ValueChanged(object sender, RangeBaseValueChangedEventArgs e)
+        {
+            if (_isUpdatingLiveDrawLineThickness)
+            {
+                return;
+            }
+
+            // Guard against rare initialization timing where ValueText isn't ready yet.
+            if (LiveDrawLineThicknessValueText is null)
+            {
+                return;
+            }
+
+            var thickness = (int)Math.Round(e.NewValue);
+            // Keep the UI responsive while we persist (SettingsChanged will also re-sync, but this avoids visible lag).
+            LiveDrawLineThicknessValueText.Text = $"{thickness} px";
+            SettingsService.SaveLiveDrawMainStrokeThickness(thickness);
         }
 
         private void ListenController_NonModifierKeyCaptured(int stepIndex, uint virtualKey)
@@ -355,14 +395,23 @@ namespace helvety.screentools.Views.Settings
 
         private void StartStepCapture(int stepIndex)
         {
-            if (_listenController is null || !_listenController.IsInstalled)
+            if (_listenController is null)
             {
                 SetLiveDrawBindingStatus("Keyboard hook failed to install.");
                 return;
             }
 
             _isCaptureMode = true;
-            _listenController.StartListen(stepIndex);
+            if (_listenController.StartListen(stepIndex))
+            {
+                _isCaptureMode = true;
+            }
+            else
+            {
+                _isCaptureMode = false;
+                SetLiveDrawBindingStatus("Keyboard hook failed to install.");
+                return;
+            }
             ListeningInfoBar.Title = $"Live Draw — listening for step {stepIndex + 1}";
             ListeningInfoBar.Message = "Press a non-modifier key. Esc cancels.";
             ListeningInfoBar.IsOpen = true;

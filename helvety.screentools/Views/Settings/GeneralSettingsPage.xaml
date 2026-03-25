@@ -14,7 +14,7 @@
                 <TextBlock Style="{StaticResource SettingsPageTitleTextStyle}" Text="General" />
                 <TextBlock
                     Style="{StaticResource SettingsSectionDescriptionTextStyle}"
-                    Text="Window, notification area, and image editor performance."
+                    Text="Window, system tray, and image editor performance."
                     TextWrapping="WrapWholeWords" />
             </StackPanel>
 
@@ -22,15 +22,13 @@
                 <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Window" />
                 <tk:SettingsCard
                     Description="Keep Helvety Screen Tools running when you close the window so global hotkeys keep working."
-                    Header="Notification area">
+                    Header="System tray">
                     <tk:SettingsCard.HeaderIcon>
                         <FontIcon Glyph="&#xE7E8;" />
                     </tk:SettingsCard.HeaderIcon>
                     <ToggleSwitch
                         x:Name="MinimizeToTrayToggle"
                         Style="{StaticResource SettingsInlineToggleSwitchStyle}"
-                        OffContent="Off"
-                        OnContent="On"
                         Toggled="MinimizeToTrayToggle_Toggled" />
                 </tk:SettingsCard>
             </StackPanel>
@@ -46,8 +44,6 @@
                     <ToggleSwitch
                         x:Name="EditorPerformanceModeToggle"
                         Style="{StaticResource SettingsInlineToggleSwitchStyle}"
-                        OffContent="Off"
-                        OnContent="On"
                         Toggled="EditorPerformanceModeToggle_Toggled" />
                 </tk:SettingsCard>
             </StackPanel>

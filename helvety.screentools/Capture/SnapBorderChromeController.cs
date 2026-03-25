@@ -232,7 +232,7 @@ namespace helvety.screentools.Capture
 
         /// <summary>
         /// Live Draw only: scale snap-border rectangle/ellipse stroke weights so the main outline matches straight lines and arrows
-        /// (same <paramref name="mainStrokeThicknessDip"/> as <see cref="Editor.ArrowLayer.Thickness"/> from the editor primary width).
+        /// (same <paramref name="mainStrokeThicknessDip"/> as the Live Draw line thickness setting).
         /// Selection overlay keeps the capture border intensity profile without calling this.
         /// </summary>
         internal void ApplyLiveDrawStrokeThickness(double mainStrokeThicknessDip)
@@ -1250,21 +1250,21 @@ namespace helvety.screentools.Capture
             PointCollection chasePoints,
             PointCollection cornerPoints)
         {
-            var p = _borderFxProfile;
             main.Points = mainPoints;
             main.Stroke = _snapBorderGradientBrush;
-            main.StrokeThickness = p.BorderStrokeThickness;
+            // Live Draw only: keep freehand ink stroke weights aligned with the scaled snap-border chrome.
+            main.StrokeThickness = Math.Max(1.0, _snapBorderRectangle.StrokeThickness);
             ApplyRoundPolylineOutline(main);
 
             chase.Points = chasePoints;
             chase.Stroke = _snapBorderChaseGradientBrush;
-            chase.StrokeThickness = Math.Max(1.1, p.ChaseStrokeThickness * 0.72);
+            chase.StrokeThickness = Math.Max(1.0, _snapBorderChaseRectangle.StrokeThickness);
             chase.StrokeDashArray = CloneDashArray(ChaseDashPattern);
             ApplyRoundPolylineOutline(chase);
 
             corner.Points = cornerPoints;
             corner.Stroke = _snapBorderCornerGlowBrush;
-            corner.StrokeThickness = Math.Max(1.0, p.CornerGlowStrokeThickness * 0.68);
+            corner.StrokeThickness = Math.Max(1.0, _snapBorderCornerGlowRectangle.StrokeThickness);
             corner.StrokeDashArray = CloneDashArray(CornerDashPattern);
             ApplyRoundPolylineOutline(corner);
         }

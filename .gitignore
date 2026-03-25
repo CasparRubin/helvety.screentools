@@ -1,7 +1,9 @@
 .vs/
 .cursor/
-bin/
-obj/
+
+# Build outputs (ignore anywhere in repo)
+**/bin/
+**/obj/
 
 # MSIX publish output (local pre-deploy)
 AppPackages/

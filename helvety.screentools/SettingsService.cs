@@ -25,8 +25,11 @@ namespace helvety.screentools
         private const bool DefaultMinimizeToTrayOnClose = true;
         private const string DefaultEditorPrimaryColor = "#FFD81B60";
         private const int DefaultEditorPrimaryThickness = 4;
+        private const int DefaultLiveDrawMainStrokeThickness = DefaultEditorPrimaryThickness;
         private const string DefaultEditorTextFont = "Segoe UI";
         private const int DefaultEditorTextSize = 38;
+        private const bool DefaultEditorTextBoldEnabled = true;
+        private const bool DefaultEditorTextItalicEnabled = false;
         private const bool DefaultEditorTextBorderEnabled = false;
         private const string DefaultEditorTextBorderColor = "#FFFFFFFF";
         private const int DefaultEditorTextBorderThickness = 1;
@@ -45,13 +48,14 @@ namespace helvety.screentools
         private const int DefaultEditorRegionCornerRadius = 8;
         private const bool DefaultEditorPerformanceModeEnabled = false;
         private const bool DefaultEditorGpuEffectsEnabled = true;
+        private const bool DefaultEditorEmbedEditableMetadata = true;
         private const bool DefaultCaptureHotkeyEnabled = true;
         private const bool DefaultLiveDrawFeatureEnabled = true;
 
         internal static event Action? SaveFolderPathChanged;
         internal static event Action? SettingsChanged;
 
-        private const int CurrentSettingsVersion = 4;
+        private const int CurrentSettingsVersion = 5;
         private const string DefaultCaptureFolderName = "Helvety Screen Tools captures";
         private const string SettingsVersionKey = "SettingsVersion";
         private const string SaveFolderPathKey = "SaveFolderPath";
@@ -71,6 +75,7 @@ namespace helvety.screentools
         private const string LiveDrawShapeModStraightLineKey = "LiveDrawShapeModStraightLine";
         private const string LiveDrawShapeModCircleRightKey = "LiveDrawShapeModCircleRight";
         private const string LiveDrawShapeModEllipseRightKey = "LiveDrawShapeModEllipseRight";
+        private const string LiveDrawMainStrokeThicknessKey = "LiveDrawMainStrokeThickness";
         private const string CaptureHotkeyEnabledKey = "CaptureHotkeyEnabled";
         private const string LiveDrawEnabledKey = "LiveDrawEnabled";
         private const string SaveFolderClearedKey = "SaveFolderCleared";
@@ -82,6 +87,8 @@ namespace helvety.screentools
         private const string EditorPrimaryThicknessKey = "EditorPrimaryThickness";
         private const string EditorTextFontKey = "EditorTextFont";
         private const string EditorTextSizeKey = "EditorTextSize";
+        private const string EditorTextBoldEnabledKey = "EditorTextBoldEnabled";
+        private const string EditorTextItalicEnabledKey = "EditorTextItalicEnabled";
         private const string EditorTextBorderEnabledKey = "EditorTextBorderEnabled";
         private const string EditorTextBorderColorKey = "EditorTextBorderColor";
         private const string EditorTextBorderThicknessKey = "EditorTextBorderThickness";
@@ -106,6 +113,7 @@ namespace helvety.screentools
         private const string EditorRegionCornerRadiusKey = "EditorRegionCornerRadius";
         private const string EditorPerformanceModeEnabledKey = "EditorPerformanceModeEnabled";
         private const string EditorGpuEffectsEnabledKey = "EditorGpuEffectsEnabled";
+        private const string EditorEmbedEditableMetadataKey = "EditorEmbedEditableMetadata";
         private static readonly string[] ManagedSettingKeys =
         {
             SettingsVersionKey,
@@ -133,10 +141,13 @@ namespace helvety.screentools
             ScreenshotQualityModeKey,
             ShowScreenshotOverlayInstructionsKey,
             MinimizeToTrayOnCloseKey,
+            LiveDrawMainStrokeThicknessKey,
             EditorPrimaryColorKey,
             EditorPrimaryThicknessKey,
             EditorTextFontKey,
             EditorTextSizeKey,
+            EditorTextBoldEnabledKey,
+            EditorTextItalicEnabledKey,
             EditorTextBorderEnabledKey,
             EditorTextBorderColorKey,
             EditorTextBorderThicknessKey,
@@ -160,7 +171,8 @@ namespace helvety.screentools
             EditorHighlightInvertModeKey,
             EditorRegionCornerRadiusKey,
             EditorPerformanceModeEnabledKey,
-            EditorGpuEffectsEnabledKey
+            EditorGpuEffectsEnabledKey,
+            EditorEmbedEditableMetadataKey
         };
 
         internal static AppSettings Load()
@@ -338,6 +350,21 @@ namespace helvety.screentools
             SaveEditorUiSettings(settings with { PerformanceModeEnabled = enabled });
         }
 
+        internal static bool LoadEditorEmbedEditableMetadataEnabled()
+        {
+            var values = ApplicationData.Current.LocalSettings.Values;
+            EnsureSettingsVersion(values);
+            return ReadBool(values, EditorEmbedEditableMetadataKey, DefaultEditorEmbedEditableMetadata);
+        }
+
+        internal static void SaveEditorEmbedEditableMetadataEnabled(bool enabled)
+        {
+            var values = ApplicationData.Current.LocalSettings.Values;
+            EnsureSettingsVersion(values);
+            values[EditorEmbedEditableMetadataKey] = enabled;
+            SettingsChanged?.Invoke();
+        }
+
         internal static EditorUiSettings LoadEditorUiSettings()
         {
             var values = ApplicationData.Current.LocalSettings.Values;
@@ -348,6 +375,8 @@ namespace helvety.screentools
                 ReadInt(values, EditorPrimaryThicknessKey, DefaultEditorPrimaryThickness, 1, 24),
                 ReadString(values, EditorTextFontKey, DefaultEditorTextFont),
                 ReadInt(values, EditorTextSizeKey, DefaultEditorTextSize, 8, 180),
+                ReadBool(values, EditorTextBoldEnabledKey, DefaultEditorTextBoldEnabled),
+                ReadBool(values, EditorTextItalicEnabledKey, DefaultEditorTextItalicEnabled),
                 ReadBool(values, EditorTextBorderEnabledKey, DefaultEditorTextBorderEnabled),
                 ReadString(values, EditorTextBorderColorKey, DefaultEditorTextBorderColor),
                 ReadInt(values, EditorTextBorderThicknessKey, DefaultEditorTextBorderThickness, 1, 24),
@@ -384,6 +413,22 @@ namespace helvety.screentools
             SettingsChanged?.Invoke();
         }
 
+        internal static LiveDrawDrawingSettings LoadLiveDrawDrawingSettings()
+        {
+            var values = ApplicationData.Current.LocalSettings.Values;
+            EnsureSettingsVersion(values);
+            return new LiveDrawDrawingSettings(
+                ReadInt(values, LiveDrawMainStrokeThicknessKey, DefaultLiveDrawMainStrokeThickness, 1, 24));
+        }
+
+        internal static void SaveLiveDrawMainStrokeThickness(int thickness)
+        {
+            var values = ApplicationData.Current.LocalSettings.Values;
+            EnsureSettingsVersion(values);
+            values[LiveDrawMainStrokeThicknessKey] = Clamp(thickness, 1, 24);
+            SettingsChanged?.Invoke();
+        }
+
         internal static void SaveEditorUiSettings(EditorUiSettings settings)
         {
             var values = ApplicationData.Current.LocalSettings.Values;
@@ -393,6 +438,8 @@ namespace helvety.screentools
             values[EditorPrimaryThicknessKey] = Clamp(settings.PrimaryThickness, 1, 24);
             values[EditorTextFontKey] = settings.TextFont;
             values[EditorTextSizeKey] = Clamp(settings.TextSize, 8, 180);
+            values[EditorTextBoldEnabledKey] = settings.TextBoldEnabled;
+            values[EditorTextItalicEnabledKey] = settings.TextItalicEnabled;
             values[EditorTextBorderEnabledKey] = settings.TextBorderEnabled;
             values[EditorTextBorderColorKey] = settings.TextBorderColorHex;
             values[EditorTextBorderThicknessKey] = Clamp(settings.TextBorderThickness, 1, 24);
@@ -969,6 +1016,14 @@ namespace helvety.screentools
                 EnsureLiveDrawShapeModifiers(values);
             }
 
+            if (storedVersion < 5)
+            {
+                if (!values.ContainsKey(LiveDrawMainStrokeThicknessKey))
+                {
+                    values[LiveDrawMainStrokeThicknessKey] = DefaultLiveDrawMainStrokeThickness;
+                }
+            }
+
             values[SettingsVersionKey] = CurrentSettingsVersion;
         }
 
@@ -1034,10 +1089,13 @@ namespace helvety.screentools
             values[ScreenshotQualityModeKey] = (int)DefaultScreenshotQualityMode;
             values[ShowScreenshotOverlayInstructionsKey] = DefaultShowScreenshotOverlayInstructions;
             values[MinimizeToTrayOnCloseKey] = DefaultMinimizeToTrayOnClose;
+            values[LiveDrawMainStrokeThicknessKey] = DefaultLiveDrawMainStrokeThickness;
             values[EditorPrimaryColorKey] = DefaultEditorPrimaryColor;
             values[EditorPrimaryThicknessKey] = DefaultEditorPrimaryThickness;
             values[EditorTextFontKey] = DefaultEditorTextFont;
             values[EditorTextSizeKey] = DefaultEditorTextSize;
+            values[EditorTextBoldEnabledKey] = DefaultEditorTextBoldEnabled;
+            values[EditorTextItalicEnabledKey] = DefaultEditorTextItalicEnabled;
             values[EditorTextBorderEnabledKey] = DefaultEditorTextBorderEnabled;
             values[EditorTextBorderColorKey] = DefaultEditorTextBorderColor;
             values[EditorTextBorderThicknessKey] = DefaultEditorTextBorderThickness;
@@ -1056,6 +1114,7 @@ namespace helvety.screentools
             values[EditorRegionCornerRadiusKey] = DefaultEditorRegionCornerRadius;
             values[EditorPerformanceModeEnabledKey] = DefaultEditorPerformanceModeEnabled;
             values[EditorGpuEffectsEnabledKey] = DefaultEditorGpuEffectsEnabled;
+            values[EditorEmbedEditableMetadataKey] = DefaultEditorEmbedEditableMetadata;
         }
 
         private static bool IsValidHotkey(HotkeySettings hotkey)
@@ -1199,6 +1258,8 @@ namespace helvety.screentools
         int PrimaryThickness,
         string TextFont,
         int TextSize,
+        bool TextBoldEnabled,
+        bool TextItalicEnabled,
         bool TextBorderEnabled,
         string TextBorderColorHex,
         int TextBorderThickness,
@@ -1241,6 +1302,9 @@ namespace helvety.screentools
         LiveDrawRectangleModifier StraightLine,
         LiveDrawRectangleModifier CircleRight,
         LiveDrawRectangleModifier EllipseRight);
+
+    internal sealed record LiveDrawDrawingSettings(
+        int MainStrokeThickness);
 
     internal enum LiveDrawRectangleModifier
     {

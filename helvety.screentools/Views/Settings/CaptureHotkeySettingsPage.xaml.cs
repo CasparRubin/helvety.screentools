@@ -606,14 +606,20 @@ namespace helvety.screentools.Views.Settings
                 return;
             }
 
-            if (_listenController is null || !_listenController.IsInstalled)
+            if (_listenController is null)
             {
                 SetBindingStatus("Keyboard hook failed to install.");
                 return;
             }
 
             _isCaptureMode = true;
-            _listenController.StartListen(stepIndex);
+            if (!_listenController.StartListen(stepIndex))
+            {
+                _isCaptureMode = false;
+                _listenController.StopListen();
+                SetBindingStatus("Keyboard hook failed to install.");
+                return;
+            }
             ListeningInfoBar.Title = $"Listening for step {stepIndex + 1}";
             ListeningInfoBar.Message = "Press a non-modifier key. Esc cancels.";
             ListeningInfoBar.IsOpen = true;

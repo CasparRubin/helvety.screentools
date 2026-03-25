@@ -42,6 +42,7 @@ namespace helvety.screentools.Capture
         private ActivePointerKind _activePointerKind;
         private bool _snapBorderCompositionInitialized;
         private bool _activationPulsePlayed;
+        private int _liveDrawMainStrokeThicknessDip = 4;
         private Microsoft.UI.Dispatching.DispatcherQueueTimer? _driftTimer;
         private LiveDrawNativeHost? _host;
 
@@ -104,8 +105,9 @@ namespace helvety.screentools.Capture
             _snapBorderCompositionInitialized = true;
             _snapBorderChrome.InitializeCompositionAnimations();
 
-            var editorSettings = SettingsService.LoadEditorUiSettings();
-            var liveDrawMainStroke = Math.Max(1, editorSettings.PrimaryThickness) * LiveDrawArrowSizeScale;
+            var liveDrawDrawingSettings = SettingsService.LoadLiveDrawDrawingSettings();
+            _liveDrawMainStrokeThicknessDip = Math.Max(1, liveDrawDrawingSettings.MainStrokeThickness);
+            var liveDrawMainStroke = _liveDrawMainStrokeThicknessDip * LiveDrawArrowSizeScale;
             _snapBorderChrome.ApplyLiveDrawStrokeThickness(liveDrawMainStroke);
 
             var dq = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
@@ -382,13 +384,23 @@ namespace helvety.screentools.Capture
                     {
                         _snapBorderChrome.DrawSnapChromeArrow(
                             PreviewCanvas,
-                            BuildLiveDrawVectorLayer(local, _pointerDownLocal, editorSettings, ArrowFormStyle.Straight));
+                            BuildLiveDrawVectorLayer(
+                                local,
+                                _pointerDownLocal,
+                                editorSettings.PrimaryColorHex,
+                                _liveDrawMainStrokeThicknessDip,
+                                ArrowFormStyle.Straight));
                     }
                     else
                     {
                         _snapBorderChrome.DrawSnapChromeLine(
                             PreviewCanvas,
-                            BuildLiveDrawVectorLayer(local, _pointerDownLocal, editorSettings, ArrowFormStyle.LineOnly));
+                            BuildLiveDrawVectorLayer(
+                                local,
+                                _pointerDownLocal,
+                                editorSettings.PrimaryColorHex,
+                                _liveDrawMainStrokeThicknessDip,
+                                ArrowFormStyle.LineOnly));
                     }
 
                     break;
@@ -486,13 +498,23 @@ namespace helvety.screentools.Capture
                         {
                             _snapBorderChrome.CommitSnapChromeArrowToDrawCanvas(
                                 DrawCanvas,
-                                BuildLiveDrawVectorLayer(local, _pointerDownLocal, releasedSettings, ArrowFormStyle.Straight));
+                                BuildLiveDrawVectorLayer(
+                                    local,
+                                    _pointerDownLocal,
+                                    releasedSettings.PrimaryColorHex,
+                                    _liveDrawMainStrokeThicknessDip,
+                                    ArrowFormStyle.Straight));
                         }
                         else
                         {
                             _snapBorderChrome.CommitSnapChromeLineToDrawCanvas(
                                 DrawCanvas,
-                                BuildLiveDrawVectorLayer(local, _pointerDownLocal, releasedSettings, ArrowFormStyle.LineOnly));
+                                BuildLiveDrawVectorLayer(
+                                    local,
+                                    _pointerDownLocal,
+                                    releasedSettings.PrimaryColorHex,
+                                    _liveDrawMainStrokeThicknessDip,
+                                    ArrowFormStyle.LineOnly));
                         }
 
                         break;
@@ -739,17 +761,18 @@ namespace helvety.screentools.Capture
         private static ArrowLayer BuildLiveDrawVectorLayer(
             Point tail,
             Point tip,
-            EditorUiSettings settings,
+            string colorHex,
+            double mainStrokeThicknessDip,
             ArrowFormStyle formStyle)
         {
-            var scaledThickness = Math.Max(1, settings.PrimaryThickness) * LiveDrawArrowSizeScale;
+            var scaledThickness = Math.Max(1, mainStrokeThicknessDip) * LiveDrawArrowSizeScale;
             return new ArrowLayer(
                 tail.X,
                 tail.Y,
                 tip.X,
                 tip.Y,
                 scaledThickness,
-                settings.PrimaryColorHex,
+                colorHex,
                 formStyle)
             {
                 HasBorder = false,

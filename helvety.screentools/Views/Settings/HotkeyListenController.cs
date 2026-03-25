@@ -21,7 +21,7 @@ namespace helvety.screentools.Views.Settings
 
         private readonly DispatcherQueue _dispatcher;
         private nint _keyboardHookHandle;
-        private KeyboardHookProc? _keyboardHookProc;
+        private KeyboardHookProc _keyboardHookProc;
         private bool _isInstalled;
         private bool _isCaptureMode;
         private int? _activeStepIndex;
@@ -30,24 +30,48 @@ namespace helvety.screentools.Views.Settings
         {
             _dispatcher = dispatcher;
             _keyboardHookProc = KeyboardHookCallback;
-            _keyboardHookHandle = SetWindowsHookEx(WhKeyboardLl, _keyboardHookProc, nint.Zero, 0);
-            _isInstalled = _keyboardHookHandle != nint.Zero;
+            // Lazy-install the hook: the settings page is constructed during navigation, and
+            // hook installation can be unstable on some systems. We only need the hook once
+            // the user clicks "Listen" for a step.
+            _keyboardHookHandle = nint.Zero;
+            _isInstalled = false;
         }
 
         internal bool IsInstalled => _isInstalled;
 
         internal bool IsListening => _isCaptureMode;
 
-        internal void StartListen(int stepIndex)
+        internal bool StartListen(int stepIndex)
         {
+            EnsureHookInstalled();
+            if (!_isInstalled)
+            {
+                _isCaptureMode = false;
+                _activeStepIndex = null;
+                return false;
+            }
+
             _isCaptureMode = true;
             _activeStepIndex = stepIndex;
+            return true;
         }
 
         internal void StopListen()
         {
             _isCaptureMode = false;
             _activeStepIndex = null;
+        }
+
+        private void EnsureHookInstalled()
+        {
+            if (_isInstalled)
+            {
+                return;
+            }
+
+            // SetWindowsHookEx returns 0 on failure; do not throw.
+            _keyboardHookHandle = SetWindowsHookEx(WhKeyboardLl, _keyboardHookProc, nint.Zero, 0);
+            _isInstalled = _keyboardHookHandle != nint.Zero;
         }
 
         internal event Action<int, uint>? NonModifierKeyCaptured;
@@ -111,7 +135,7 @@ namespace helvety.screentools.Views.Settings
                 _isInstalled = false;
             }
 
-            _keyboardHookProc = null;
+            // Keep the callback delegate rooted; nothing else references it after dispose.
         }
 
         private delegate nint KeyboardHookProc(int nCode, nuint wParam, nint lParam);

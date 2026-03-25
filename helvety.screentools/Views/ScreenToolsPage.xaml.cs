@@ -33,16 +33,9 @@ namespace helvety.screentools.Views
     /// </summary>
     public sealed partial class ScreenToolsPage : Page
     {
-        // Core Windows-native decoders reliably cover these formats.
-        private static readonly string[] CommonImageExtensions =
+        private static readonly string[] EditableImageExtensions =
         {
-            ".png", ".jpg", ".jpeg", ".bmp", ".gif", ".tif", ".tiff"
-        };
-
-        // Optional codec-based formats (for example WebP extension from Store).
-        private static readonly string[] OptionalImageExtensions =
-        {
-            ".webp"
+            ".png"
         };
 
         private readonly ObservableCollection<GalleryFileItem> _imageFiles = new();
@@ -159,15 +152,24 @@ namespace helvety.screentools.Views
 
         private async Task RefreshPageAsync()
         {
-            var plan = await BuildGalleryRefreshPlanAsync().ConfigureAwait(true);
-            await _refreshSemaphore.WaitAsync().ConfigureAwait(true);
             try
             {
-                ApplyGalleryRefreshPlan(plan);
+                var plan = await BuildGalleryRefreshPlanAsync().ConfigureAwait(true);
+                await _refreshSemaphore.WaitAsync().ConfigureAwait(true);
+                try
+                {
+                    ApplyGalleryRefreshPlan(plan);
+                }
+                finally
+                {
+                    _refreshSemaphore.Release();
+                }
             }
-            finally
+            catch (Exception ex)
             {
-                _refreshSemaphore.Release();
+                // Fire-and-forget refreshes are triggered from navigation and timers; make sure refresh exceptions
+                // never crash the app (IO issues like permissions/unavailable folders are expected).
+                Debug.WriteLine($"[ScreenToolsPage] Gallery refresh failed: {ex}");
             }
         }
 
@@ -648,8 +650,7 @@ namespace helvety.screentools.Views
 
         private static bool IsEditableImage(string extension)
         {
-            return CommonImageExtensions.Contains(extension, StringComparer.OrdinalIgnoreCase)
-                || OptionalImageExtensions.Contains(extension, StringComparer.OrdinalIgnoreCase);
+            return EditableImageExtensions.Contains(extension, StringComparer.OrdinalIgnoreCase);
         }
 
         private void EnsureSaveFolderWatcher(string folderPath)

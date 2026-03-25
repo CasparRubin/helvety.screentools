@@ -28,8 +28,6 @@
                 <ToggleSwitch
                     x:Name="CaptureModuleToggle"
                     Style="{StaticResource SettingsInlineToggleSwitchStyle}"
-                    OffContent="Off"
-                    OnContent="On"
                     Toggled="CaptureModuleToggle_Toggled" />
             </tk:SettingsCard>
 
@@ -253,8 +251,6 @@
                     <ToggleSwitch
                         x:Name="ShowOverlayInstructionsToggle"
                         Style="{StaticResource SettingsInlineToggleSwitchStyle}"
-                        OffContent="Off"
-                        OnContent="On"
                         Toggled="ShowOverlayInstructionsToggle_Toggled" />
                 </tk:SettingsCard>
             </StackPanel>

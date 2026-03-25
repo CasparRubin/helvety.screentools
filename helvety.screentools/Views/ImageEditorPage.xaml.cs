@@ -6,6 +6,7 @@ using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
+using Microsoft.UI.Text;
 using Rectangle = Microsoft.UI.Xaml.Shapes.Rectangle;
 using Ellipse = Microsoft.UI.Xaml.Shapes.Ellipse;
 using Line = Microsoft.UI.Xaml.Shapes.Line;
@@ -18,6 +19,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices.WindowsRuntime;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Windows.Foundation;
@@ -27,6 +29,7 @@ using Windows.Storage;
 using Windows.Storage.Streams;
 using Windows.System;
 using Windows.UI;
+using UiFontStyle = Windows.UI.Text.FontStyle;
 
 namespace helvety.screentools.Views
 {
@@ -159,7 +162,14 @@ namespace helvety.screentools.Views
         {
             try
             {
+                if (!string.Equals(Path.GetExtension(_filePath), ".png", StringComparison.OrdinalIgnoreCase))
+                {
+                    InAppToastService.Show("Only PNG files are supported in the editor.", InAppToastSeverity.Warning);
+                    return;
+                }
+
                 var file = await StorageFile.GetFileFromPathAsync(_filePath);
+                var sourcePngBytes = await File.ReadAllBytesAsync(_filePath);
                 using var stream = await file.OpenAsync(FileAccessMode.Read);
                 var decoder = await BitmapDecoder.CreateAsync(stream);
                 var pixelData = await decoder.GetPixelDataAsync(
@@ -198,6 +208,7 @@ namespace helvety.screentools.Views
                 _composeSampleCount = 0;
                 _composeSampleTotalMs = 0;
                 ApplyPersistedEditorUiSettings();
+                TryRestoreEditableState(sourcePngBytes);
                 UpdateCropActionVisibility();
                 SetActiveTool(EditorToolType.Move);
                 UpdateSelectedTextEditorVisibility();
@@ -758,6 +769,7 @@ namespace helvety.screentools.Views
                 AcceptsReturn = true,
                 TextWrapping = TextWrapping.Wrap
             };
+            ApplyTextStyleToEditor(_inlineTextEditor, TextBoldToggle.IsOn, TextItalicToggle.IsOn);
             _inlineTextEditor.KeyDown += InlineTextEditor_KeyDown;
             _inlineTextEditor.LostFocus += InlineTextEditor_LostFocus;
             Canvas.SetLeft(_inlineTextEditor, left);
@@ -789,6 +801,7 @@ namespace helvety.screentools.Views
                 AcceptsReturn = true,
                 TextWrapping = TextWrapping.Wrap
             };
+            ApplyTextStyleToEditor(_inlineTextEditor, textLayer.IsBold, textLayer.IsItalic);
             _inlineTextEditor.KeyDown += InlineTextEditor_KeyDown;
             _inlineTextEditor.LostFocus += InlineTextEditor_LostFocus;
             Canvas.SetLeft(_inlineTextEditor, _inlineTextPoint.X);
@@ -1251,6 +1264,11 @@ namespace helvety.screentools.Views
                 {
                     for (var offsetX = -thickness; offsetX <= thickness; offsetX++)
                     {
+                        if ((offsetX * offsetX) + (offsetY * offsetY) > (thickness * thickness))
+                        {
+                            continue;
+                        }
+
                         if (offsetX == 0 && offsetY == 0)
                         {
                             continue;
@@ -1265,6 +1283,7 @@ namespace helvety.screentools.Views
                             Width = Math.Max(1, textLayer.WrapWidth),
                             TextWrapping = TextWrapping.Wrap
                         };
+                        ApplyTextStyleToBlock(outline, textLayer);
                         Canvas.SetLeft(outline, textLayer.X + offsetX);
                         Canvas.SetTop(outline, textLayer.Y + offsetY);
                         targetCanvas.Children.Add(outline);
@@ -1281,6 +1300,7 @@ namespace helvety.screentools.Views
                 Width = Math.Max(1, textLayer.WrapWidth),
                 TextWrapping = TextWrapping.Wrap
             };
+            ApplyTextStyleToBlock(mainText, textLayer);
             Canvas.SetLeft(mainText, textLayer.X);
             Canvas.SetTop(mainText, textLayer.Y);
             targetCanvas.Children.Add(mainText);
@@ -1335,6 +1355,7 @@ namespace helvety.screentools.Views
                     Width = Math.Max(1, textLayer.WrapWidth),
                     TextWrapping = TextWrapping.Wrap
                 };
+                ApplyTextStyleToBlock(shadow, textLayer);
 
                 var offset = shadowOffset + step.delta;
                 Canvas.SetLeft(shadow, textLayer.X + offset);
@@ -1480,7 +1501,26 @@ namespace helvety.screentools.Views
             return buffer.ToArray();
         }
 
-        private static async Task SavePngAsync(string outputPath, byte[] pixels, int width, int height)
+        private async Task SavePngAsync(string outputPath, byte[] pixels, int width, int height)
+        {
+            var pngBytes = await EncodePngBytesAsync(pixels, width, height);
+            var shouldEmbedEditableMetadata = _document is not null &&
+                                             width == _imageWidth &&
+                                             height == _imageHeight;
+
+            if (shouldEmbedEditableMetadata && _document is not null)
+            {
+                var payload = EditorDocumentSerialization.Serialize(
+                    _document,
+                    new EditorRuntimeState(_blurInvertMode, _highlightDimPercent, _highlightInvertMode, _regionCornerRadius));
+
+                pngBytes = PngEditableMetadataCodec.WriteWithEditableState(pngBytes, payload);
+            }
+
+            await File.WriteAllBytesAsync(outputPath, pngBytes);
+        }
+
+        private static async Task<byte[]> EncodePngBytesAsync(byte[] pixels, int width, int height)
         {
             using var stream = new InMemoryRandomAccessStream();
             var encoder = await BitmapEncoder.CreateAsync(BitmapEncoder.PngEncoderId, stream);
@@ -1493,11 +1533,43 @@ namespace helvety.screentools.Views
                 96,
                 pixels);
             await encoder.FlushAsync();
-
             stream.Seek(0);
-            await using var fileStream = File.Create(outputPath);
-            await stream.AsStreamForRead().CopyToAsync(fileStream);
-            await fileStream.FlushAsync();
+            using var memory = new MemoryStream();
+            await stream.AsStreamForRead().CopyToAsync(memory);
+            return memory.ToArray();
+        }
+
+        private void TryRestoreEditableState(byte[] sourcePngBytes)
+        {
+            if (_document is null)
+            {
+                return;
+            }
+
+            if (!PngEditableMetadataCodec.TryReadEditableState(sourcePngBytes, out var payloadJson))
+            {
+                return;
+            }
+
+            if (!EditorDocumentSerialization.TryDeserialize(payloadJson, _filePath, _imageWidth, _imageHeight, out var restoredDocument, out var runtimeState))
+            {
+                return;
+            }
+
+            _document.Layers.Clear();
+            foreach (var layer in restoredDocument.Layers)
+            {
+                _document.Layers.Add(layer);
+            }
+
+            _blurInvertMode = runtimeState.BlurInvertMode;
+            BlurInvertToggle.IsOn = _blurInvertMode;
+            _highlightDimPercent = Clamp(runtimeState.HighlightDimPercent, 0, MaxHighlightDimPercent);
+            HighlightDimSlider.Value = _highlightDimPercent;
+            HighlightDimValueText.Text = $"{_highlightDimPercent}%";
+            _highlightInvertMode = runtimeState.HighlightInvertMode;
+            HighlightInvertToggle.IsOn = _highlightInvertMode;
+            SetRegionCornerRadius(runtimeState.RegionCornerRadius);
         }
 
         private static byte[] CropPixels(byte[] source, int sourceWidth, int sourceHeight, EditorRect region)
@@ -2281,6 +2353,8 @@ namespace helvety.screentools.Views
                         SetComboBoxSelectedColor(TextColorComboBox, textLayer.ColorHex);
                         SetComboBoxSelectedColor(TextBorderColorComboBox, textLayer.BorderColorHex);
                         TextSizeNumberBox.Value = textLayer.FontSize;
+                        TextBoldToggle.IsOn = textLayer.IsBold;
+                        TextItalicToggle.IsOn = textLayer.IsItalic;
                         TextBorderToggle.IsOn = textLayer.HasBorder;
                         TextBorderThicknessNumberBox.Value = textLayer.BorderThickness;
                         TextShadowToggle.IsOn = textLayer.HasShadow;
@@ -2347,6 +2421,8 @@ namespace helvety.screentools.Views
 
                 SelectComboItemByContent(TextFontComboBox, settings.TextFont);
                 TextSizeNumberBox.Value = Clamp(settings.TextSize, 8, 180);
+                TextBoldToggle.IsOn = settings.TextBoldEnabled;
+                TextItalicToggle.IsOn = settings.TextItalicEnabled;
                 TextBorderToggle.IsOn = settings.TextBorderEnabled;
                 SetComboBoxSelectedColor(TextBorderColorComboBox, settings.TextBorderColorHex);
                 TextShadowToggle.IsOn = settings.TextShadowEnabled;
@@ -2392,6 +2468,8 @@ namespace helvety.screentools.Views
                 Clamp((int)Math.Round(BorderThicknessNumberBox.Value), 1, MaxPrimaryThickness),
                 GetSelectedFont(),
                 Clamp((int)Math.Round(TextSizeNumberBox.Value), 8, 180),
+                TextBoldToggle.IsOn,
+                TextItalicToggle.IsOn,
                 TextBorderToggle.IsOn,
                 GetSelectedColorHex(TextBorderColorComboBox, DefaultBorderColor),
                 Clamp((int)Math.Round(TextBorderThicknessNumberBox.Value), 1, MaxPrimaryThickness),
@@ -2547,6 +2625,8 @@ namespace helvety.screentools.Views
         {
             textLayer.FontSize = Clamp((int)Math.Round(TextSizeNumberBox.Value), 8, 180);
             textLayer.ColorHex = GetSelectedColorHex(TextColorComboBox, DefaultTextColor);
+            textLayer.IsBold = TextBoldToggle.IsOn;
+            textLayer.IsItalic = TextItalicToggle.IsOn;
             textLayer.HasBorder = TextBorderToggle.IsOn;
             textLayer.BorderColorHex = GetSelectedColorHex(TextBorderColorComboBox, DefaultBorderColor);
             textLayer.BorderThickness = Clamp((int)Math.Round(TextBorderThicknessNumberBox.Value), 1, MaxPrimaryThickness);
@@ -2707,6 +2787,20 @@ namespace helvety.screentools.Views
             return string.IsNullOrWhiteSpace(fontFamily)
                 ? "Segoe UI"
                 : fontFamily;
+        }
+
+        private static void ApplyTextStyleToBlock(TextBlock textBlock, TextLayer textLayer)
+        {
+            textBlock.FontWeight = textLayer.IsBold ? FontWeights.Bold : FontWeights.Normal;
+            textBlock.FontStyle = textLayer.IsItalic ? UiFontStyle.Italic : UiFontStyle.Normal;
+            textBlock.LineStackingStrategy = LineStackingStrategy.MaxHeight;
+            textBlock.TextLineBounds = TextLineBounds.Full;
+        }
+
+        private static void ApplyTextStyleToEditor(TextBox textBox, bool isBold, bool isItalic)
+        {
+            textBox.FontWeight = isBold ? FontWeights.Bold : FontWeights.Normal;
+            textBox.FontStyle = isItalic ? UiFontStyle.Italic : UiFontStyle.Normal;
         }
 
         private bool IsPointOutsideInlineEditor(Point pointerPoint)
