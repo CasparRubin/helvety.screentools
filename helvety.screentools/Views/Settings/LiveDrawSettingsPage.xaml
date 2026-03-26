@@ -49,21 +49,27 @@
                             <tk:SettingsCard.HeaderIcon>
                                 <FontIcon Glyph="&#xEDA7;" />
                             </tk:SettingsCard.HeaderIcon>
-                            <StackPanel Orientation="Horizontal" Spacing="{StaticResource AppSpacingContent}">
+                            <StackPanel
+                                Orientation="Horizontal"
+                                HorizontalAlignment="Right"
+                                Spacing="{StaticResource AppSpacingContent}">
                                 <CheckBox
                                     x:Name="LiveDrawCtrlModifierCheckBox"
                                     Checked="LiveDrawModifierCheckBox_Changed"
                                     Content="Ctrl"
+                                    FlowDirection="RightToLeft"
                                     Unchecked="LiveDrawModifierCheckBox_Changed" />
                                 <CheckBox
                                     x:Name="LiveDrawAltModifierCheckBox"
                                     Checked="LiveDrawModifierCheckBox_Changed"
                                     Content="Alt"
+                                    FlowDirection="RightToLeft"
                                     Unchecked="LiveDrawModifierCheckBox_Changed" />
                                 <CheckBox
                                     x:Name="LiveDrawShiftModifierCheckBox"
                                     Checked="LiveDrawModifierCheckBox_Changed"
                                     Content="Shift"
+                                    FlowDirection="RightToLeft"
                                     Unchecked="LiveDrawModifierCheckBox_Changed" />
                             </StackPanel>
                         </tk:SettingsCard>
@@ -259,9 +265,14 @@
                         <tk:SettingsCard
                             Description="Thickness of Live Draw shapes and ink strokes."
                             Header="Line thickness">
-                            <StackPanel Orientation="Horizontal" Spacing="{StaticResource AppSpacingStack}" VerticalAlignment="Center">
+                            <StackPanel
+                                Orientation="Horizontal"
+                                HorizontalAlignment="Right"
+                                Spacing="{StaticResource AppSpacingStack}"
+                                VerticalAlignment="Center">
                                 <Slider
                                     x:Name="LiveDrawLineThicknessSlider"
+                                    Style="{StaticResource SettingsInlineSliderStyle}"
                                     Width="180"
                                     Height="34"
                                     Minimum="1"
@@ -272,19 +283,30 @@
                                     ValueChanged="LiveDrawLineThicknessSlider_ValueChanged" />
                                 <TextBlock
                                     x:Name="LiveDrawLineThicknessValueText"
-                                    MinWidth="56"
+                                    MinWidth="0"
+                                    TextAlignment="Right"
                                     VerticalAlignment="Center"
                                     Text="4 px" />
                             </StackPanel>
                         </tk:SettingsCard>
 
                         <tk:SettingsCard
-                            Description="Left drag or hold with no shape modifier; ink follows the pointer. This behavior is not remappable."
-                            Header="Free draw" />
+                            Description="Left drag or hold with no shape modifier; ink follows the pointer."
+                            Header="Free draw">
+                            <ToggleSwitch
+                                x:Name="LiveDrawFreeDrawToggle"
+                                Style="{StaticResource SettingsInlineToggleSwitchStyle}"
+                                Toggled="LiveDrawFreeDrawToggle_Toggled" />
+                        </tk:SettingsCard>
 
                         <tk:SettingsCard
-                            Description="Right click and hold with no circle or ellipse modifier; a pulsing sparkle follows the cursor. This behavior is not remappable."
-                            Header="Sparkle (right hold)" />
+                            Description="Right click and hold with no circle or ellipse modifier; a pulsing sparkle follows the cursor."
+                            Header="Sparkle (right hold)">
+                            <ToggleSwitch
+                                x:Name="LiveDrawSparkleToggle"
+                                Style="{StaticResource SettingsInlineToggleSwitchStyle}"
+                                Toggled="LiveDrawSparkleToggle_Toggled" />
+                        </tk:SettingsCard>
 
                         <InfoBar
                             x:Name="ListeningInfoBar"

@@ -43,6 +43,8 @@ namespace helvety.screentools.Capture
         private bool _snapBorderCompositionInitialized;
         private bool _activationPulsePlayed;
         private int _liveDrawMainStrokeThicknessDip = 4;
+        private bool _liveDrawFreeDrawEnabled = true;
+        private bool _liveDrawSparkleEnabled = true;
         private Microsoft.UI.Dispatching.DispatcherQueueTimer? _driftTimer;
         private LiveDrawNativeHost? _host;
 
@@ -107,6 +109,8 @@ namespace helvety.screentools.Capture
 
             var liveDrawDrawingSettings = SettingsService.LoadLiveDrawDrawingSettings();
             _liveDrawMainStrokeThicknessDip = Math.Max(1, liveDrawDrawingSettings.MainStrokeThickness);
+            _liveDrawFreeDrawEnabled = liveDrawDrawingSettings.FreeDrawEnabled;
+            _liveDrawSparkleEnabled = liveDrawDrawingSettings.SparkleEnabled;
             var liveDrawMainStroke = _liveDrawMainStrokeThicknessDip * LiveDrawArrowSizeScale;
             _snapBorderChrome.ApplyLiveDrawStrokeThickness(liveDrawMainStroke);
 
@@ -276,6 +280,11 @@ namespace helvety.screentools.Capture
             }
             else
             {
+                if (!_liveDrawFreeDrawEnabled)
+                {
+                    return;
+                }
+
                 _activeTool = LiveDrawTool.FreeDraw;
             }
 
@@ -427,6 +436,11 @@ namespace helvety.screentools.Capture
             }
             else
             {
+                if (!_liveDrawSparkleEnabled)
+                {
+                    return;
+                }
+
                 _activeTool = LiveDrawTool.ClickSparkle;
                 _isPointerDown = true;
                 _activePointerKind = ActivePointerKind.Right;

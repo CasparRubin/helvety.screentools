@@ -107,6 +107,7 @@
                                     <TextBlock Style="{StaticResource AppToolSettingCardTitleTextStyle}" Text="Size" />
                                     <Slider
                                         x:Name="TextSizeNumberBox"
+                                        Style="{StaticResource SettingsInlineSliderStyle}"
                                         Width="180"
                                         Height="34"
                                         Minimum="8"
@@ -123,6 +124,7 @@
                                     <ToggleSwitch
                                         x:Name="TextBoldToggle"
                                         IsOn="True"
+                                        Style="{StaticResource SettingsInlineToggleSwitchStyle}"
                                         Toggled="ToolSettingToggled" />
                                 </StackPanel>
                             </Border>
@@ -132,6 +134,7 @@
                                     <ToggleSwitch
                                         x:Name="TextItalicToggle"
                                         IsOn="False"
+                                        Style="{StaticResource SettingsInlineToggleSwitchStyle}"
                                         Toggled="ToolSettingToggled" />
                                 </StackPanel>
                             </Border>
@@ -139,7 +142,7 @@
                                 <StackPanel VerticalAlignment="Center">
                                     <TextBlock Style="{StaticResource AppToolSettingCardTitleTextStyle}" Text="Border" />
                                     <StackPanel Orientation="Horizontal" Spacing="{StaticResource AppSpacingStack}" VerticalAlignment="Center">
-                                        <ToggleSwitch x:Name="TextBorderToggle" IsOn="False" Toggled="ToolSettingToggled" />
+                                        <ToggleSwitch x:Name="TextBorderToggle" IsOn="False" Style="{StaticResource SettingsInlineToggleSwitchStyle}" Toggled="ToolSettingToggled" />
                                         <ComboBox x:Name="TextBorderColorComboBox" Width="108" Height="34" VerticalAlignment="Center" SelectionChanged="ToolSettingSelectionChanged">
                                             <ComboBoxItem Content="White" Tag="#FFFFFFFF" IsSelected="True" />
                                             <ComboBoxItem Content="Fuchsia Red" Tag="#FFD81B60" />
@@ -150,6 +153,7 @@
                                         <Button Content="Pick" Height="34" VerticalAlignment="Center" Click="PickTextBorderColorButton_Click" />
                                         <Slider
                                             x:Name="TextBorderThicknessNumberBox"
+                                            Style="{StaticResource SettingsInlineSliderStyle}"
                                             Width="120"
                                             Height="34"
                                             Minimum="1"
@@ -171,6 +175,7 @@
                                     <ToggleSwitch
                                         x:Name="TextShadowToggle"
                                         IsOn="True"
+                                        Style="{StaticResource SettingsInlineToggleSwitchStyle}"
                                         Toggled="ToolSettingToggled" />
                                 </StackPanel>
                             </Border>
@@ -202,6 +207,7 @@
                                     <StackPanel Orientation="Horizontal" Spacing="{StaticResource AppSpacingStack}">
                                         <Slider
                                             x:Name="BorderThicknessNumberBox"
+                                            Style="{StaticResource SettingsInlineSliderStyle}"
                                             Width="180"
                                             Height="34"
                                             Minimum="1"
@@ -223,6 +229,7 @@
                                     <StackPanel Orientation="Horizontal" Spacing="{StaticResource AppSpacingStack}" VerticalAlignment="Center">
                                         <Slider
                                             x:Name="BorderCornerRadiusSlider"
+                                            Style="{StaticResource SettingsInlineSliderStyle}"
                                             Width="180"
                                             VerticalAlignment="Center"
                                             Minimum="0"
@@ -244,6 +251,7 @@
                                     <ToggleSwitch
                                         x:Name="BorderShadowToggle"
                                         IsOn="True"
+                                        Style="{StaticResource SettingsInlineToggleSwitchStyle}"
                                         Toggled="ToolSettingToggled" />
                                 </StackPanel>
                             </Border>
@@ -258,6 +266,7 @@
                                     <TextBlock Style="{StaticResource AppToolSettingCardTitleTextStyle}" Text="Radius" />
                                     <Slider
                                         x:Name="BlurRadiusNumberBox"
+                                        Style="{StaticResource SettingsInlineSliderStyle}"
                                         Width="180"
                                         Height="34"
                                         Minimum="1"
@@ -274,6 +283,7 @@
                                     <StackPanel Orientation="Horizontal" Spacing="{StaticResource AppSpacingStack}" VerticalAlignment="Center">
                                         <Slider
                                             x:Name="BlurCornerRadiusSlider"
+                                            Style="{StaticResource SettingsInlineSliderStyle}"
                                             Width="180"
                                             VerticalAlignment="Center"
                                             Minimum="0"
@@ -295,6 +305,7 @@
                                     <StackPanel Orientation="Horizontal" Spacing="{StaticResource AppSpacingStack}" VerticalAlignment="Center">
                                         <Slider
                                             x:Name="BlurFeatherSlider"
+                                            Style="{StaticResource SettingsInlineSliderStyle}"
                                             Width="180"
                                             Height="34"
                                             Minimum="0"
@@ -316,6 +327,7 @@
                                     <ToggleSwitch
                                         x:Name="BlurInvertToggle"
                                         IsOn="False"
+                                        Style="{StaticResource SettingsInlineToggleSwitchStyle}"
                                         Toggled="BlurInvertToggle_Toggled" />
                                 </StackPanel>
                             </Border>
@@ -331,6 +343,7 @@
                                     <StackPanel Orientation="Horizontal" Spacing="{StaticResource AppSpacingStack}">
                                         <Slider
                                             x:Name="HighlightDimSlider"
+                                            Style="{StaticResource SettingsInlineSliderStyle}"
                                             Width="220"
                                             Minimum="0"
                                             Maximum="80"
@@ -350,6 +363,7 @@
                                     <StackPanel Orientation="Horizontal" Spacing="{StaticResource AppSpacingStack}" VerticalAlignment="Center">
                                         <Slider
                                             x:Name="HighlightCornerRadiusSlider"
+                                            Style="{StaticResource SettingsInlineSliderStyle}"
                                             Width="180"
                                             VerticalAlignment="Center"
                                             Minimum="0"
@@ -371,6 +385,7 @@
                                     <ToggleSwitch
                                         x:Name="HighlightInvertToggle"
                                         IsOn="False"
+                                        Style="{StaticResource SettingsInlineToggleSwitchStyle}"
                                         Toggled="HighlightInvertToggle_Toggled" />
                                 </StackPanel>
                             </Border>
@@ -394,6 +409,7 @@
                                     <TextBlock Style="{StaticResource AppToolSettingCardTitleTextStyle}" Text="Size" />
                                     <Slider
                                         x:Name="ArrowThicknessNumberBox"
+                                        Style="{StaticResource SettingsInlineSliderStyle}"
                                         Width="180"
                                         Height="34"
                                         Minimum="1"
@@ -424,7 +440,7 @@
                                 <StackPanel VerticalAlignment="Center">
                                     <TextBlock Style="{StaticResource AppToolSettingCardTitleTextStyle}" Text="Border" />
                                     <StackPanel Orientation="Horizontal" Spacing="{StaticResource AppSpacingStack}" VerticalAlignment="Center">
-                                        <ToggleSwitch x:Name="ArrowBorderToggle" IsOn="False" Toggled="ToolSettingToggled" />
+                                        <ToggleSwitch x:Name="ArrowBorderToggle" IsOn="False" Style="{StaticResource SettingsInlineToggleSwitchStyle}" Toggled="ToolSettingToggled" />
                                         <ComboBox x:Name="ArrowBorderColorComboBox" Width="108" Height="34" VerticalAlignment="Center" SelectionChanged="ToolSettingSelectionChanged">
                                             <ComboBoxItem Content="Black" Tag="#FF000000" />
                                             <ComboBoxItem Content="Fuchsia Red" Tag="#FFD81B60" />
@@ -434,6 +450,7 @@
                                         <Button Content="Pick" Height="34" VerticalAlignment="Center" Click="PickArrowBorderColorButton_Click" />
                                         <Slider
                                             x:Name="ArrowBorderThicknessNumberBox"
+                                            Style="{StaticResource SettingsInlineSliderStyle}"
                                             Width="120"
                                             Height="34"
                                             Minimum="1"
@@ -455,6 +472,7 @@
                                     <ToggleSwitch
                                         x:Name="ArrowShadowToggle"
                                         IsOn="True"
+                                        Style="{StaticResource SettingsInlineToggleSwitchStyle}"
                                         Toggled="ToolSettingToggled" />
                                 </StackPanel>
                             </Border>

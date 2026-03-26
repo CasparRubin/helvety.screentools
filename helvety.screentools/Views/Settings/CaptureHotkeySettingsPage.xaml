@@ -84,21 +84,27 @@
                             <tk:SettingsCard.HeaderIcon>
                                 <FontIcon Glyph="&#xEDA7;" />
                             </tk:SettingsCard.HeaderIcon>
-                            <StackPanel Orientation="Horizontal" Spacing="{StaticResource AppSpacingContent}">
+                            <StackPanel
+                                Orientation="Horizontal"
+                                HorizontalAlignment="Right"
+                                Spacing="{StaticResource AppSpacingContent}">
                                 <CheckBox
                                     x:Name="CtrlModifierCheckBox"
                                     Checked="ModifierCheckBox_Changed"
                                     Content="Ctrl"
+                                    FlowDirection="RightToLeft"
                                     Unchecked="ModifierCheckBox_Changed" />
                                 <CheckBox
                                     x:Name="AltModifierCheckBox"
                                     Checked="ModifierCheckBox_Changed"
                                     Content="Alt"
+                                    FlowDirection="RightToLeft"
                                     Unchecked="ModifierCheckBox_Changed" />
                                 <CheckBox
                                     x:Name="ShiftModifierCheckBox"
                                     Checked="ModifierCheckBox_Changed"
                                     Content="Shift"
+                                    FlowDirection="RightToLeft"
                                     Unchecked="ModifierCheckBox_Changed" />
                             </StackPanel>
                         </tk:SettingsCard>

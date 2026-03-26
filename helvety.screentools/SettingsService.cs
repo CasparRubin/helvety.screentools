@@ -26,6 +26,8 @@ namespace helvety.screentools
         private const string DefaultEditorPrimaryColor = "#FFD81B60";
         private const int DefaultEditorPrimaryThickness = 4;
         private const int DefaultLiveDrawMainStrokeThickness = DefaultEditorPrimaryThickness;
+        private const bool DefaultLiveDrawFreeDrawEnabled = true;
+        private const bool DefaultLiveDrawSparkleEnabled = true;
         private const string DefaultEditorTextFont = "Segoe UI";
         private const int DefaultEditorTextSize = 38;
         private const bool DefaultEditorTextBoldEnabled = true;
@@ -76,6 +78,8 @@ namespace helvety.screentools
         private const string LiveDrawShapeModCircleRightKey = "LiveDrawShapeModCircleRight";
         private const string LiveDrawShapeModEllipseRightKey = "LiveDrawShapeModEllipseRight";
         private const string LiveDrawMainStrokeThicknessKey = "LiveDrawMainStrokeThickness";
+        private const string LiveDrawFreeDrawEnabledKey = "LiveDrawFreeDrawEnabled";
+        private const string LiveDrawSparkleEnabledKey = "LiveDrawSparkleEnabled";
         private const string CaptureHotkeyEnabledKey = "CaptureHotkeyEnabled";
         private const string LiveDrawEnabledKey = "LiveDrawEnabled";
         private const string SaveFolderClearedKey = "SaveFolderCleared";
@@ -142,6 +146,8 @@ namespace helvety.screentools
             ShowScreenshotOverlayInstructionsKey,
             MinimizeToTrayOnCloseKey,
             LiveDrawMainStrokeThicknessKey,
+            LiveDrawFreeDrawEnabledKey,
+            LiveDrawSparkleEnabledKey,
             EditorPrimaryColorKey,
             EditorPrimaryThicknessKey,
             EditorTextFontKey,
@@ -418,7 +424,9 @@ namespace helvety.screentools
             var values = ApplicationData.Current.LocalSettings.Values;
             EnsureSettingsVersion(values);
             return new LiveDrawDrawingSettings(
-                ReadInt(values, LiveDrawMainStrokeThicknessKey, DefaultLiveDrawMainStrokeThickness, 1, 24));
+                ReadInt(values, LiveDrawMainStrokeThicknessKey, DefaultLiveDrawMainStrokeThickness, 1, 24),
+                ReadBool(values, LiveDrawFreeDrawEnabledKey, DefaultLiveDrawFreeDrawEnabled),
+                ReadBool(values, LiveDrawSparkleEnabledKey, DefaultLiveDrawSparkleEnabled));
         }
 
         internal static void SaveLiveDrawMainStrokeThickness(int thickness)
@@ -426,6 +434,22 @@ namespace helvety.screentools
             var values = ApplicationData.Current.LocalSettings.Values;
             EnsureSettingsVersion(values);
             values[LiveDrawMainStrokeThicknessKey] = Clamp(thickness, 1, 24);
+            SettingsChanged?.Invoke();
+        }
+
+        internal static void SaveLiveDrawFreeDrawEnabled(bool enabled)
+        {
+            var values = ApplicationData.Current.LocalSettings.Values;
+            EnsureSettingsVersion(values);
+            values[LiveDrawFreeDrawEnabledKey] = enabled;
+            SettingsChanged?.Invoke();
+        }
+
+        internal static void SaveLiveDrawSparkleEnabled(bool enabled)
+        {
+            var values = ApplicationData.Current.LocalSettings.Values;
+            EnsureSettingsVersion(values);
+            values[LiveDrawSparkleEnabledKey] = enabled;
             SettingsChanged?.Invoke();
         }
 
@@ -1084,6 +1108,8 @@ namespace helvety.screentools
             WriteDefaultLiveDrawShapeModifiers(values);
             values[CaptureHotkeyEnabledKey] = DefaultCaptureHotkeyEnabled;
             values[LiveDrawEnabledKey] = DefaultLiveDrawFeatureEnabled;
+            values[LiveDrawFreeDrawEnabledKey] = DefaultLiveDrawFreeDrawEnabled;
+            values[LiveDrawSparkleEnabledKey] = DefaultLiveDrawSparkleEnabled;
 
             values[ScreenshotBorderIntensityKey] = (int)DefaultScreenshotBorderIntensity;
             values[ScreenshotQualityModeKey] = (int)DefaultScreenshotQualityMode;
@@ -1304,7 +1330,9 @@ namespace helvety.screentools
         LiveDrawRectangleModifier EllipseRight);
 
     internal sealed record LiveDrawDrawingSettings(
-        int MainStrokeThickness);
+        int MainStrokeThickness,
+        bool FreeDrawEnabled,
+        bool SparkleEnabled);
 
     internal enum LiveDrawRectangleModifier
     {

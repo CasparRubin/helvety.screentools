@@ -20,6 +20,7 @@ namespace helvety.screentools.Views.Settings
         private uint _liveDrawEditorModifiers;
         private bool _isUpdatingLiveDrawShapeModifiers;
         private bool _isUpdatingLiveDrawToggle;
+        private bool _isUpdatingLiveDrawModeToggles;
         // ValueChanged can fire during XAML initialization before named fields are fully assigned.
         // Keep this true until we've completed our initial UI sync to avoid NREs.
         private bool _isUpdatingLiveDrawLineThickness = true;
@@ -39,6 +40,7 @@ namespace helvety.screentools.Views.Settings
             InitializeLiveDrawModuleToggle();
             InitializeLiveDrawHotkeyUi();
             InitializeLiveDrawLineThickness();
+            InitializeLiveDrawModeToggles();
             SettingsService.SettingsChanged += SettingsService_SettingsChanged;
             Unloaded += LiveDrawSettingsPage_Unloaded;
         }
@@ -87,7 +89,23 @@ namespace helvety.screentools.Views.Settings
                 InitializeLiveDrawModuleToggle();
                 InitializeLiveDrawHotkeyUi();
                 InitializeLiveDrawLineThickness();
+                InitializeLiveDrawModeToggles();
             });
+        }
+
+        private void InitializeLiveDrawModeToggles()
+        {
+            _isUpdatingLiveDrawModeToggles = true;
+            try
+            {
+                var drawingSettings = SettingsService.LoadLiveDrawDrawingSettings();
+                LiveDrawFreeDrawToggle.IsOn = drawingSettings.FreeDrawEnabled;
+                LiveDrawSparkleToggle.IsOn = drawingSettings.SparkleEnabled;
+            }
+            finally
+            {
+                _isUpdatingLiveDrawModeToggles = false;
+            }
         }
 
         private void InitializeLiveDrawLineThickness()
@@ -122,6 +140,26 @@ namespace helvety.screentools.Views.Settings
             // Keep the UI responsive while we persist (SettingsChanged will also re-sync, but this avoids visible lag).
             LiveDrawLineThicknessValueText.Text = $"{thickness} px";
             SettingsService.SaveLiveDrawMainStrokeThickness(thickness);
+        }
+
+        private void LiveDrawFreeDrawToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (_isUpdatingLiveDrawModeToggles)
+            {
+                return;
+            }
+
+            SettingsService.SaveLiveDrawFreeDrawEnabled(LiveDrawFreeDrawToggle.IsOn);
+        }
+
+        private void LiveDrawSparkleToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (_isUpdatingLiveDrawModeToggles)
+            {
+                return;
+            }
+
+            SettingsService.SaveLiveDrawSparkleEnabled(LiveDrawSparkleToggle.IsOn);
         }
 
         private void ListenController_NonModifierKeyCaptured(int stepIndex, uint virtualKey)
