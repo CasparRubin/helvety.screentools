@@ -19,8 +19,6 @@ namespace helvety.screentools.Editor
         private readonly CanvasDevice _canvasDevice = CanvasDevice.GetSharedDevice();
         private bool _isAvailable = true;
 
-        internal bool IsAvailable => _isAvailable;
-
         internal string? LastError { get; private set; }
 
         internal async Task<bool> TryRenderAsync(

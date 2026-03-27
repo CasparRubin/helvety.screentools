@@ -72,7 +72,7 @@
             <StackPanel Spacing="{StaticResource AppSpacingStack}">
                 <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Danger zone" />
                 <tk:SettingsCard
-                    Description="Clears save location, hotkeys, editor preferences, snap-border intensity, Live Draw options, capture quality, and other saved settings."
+                    Description="Restores all preferences to defaults (including hotkeys, editor settings, snap-border intensity, Live Draw, capture quality, and save folder to the default desktop captures folder). Does not delete image files already on disk."
                     Header="Reset all settings">
                     <tk:SettingsCard.HeaderIcon>
                         <FontIcon Glyph="&#xE74D;" />

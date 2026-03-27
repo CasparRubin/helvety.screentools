@@ -34,7 +34,7 @@ using UiFontStyle = Windows.UI.Text.FontStyle;
 namespace helvety.screentools.Views
 {
     /// <summary>
-    /// Layer-based image editor opened from Screen Tools or after capture: tools, layers, export, and editor settings.
+    /// Layer-based image editor opened from the General home gallery, or after a capture: tools, layers, export, and editor settings.
     /// </summary>
     public sealed partial class ImageEditorPage : Page
     {

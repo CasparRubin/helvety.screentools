@@ -48,7 +48,7 @@
                 <Setter Property="CornerRadius" Value="{StaticResource AppCornerRadiusCard}" />
             </Style>
 
-            <!-- Page hero title: use on every top-level page (Screen Tools, Settings modules, About). -->
+            <!-- Page hero title: use on every top-level page (General home, Settings detail pages, About). -->
             <Style x:Key="SettingsPageTitleTextStyle" TargetType="TextBlock">
                 <Setter Property="FontSize" Value="28" />
                 <Setter Property="FontWeight" Value="SemiBold" />
@@ -56,7 +56,7 @@
                 <Setter Property="TextWrapping" Value="WrapWholeWords" />
             </Style>
 
-            <!-- Alias for non-settings pages -->
+            <!-- Alias for non-settings pages (e.g. General home, editor). -->
             <Style x:Key="AppPageTitleTextStyle" TargetType="TextBlock" BasedOn="{StaticResource SettingsPageTitleTextStyle}" />
 
             <!-- Secondary line under page titles (save path, hints). -->
@@ -85,7 +85,7 @@
                 <Setter Property="TextWrapping" Value="WrapWholeWords" />
             </Style>
 
-            <!-- Empty / marketing callout (Screen Tools gallery) -->
+            <!-- Empty / marketing callout (General home gallery empty state). -->
             <Style x:Key="AppEmptyStateTitleTextStyle" TargetType="TextBlock">
                 <Setter Property="FontSize" Value="28" />
                 <Setter Property="FontWeight" Value="SemiBold" />

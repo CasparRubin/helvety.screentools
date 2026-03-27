@@ -39,8 +39,6 @@ namespace helvety.screentools.Views.Settings
 
         internal bool IsInstalled => _isInstalled;
 
-        internal bool IsListening => _isCaptureMode;
-
         internal bool StartListen(int stepIndex)
         {
             EnsureHookInstalled();
