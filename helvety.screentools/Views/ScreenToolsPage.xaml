@@ -13,6 +13,18 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
+        <!-- Off-screen host for RenderTargetBitmap when compositing vector overlays onto editable PNG thumbnails. -->
+        <Grid
+            x:Name="ThumbnailCompositionHost"
+            Grid.RowSpan="2"
+            Width="1"
+            Height="1"
+            Margin="-10000,0,0,0"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Top"
+            IsHitTestVisible="False"
+            Opacity="0" />
+
         <StackPanel Spacing="{StaticResource AppSpacingStack}">
             <TextBlock Style="{StaticResource AppPageTitleTextStyle}" Text="Helvety Screen Tools" />
             <TextBlock

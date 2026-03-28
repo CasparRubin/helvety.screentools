@@ -782,6 +782,11 @@
                             <Button Height="36" HorizontalAlignment="Stretch" Click="OverrideButton_Click" Content="Overwrite Current File" />
                             <Button Height="36" HorizontalAlignment="Stretch" Click="CopyButton_Click" Content="Copy to Clipboard" />
                             <Button
+                                Height="36"
+                                HorizontalAlignment="Stretch"
+                                Click="SaveFlattenedButton_Click"
+                                Content="Save Flattened PNG" />
+                            <Button
                                 x:Name="SaveCropButton"
                                 Height="36"
                                 HorizontalAlignment="Stretch"

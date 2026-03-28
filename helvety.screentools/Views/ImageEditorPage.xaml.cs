@@ -1129,23 +1129,7 @@ namespace helvety.screentools.Views
             }
 
             var suppressExpensiveEffects = _performanceModeEnabled && (_isResizingSelection || _dragLayer is not null || _isDraggingSelection);
-            LayersCanvas.Children.Clear();
-            foreach (var layer in _document.Layers.Where(item => item.IsVisible).Reverse())
-            {
-                switch (layer)
-                {
-                    case TextLayer textLayer:
-                        DrawTextLayer(textLayer, suppressExpensiveEffects, LayersCanvas);
-                        break;
-
-                    case BorderLayer borderLayer:
-                        DrawBorderLayer(borderLayer, suppressExpensiveEffects, LayersCanvas);
-                        break;
-                    case ArrowLayer arrowLayer:
-                        DrawArrowLayer(arrowLayer, suppressExpensiveEffects, LayersCanvas);
-                        break;
-                }
-            }
+            EditorVectorOverlayRenderer.DrawVisibleVectorLayers(_document.Layers, LayersCanvas, suppressExpensiveEffects);
 
             RebuildOverlayAdorners(includeAdorners, suppressExpensiveEffects);
         }
@@ -1247,145 +1231,10 @@ namespace helvety.screentools.Views
                 ArrowFormStyle.Tapered);
             ApplyArrowStyleFromUi(previewLayer);
 
-            DrawArrowLayer(previewLayer, suppressExpensiveEffects, OverlayCanvas);
-        }
-
-        private void DrawTextLayer(TextLayer textLayer, bool suppressExpensiveEffects, Canvas targetCanvas)
-        {
-            if (!suppressExpensiveEffects && textLayer.HasShadow)
-            {
-                DrawFeatheredTextShadow(textLayer, targetCanvas);
-            }
-
-            if (!suppressExpensiveEffects && textLayer.HasBorder)
-            {
-                var thickness = Math.Clamp(textLayer.BorderThickness, 1, MaxPrimaryThickness);
-                for (var offsetY = -thickness; offsetY <= thickness; offsetY++)
-                {
-                    for (var offsetX = -thickness; offsetX <= thickness; offsetX++)
-                    {
-                        if ((offsetX * offsetX) + (offsetY * offsetY) > (thickness * thickness))
-                        {
-                            continue;
-                        }
-
-                        if (offsetX == 0 && offsetY == 0)
-                        {
-                            continue;
-                        }
-
-                        var outline = new TextBlock
-                        {
-                            Text = textLayer.Text,
-                            FontSize = textLayer.FontSize,
-                            FontFamily = new FontFamily(GetFontName(textLayer.FontFamily)),
-                            Foreground = new SolidColorBrush(ParseColor(textLayer.BorderColorHex)),
-                            Width = Math.Max(1, textLayer.WrapWidth),
-                            TextWrapping = TextWrapping.Wrap
-                        };
-                        ApplyTextStyleToBlock(outline, textLayer);
-                        Canvas.SetLeft(outline, textLayer.X + offsetX);
-                        Canvas.SetTop(outline, textLayer.Y + offsetY);
-                        targetCanvas.Children.Add(outline);
-                    }
-                }
-            }
-
-            var mainText = new TextBlock
-            {
-                Text = textLayer.Text,
-                FontSize = textLayer.FontSize,
-                FontFamily = new FontFamily(GetFontName(textLayer.FontFamily)),
-                Foreground = new SolidColorBrush(ParseColor(textLayer.ColorHex)),
-                Width = Math.Max(1, textLayer.WrapWidth),
-                TextWrapping = TextWrapping.Wrap
-            };
-            ApplyTextStyleToBlock(mainText, textLayer);
-            Canvas.SetLeft(mainText, textLayer.X);
-            Canvas.SetTop(mainText, textLayer.Y);
-            targetCanvas.Children.Add(mainText);
-        }
-
-        private void DrawBorderLayer(BorderLayer borderLayer, bool suppressExpensiveEffects, Canvas targetCanvas)
-        {
-            var cornerRadius = GetEffectiveCornerRadius(borderLayer.Region, borderLayer.CornerRadius);
-            if (!suppressExpensiveEffects && borderLayer.HasShadow)
-            {
-                DrawFeatheredBorderShadow(borderLayer, cornerRadius, targetCanvas);
-            }
-
-            var borderRect = new Rectangle
-            {
-                Width = borderLayer.Region.Width,
-                Height = borderLayer.Region.Height,
-                Stroke = new SolidColorBrush(ParseColor(borderLayer.ColorHex)),
-                StrokeThickness = borderLayer.Thickness,
-                RadiusX = cornerRadius,
-                RadiusY = cornerRadius
-            };
-            Canvas.SetLeft(borderRect, borderLayer.Region.X);
-            Canvas.SetTop(borderRect, borderLayer.Region.Y);
-            targetCanvas.Children.Add(borderRect);
-        }
-
-        private void DrawArrowLayer(ArrowLayer arrowLayer, bool suppressExpensiveEffects, Canvas targetCanvas)
-        {
-            ArrowRendering.DrawArrowLayer(arrowLayer, suppressExpensiveEffects, targetCanvas);
-        }
-
-        private static Color ScaleColorAlpha(Color color, double factor)
-        {
-            var alpha = (byte)Math.Clamp((int)Math.Round(color.A * factor), 0, 255);
-            return ColorHelper.FromArgb(alpha, color.R, color.G, color.B);
-        }
-
-        private void DrawFeatheredTextShadow(TextLayer textLayer, Canvas targetCanvas)
-        {
-            var shadowColor = ParseColor(textLayer.ShadowColorHex);
-            var shadowOffset = Math.Max(1, textLayer.ShadowOffset);
-            var shadowSteps = new (int delta, double alphaScale)[] { (0, 1.0), (1, 0.58), (2, 0.32) };
-            foreach (var step in shadowSteps)
-            {
-                var shadow = new TextBlock
-                {
-                    Text = textLayer.Text,
-                    FontSize = textLayer.FontSize,
-                    FontFamily = new FontFamily(GetFontName(textLayer.FontFamily)),
-                    Foreground = new SolidColorBrush(ScaleColorAlpha(shadowColor, step.alphaScale)),
-                    Width = Math.Max(1, textLayer.WrapWidth),
-                    TextWrapping = TextWrapping.Wrap
-                };
-                ApplyTextStyleToBlock(shadow, textLayer);
-
-                var offset = shadowOffset + step.delta;
-                Canvas.SetLeft(shadow, textLayer.X + offset);
-                Canvas.SetTop(shadow, textLayer.Y + offset);
-                targetCanvas.Children.Add(shadow);
-            }
-        }
-
-        private void DrawFeatheredBorderShadow(BorderLayer borderLayer, double cornerRadius, Canvas targetCanvas)
-        {
-            var shadowColor = ParseColor(borderLayer.ShadowColorHex);
-            var shadowOffset = Math.Max(1, borderLayer.ShadowOffset);
-            var shadowSteps = new (int delta, double alphaScale, double thicknessAdd)[] { (0, 1.0, 0.0), (1, 0.58, 1.0), (2, 0.34, 2.0) };
-            foreach (var step in shadowSteps)
-            {
-                var shadowRect = new Rectangle
-                {
-                    Width = borderLayer.Region.Width,
-                    Height = borderLayer.Region.Height,
-                    Stroke = new SolidColorBrush(ScaleColorAlpha(shadowColor, step.alphaScale)),
-                    StrokeThickness = Math.Max(1, borderLayer.Thickness + step.thicknessAdd),
-                    RadiusX = cornerRadius,
-                    RadiusY = cornerRadius
-                };
-
-                var offset = shadowOffset + step.delta;
-                Canvas.SetLeft(shadowRect, borderLayer.Region.X + offset);
-                Canvas.SetTop(shadowRect, borderLayer.Region.Y + offset);
-                targetCanvas.Children.Add(shadowRect);
-            }
+            EditorVectorOverlayRenderer.DrawVectorLayersBottomToTop(
+                new[] { previewLayer },
+                OverlayCanvas,
+                suppressExpensiveEffects);
         }
 
         private async void SaveButton_Click(object sender, RoutedEventArgs e)
@@ -1393,9 +1242,11 @@ namespace helvety.screentools.Views
             try
             {
                 CommitInlineTextEditor();
+                await RecomposeAsync(includeAdorners: true, includePixelEffects: true);
                 var outputPath = BuildOutputPath(_filePath, "_edited");
-                var pixels = await RenderCompositePixelsAsync();
+                var pixels = await RenderCompositePixelsAsync(flattenVectorOverlaysInRaster: false);
                 await SavePngAsync(outputPath, pixels, _imageWidth, _imageHeight);
+                await SyncOriginalPixelsAfterEditableSaveAsync(pixels);
                 InAppToastService.Show($"Saved: {outputPath}", InAppToastSeverity.Success);
             }
             catch (Exception ex)
@@ -1409,8 +1260,10 @@ namespace helvety.screentools.Views
             try
             {
                 CommitInlineTextEditor();
-                var pixels = await RenderCompositePixelsAsync();
+                await RecomposeAsync(includeAdorners: true, includePixelEffects: true);
+                var pixels = await RenderCompositePixelsAsync(flattenVectorOverlaysInRaster: false);
                 await SavePngAsync(_filePath, pixels, _imageWidth, _imageHeight);
+                await SyncOriginalPixelsAfterEditableSaveAsync(pixels);
                 InAppToastService.Show($"Overridden: {_filePath}", InAppToastSeverity.Success);
             }
             catch (Exception ex)
@@ -1419,12 +1272,30 @@ namespace helvety.screentools.Views
             }
         }
 
+        private async void SaveFlattenedButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                CommitInlineTextEditor();
+                await RecomposeAsync(includeAdorners: true, includePixelEffects: true);
+                var outputPath = BuildOutputPath(_filePath, "_flat");
+                var pixels = await RenderCompositePixelsAsync(flattenVectorOverlaysInRaster: true);
+                await SavePngAsync(outputPath, pixels, _imageWidth, _imageHeight, embedEditableMetadata: false);
+                InAppToastService.Show($"Saved flattened image: {outputPath}", InAppToastSeverity.Success);
+            }
+            catch (Exception ex)
+            {
+                InAppToastService.Show($"Save flattened failed ({ex.Message}).", InAppToastSeverity.Error);
+            }
+        }
+
         private async void CopyButton_Click(object sender, RoutedEventArgs e)
         {
             try
             {
                 CommitInlineTextEditor();
-                var pixels = await RenderCompositePixelsAsync();
+                await RecomposeAsync(includeAdorners: true, includePixelEffects: true);
+                var pixels = await RenderCompositePixelsAsync(flattenVectorOverlaysInRaster: true);
                 _clipboardImageStream?.Dispose();
                 _clipboardImageStream = new InMemoryRandomAccessStream();
                 var encoder = await BitmapEncoder.CreateAsync(BitmapEncoder.PngEncoderId, _clipboardImageStream);
@@ -1463,7 +1334,8 @@ namespace helvety.screentools.Views
             {
                 CommitInlineTextEditor();
                 var region = _pendingCropRect.Value;
-                var fullPixels = await RenderCompositePixelsAsync();
+                await RecomposeAsync(includeAdorners: true, includePixelEffects: true);
+                var fullPixels = await RenderCompositePixelsAsync(flattenVectorOverlaysInRaster: true);
                 var cropPixels = CropPixels(fullPixels, _imageWidth, _imageHeight, region);
                 var outputPath = BuildOutputPath(_filePath, "_crop");
                 await SavePngAsync(outputPath, cropPixels, region.Width, region.Height);
@@ -1482,8 +1354,25 @@ namespace helvety.screentools.Views
                 : Visibility.Collapsed;
         }
 
-        private async Task<byte[]> RenderCompositePixelsAsync()
+        /// <summary>
+        /// When <paramref name="flattenVectorOverlaysInRaster"/> is false, returns the GPU pixel buffer (blur/highlight only),
+        /// which matches how the editor displays the base image without burning text, borders, or arrows into PNG bytes.
+        /// When true, captures the full surface (base + vector overlays) for clipboard, flattened export, or other apps.
+        /// </summary>
+        private async Task<byte[]> RenderCompositePixelsAsync(bool flattenVectorOverlaysInRaster)
         {
+            if (!flattenVectorOverlaysInRaster)
+            {
+                if (_workingPixels is null || _document is null || _originalPixels is null)
+                {
+                    return await RenderCompositePixelsAsync(flattenVectorOverlaysInRaster: true);
+                }
+
+                var editableCopy = new byte[_workingPixels.Length];
+                System.Buffer.BlockCopy(_workingPixels, 0, editableCopy, 0, _workingPixels.Length);
+                return editableCopy;
+            }
+
             if (_document is not null &&
                 _workingPixels is not null &&
                 !_document.Layers.Any(layer => layer.IsVisible && layer is TextLayer or BorderLayer or ArrowLayer))
@@ -1501,10 +1390,29 @@ namespace helvety.screentools.Views
             return buffer.ToArray();
         }
 
-        private async Task SavePngAsync(string outputPath, byte[] pixels, int width, int height)
+        private async Task SyncOriginalPixelsAfterEditableSaveAsync(byte[] pixels)
+        {
+            if (_originalPixels is null || pixels.Length != _originalPixels.Length)
+            {
+                return;
+            }
+
+            System.Buffer.BlockCopy(pixels, 0, _originalPixels, 0, pixels.Length);
+            if (_workingPixels is null || _workingPixels.Length != pixels.Length)
+            {
+                _workingPixels = new byte[pixels.Length];
+            }
+
+            System.Buffer.BlockCopy(pixels, 0, _workingPixels, 0, pixels.Length);
+            await UpdateBaseImageAsync();
+            RebuildOverlayVisuals(includeAdorners: true);
+        }
+
+        private async Task SavePngAsync(string outputPath, byte[] pixels, int width, int height, bool embedEditableMetadata = true)
         {
             var pngBytes = await EncodePngBytesAsync(pixels, width, height);
-            var shouldEmbedEditableMetadata = _document is not null &&
+            var shouldEmbedEditableMetadata = embedEditableMetadata &&
+                                             _document is not null &&
                                              width == _imageWidth &&
                                              height == _imageHeight;
 
@@ -1551,7 +1459,14 @@ namespace helvety.screentools.Views
                 return;
             }
 
-            if (!EditorDocumentSerialization.TryDeserialize(payloadJson, _filePath, _imageWidth, _imageHeight, out var restoredDocument, out var runtimeState))
+            if (!EditorDocumentSerialization.TryDeserialize(
+                    payloadJson,
+                    _filePath,
+                    _imageWidth,
+                    _imageHeight,
+                    out var restoredDocument,
+                    out var runtimeState,
+                    out var loadedSchemaVersion))
             {
                 return;
             }
@@ -1560,6 +1475,15 @@ namespace helvety.screentools.Views
             foreach (var layer in restoredDocument.Layers)
             {
                 _document.Layers.Add(layer);
+            }
+
+            if (loadedSchemaVersion < 2 &&
+                restoredDocument.Layers.Any(layer =>
+                    layer.IsVisible && layer is TextLayer or BorderLayer or ArrowLayer))
+            {
+                InAppToastService.Show(
+                    "This PNG was saved with an older editor format. Text, borders, or arrows may appear doubled. Use Save Flattened PNG for other apps, or overwrite the file here to upgrade to the new format.",
+                    InAppToastSeverity.Warning);
             }
 
             _blurInvertMode = runtimeState.BlurInvertMode;

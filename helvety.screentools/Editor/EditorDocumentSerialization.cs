@@ -14,7 +14,7 @@ namespace helvety.screentools.Editor
 
     internal static class EditorDocumentSerialization
     {
-        private const int CurrentSchemaVersion = 1;
+        private const int CurrentSchemaVersion = 2;
         private const int MaxHighlightDimPercent = 80;
         private const int MaxRegionCornerRadius = 24;
 
@@ -29,6 +29,7 @@ namespace helvety.screentools.Editor
             var payload = new EditorDocumentPayload
             {
                 SchemaVersion = CurrentSchemaVersion,
+                RasterExcludesVectorOverlays = true,
                 CanvasWidth = document.Width,
                 CanvasHeight = document.Height,
                 SavedAtUtc = DateTimeOffset.UtcNow,
@@ -51,8 +52,10 @@ namespace helvety.screentools.Editor
             int width,
             int height,
             out EditorDocument document,
-            out EditorRuntimeState runtimeState)
+            out EditorRuntimeState runtimeState,
+            out int loadedSchemaVersion)
         {
+            loadedSchemaVersion = 0;
             document = new EditorDocument(sourcePath, width, height);
             runtimeState = new EditorRuntimeState(false, 35, false, 8);
 
@@ -73,6 +76,8 @@ namespace helvety.screentools.Editor
                 {
                     return false;
                 }
+
+                loadedSchemaVersion = payload.SchemaVersion;
 
                 foreach (var layerPayload in payload.Layers)
                 {
@@ -96,6 +101,7 @@ namespace helvety.screentools.Editor
             }
             catch
             {
+                loadedSchemaVersion = 0;
                 return false;
             }
         }
@@ -314,6 +320,7 @@ namespace helvety.screentools.Editor
         private sealed class EditorDocumentPayload
         {
             public int SchemaVersion { get; set; }
+            public bool? RasterExcludesVectorOverlays { get; set; }
             public int CanvasWidth { get; set; }
             public int CanvasHeight { get; set; }
             public DateTimeOffset SavedAtUtc { get; set; }
