@@ -39,8 +39,8 @@
                     </tk:SettingsCard.HeaderIcon>
                     <HyperlinkButton
                         AutomationProperties.Name="Open Helvety Screen Tools on GitHub in the browser"
-                        Content="github.com/CasparRubin/helvety.screenshots"
-                        NavigateUri="https://github.com/CasparRubin/helvety.screenshots" />
+                        Content="github.com/CasparRubin/helvety.screentools"
+                        NavigateUri="https://github.com/CasparRubin/helvety.screentools" />
                 </tk:SettingsCard>
                 <tk:SettingsCard Header="Build version">
                     <tk:SettingsCard.HeaderIcon>
