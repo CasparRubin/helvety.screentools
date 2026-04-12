@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 
 namespace helvety.screentools.Editor
 {
@@ -12,17 +11,11 @@ namespace helvety.screentools.Editor
         bool HighlightInvertMode,
         int RegionCornerRadius);
 
-    internal static class EditorDocumentSerialization
+    internal static partial class EditorDocumentSerialization
     {
         private const int CurrentSchemaVersion = 2;
         private const int MaxHighlightDimPercent = 80;
         private const int MaxRegionCornerRadius = 24;
-
-        private static readonly JsonSerializerOptions JsonOptions = new()
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-        };
 
         internal static string Serialize(EditorDocument document, EditorRuntimeState runtimeState)
         {
@@ -43,7 +36,7 @@ namespace helvety.screentools.Editor
                 Layers = document.Layers.Select(ToLayerPayload).Where(x => x is not null).Cast<LayerPayload>().ToList()
             };
 
-            return JsonSerializer.Serialize(payload, JsonOptions);
+            return JsonSerializer.Serialize(payload, EditorDocumentJsonContext.Default.EditorDocumentPayload);
         }
 
         internal static bool TryDeserialize(
@@ -66,7 +59,7 @@ namespace helvety.screentools.Editor
 
             try
             {
-                var payload = JsonSerializer.Deserialize<EditorDocumentPayload>(json, JsonOptions);
+                var payload = JsonSerializer.Deserialize(json, EditorDocumentJsonContext.Default.EditorDocumentPayload);
                 if (payload is null || payload.SchemaVersion <= 0 || payload.Layers is null)
                 {
                     return false;
@@ -316,69 +309,69 @@ namespace helvety.screentools.Editor
 
         private static int Clamp(int value, int minValue, int maxValue)
             => Math.Max(minValue, Math.Min(maxValue, value));
+    }
 
-        private sealed class EditorDocumentPayload
-        {
-            public int SchemaVersion { get; set; }
-            public bool? RasterExcludesVectorOverlays { get; set; }
-            public int CanvasWidth { get; set; }
-            public int CanvasHeight { get; set; }
-            public DateTimeOffset SavedAtUtc { get; set; }
-            public EditorStatePayload? EditorState { get; set; }
-            public List<LayerPayload>? Layers { get; set; }
-        }
+    internal sealed class EditorDocumentPayload
+    {
+        public int SchemaVersion { get; set; }
+        public bool? RasterExcludesVectorOverlays { get; set; }
+        public int CanvasWidth { get; set; }
+        public int CanvasHeight { get; set; }
+        public DateTimeOffset SavedAtUtc { get; set; }
+        public EditorStatePayload? EditorState { get; set; }
+        public List<LayerPayload>? Layers { get; set; }
+    }
 
-        private sealed class EditorStatePayload
-        {
-            public bool BlurInvertMode { get; set; }
-            public int HighlightDimPercent { get; set; }
-            public bool HighlightInvertMode { get; set; }
-            public int RegionCornerRadius { get; set; }
-        }
+    internal sealed class EditorStatePayload
+    {
+        public bool BlurInvertMode { get; set; }
+        public int HighlightDimPercent { get; set; }
+        public bool HighlightInvertMode { get; set; }
+        public int RegionCornerRadius { get; set; }
+    }
 
-        private sealed class LayerPayload
-        {
-            public string LayerType { get; set; } = string.Empty;
-            public string? Name { get; set; }
-            public bool IsVisible { get; set; } = true;
+    internal sealed class LayerPayload
+    {
+        public string LayerType { get; set; } = string.Empty;
+        public string? Name { get; set; }
+        public bool IsVisible { get; set; } = true;
 
-            public string? Text { get; set; }
-            public double? X { get; set; }
-            public double? Y { get; set; }
-            public double? FontSize { get; set; }
-            public int? WrapWidth { get; set; }
-            public string? FontFamily { get; set; }
-            public bool? IsBold { get; set; }
-            public bool? IsItalic { get; set; }
+        public string? Text { get; set; }
+        public double? X { get; set; }
+        public double? Y { get; set; }
+        public double? FontSize { get; set; }
+        public int? WrapWidth { get; set; }
+        public string? FontFamily { get; set; }
+        public bool? IsBold { get; set; }
+        public bool? IsItalic { get; set; }
 
-            public RegionPayload? Region { get; set; }
-            public int? Thickness { get; set; }
-            public int? Radius { get; set; }
-            public int? Feather { get; set; }
-            public int? CornerRadius { get; set; }
+        public RegionPayload? Region { get; set; }
+        public int? Thickness { get; set; }
+        public int? Radius { get; set; }
+        public int? Feather { get; set; }
+        public int? CornerRadius { get; set; }
 
-            public double? StartX { get; set; }
-            public double? StartY { get; set; }
-            public double? EndX { get; set; }
-            public double? EndY { get; set; }
-            public double? ThicknessDouble { get; set; }
-            public string? FormStyle { get; set; }
+        public double? StartX { get; set; }
+        public double? StartY { get; set; }
+        public double? EndX { get; set; }
+        public double? EndY { get; set; }
+        public double? ThicknessDouble { get; set; }
+        public string? FormStyle { get; set; }
 
-            public string? ColorHex { get; set; }
-            public bool? HasBorder { get; set; }
-            public string? BorderColorHex { get; set; }
-            public int? BorderThickness { get; set; }
-            public bool? HasShadow { get; set; }
-            public string? ShadowColorHex { get; set; }
-            public int? ShadowOffset { get; set; }
-        }
+        public string? ColorHex { get; set; }
+        public bool? HasBorder { get; set; }
+        public string? BorderColorHex { get; set; }
+        public int? BorderThickness { get; set; }
+        public bool? HasShadow { get; set; }
+        public string? ShadowColorHex { get; set; }
+        public int? ShadowOffset { get; set; }
+    }
 
-        private readonly struct RegionPayload
-        {
-            public int X { get; init; }
-            public int Y { get; init; }
-            public int Width { get; init; }
-            public int Height { get; init; }
-        }
+    internal readonly struct RegionPayload
+    {
+        public int X { get; init; }
+        public int Y { get; init; }
+        public int Width { get; init; }
+        public int Height { get; init; }
     }
 }

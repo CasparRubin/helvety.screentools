@@ -5,12 +5,13 @@
   xmlns:mp="http://schemas.microsoft.com/appx/2014/phone/manifest"
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
-  IgnorableNamespaces="uap rescap">
+  xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
+  IgnorableNamespaces="uap rescap desktop">
 
   <Identity
     Name="e4d12237-970d-40b9-9bfa-ffe4e3b52350"
     Publisher="CN=ETH"
-    Version="1.0.0.0" />
+    Version="1.0.0.1" />
 
   <mp:PhoneIdentity PhoneProductId="e4d12237-970d-40b9-9bfa-ffe4e3b52350" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
@@ -42,6 +43,14 @@
         <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" />
         <uap:SplashScreen Image="Assets\SplashScreen.png" />
       </uap:VisualElements>
+      <Extensions>
+        <desktop:Extension Category="windows.startupTask">
+          <desktop:StartupTask
+            TaskId="HelvetyScreenToolsStartup"
+            Enabled="true"
+            DisplayName="Helvety Screen Tools" />
+        </desktop:Extension>
+      </Extensions>
     </Application>
   </Applications>
 

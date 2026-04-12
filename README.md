@@ -9,10 +9,10 @@ The app can be **packaged and deployed** (MSIX or unpackaged). Behavior and defa
 ## Current Focus
 
 - **Two independent global hotkeys**: capture (default `Shift+S+S+S`) and Live Draw (default `Shift+D+D+D`). They must use different sequences; the app blocks applying duplicates in Settings.
-- **Settings layout**: the main **NavigationView** has a single left rail. **Settings** is an expandable group (PowerToys-style) with **General**, **Screen capture**, and **Live Draw**. **General** covers close-to-tray, editor performance, global **snap-border intensity** (Subtle / Balanced / Bold; **default Bold**) for both frozen-screen capture and Live Draw, and a **Reset all settings** action. **Screen capture** includes save folder, master **On/Off**, hotkey editor, capture quality, and overlay instructions. **Live Draw** includes a master **On/Off** toggle (shortcuts stay stored when off), global hotkey editor, **Line thickness**, and **Shape shortcuts** (per-tool modifiers plus fixed free draw and sparkle).
+- **Settings layout**: the main **NavigationView** has a single left rail. **Settings** is an expandable group (PowerToys-style) with **General**, **Screen capture**, and **Live Draw**. **General** covers close-to-tray, **Run at sign-in** (Windows **Startup** apps; packaged MSIX only—hidden when running unpackaged), editor performance, global **snap-border intensity** (Subtle / Balanced / Bold; **default Bold**) for both frozen-screen capture and Live Draw, and a **Reset all settings** action (does not change Windows startup registration). **Screen capture** includes save folder, master **On/Off**, hotkey editor, capture quality, and overlay instructions. **Live Draw** includes a master **On/Off** toggle (shortcuts stay stored when off), global hotkey editor, **Line thickness**, and **Shape shortcuts** (per-tool modifiers plus fixed free draw and sparkle).
 - **Frozen-screen capture** (global hotkey): overlay with window snapping (highlighted border). **Esc** cancels and closes the overlay. **Click** (without dragging) commits the snapped window under the cursor, or the full virtual screen if nothing snaps; **drag** selects a custom rectangle. Left-click saves, copies to clipboard, and exits; right-click saves (no clipboard copy) and stays in the same capture session.
 - **Live Draw**: global hotkey → fullscreen **Win32 layered host** hosting a **DesktopWindowXamlSource** island (vector markup only; no desktop BitBlt). **Esc** ends the session. **Settings → Live Draw → Line thickness** controls the stroke width for rectangles/ellipses/freehand arrows and straight-line ink. **Settings → Live Draw → Shape shortcuts** assigns **Shift**, **Ctrl**, **Alt**, **Win**, or **None** (unbound) to **Rectangle**, **Arrow**, and **Straight line** (left mouse; each non-None modifier must be unique) and to **Circle** and **Ellipse** (right drag; must differ unless one is **None**). Left drag with **no** matching shape modifier is **free draw**; right click and hold with **no** circle/ellipse modifier is the **sparkle** animation (fixed). **Rectangles, ellipses, circles, arrows, straight lines, freehand, and sparkle** use the same snap-border chrome as capture selection (gradients, dashing, pulse). **Does not require a save folder**; saving captures from capture mode still requires a writable save location.
-- **Navigation**: left **NavigationView** with **General** (home), an expandable **Settings** group (**General**, **Screen capture**, **Live Draw**), and **About**. **About** shows a short product summary, a compile-time **Build Version** (`v0.yyMMdd.HHmm.ss` from local clock when the project is built; see `GenerateAppBuildStamp` in `helvety.screentools.csproj`), and links to [helvety.com](https://helvety.com/) and the [GitHub repository](https://github.com/CasparRubin/helvety.screentools).
+- **Navigation**: left **NavigationView** with **General** (home), an expandable **Settings** group (**General**, **Screen capture**, **Live Draw**), and **About**. **About** shows a short product summary, the app **Version** (package version when installed; assembly version when running unpackaged), and links to [helvety.com](https://helvety.com/) and the [GitHub repository](https://github.com/CasparRubin/helvety.screentools).
 - Close-to-tray behavior (notification area) with optional full-exit-on-close setting.
 - Restore main window after capture or Live Draw when the window was tray-hidden (capture path restores after at least one save; Live Draw restores after the session ends).
 - **General** home page (titled **Helvety Screen Tools**): after each **frozen-screen capture** is saved to the configured folder, the coordinator notifies this page so the gallery **reloads** (same as navigating back to home). Other saves (for example from the editor) rely on the folder watcher and debounced rescan like any file change. For **`.png`** files thumbnails use a **scaled decode from disk** (about max width 520px), then a generic file decode, then the **shell thumbnail** provider. A **debounced** `FileSystemWatcher` still runs a full folder rescan so ordering and metadata stay correct. **Listing files** for a refresh runs on a **background thread** before the gallery lock; applying updates to the grid stays **serialized**. Thumbnails attach to the **visible row by file path**. In-flight thumbnail work is **not** cancelled on every refresh (only when leaving the page). Under the **Images** heading, the UI reminds you that **left-click** opens the image in the editor and **right-click** copies the image to the clipboard.
@@ -42,13 +42,65 @@ The app can be **packaged and deployed** (MSIX or unpackaged). Behavior and defa
 - Self-contained Windows App SDK runtime (unpackaged `dotnet run` / F5 without a separate machine-wide Windows App Runtime install)
 - `H.NotifyIcon.WinUI` for notification area tray integration
 
+## Install and run
+
+Paths below are **relative to the repository root** (where `helvety.screentools.slnx` lives). Replace `<Platform>` with `x64`, `x86`, or `ARM64`, and `<Configuration>` with `Debug` or `Release`.
+
+### Run unpackaged (quickest)
+
+From the repo root:
+
+```bash
+dotnet run --project helvety.screentools/helvety.screentools.csproj -p:Platform=<Platform>
+```
+
+Or build, then start the executable:
+
+```bash
+dotnet build helvety.screentools/helvety.screentools.csproj -c <Configuration> -p:Platform=<Platform>
+```
+
+The app is **`helvety.screentools.exe`**, under:
+
+`helvety.screentools/bin/<Platform>/<Configuration>/` → open the **one** folder whose name starts with **`net`** and ends with **`windows`** → then the runtime folder **`win-x64`**, **`win-x86`**, or **`win-arm64`** (matching your platform).
+
+**Visual Studio:** use the **helvety.screentools (Unpackaged)** launch profile (see `helvety.screentools/Properties/launchSettings.json`).
+
+Unpackaged runs **do not** register the app as a full MSIX install; **Settings → Apps → Startup** integration and **Run at sign-in** in the app apply to the **packaged** build only.
+
+### Build an MSIX package
+
+From the repo root (example: **Release**, **x64**):
+
+```bash
+dotnet msbuild helvety.screentools/helvety.screentools.csproj -p:Configuration=Release -p:Platform=x64 -t:Publish -p:GenerateAppxPackageOnBuild=true
+```
+
+The **`.msix`** file is written under **`helvety.screentools/AppPackages/`**, inside a subfolder named for the app, version, and platform (open that folder and use the `.msix` you find there).
+
+### Install the MSIX
+
+- **Double-click** the `.msix` and confirm the installer, or from PowerShell:  
+  `Add-AppxPackage -Path "<path-to-your>.msix"`
+
+**Signing and trust:** packages produced on a dev machine are often **unsigned** or signed with a **self-signed** certificate. Windows may refuse to install until you either:
+
+- enable **Developer Mode** and use **`Add-AppxPackage -AllowUnsigned`** only when your package is in the correct **unsigned** publisher configuration, or  
+- **sign** the `.msix` with a certificate whose chain is trusted (typical for self-signed dev certs: import the **signer** into **Local Computer → Trusted Root Certification Authorities** using an **elevated** session, then install).
+
+If Windows reports that an **unpackaged** registration of the same app already exists, remove that app (Settings → Installed apps, or `Get-AppxPackage` / `Remove-AppxPackage`) before installing the MSIX.
+
+**Visual Studio:** use **helvety.screentools (Package)** or the project’s **Package and Publish** flow; output still lands under **`helvety.screentools/AppPackages/`**.
+
 ## Run Locally
 
+Use **Install and run** above for `dotnet run`, unpackaged **exe** locations, and **MSIX** output. The steps below focus on the **Visual Studio** workflow and **Settings** tour.
+
 1. Open `helvety.screentools.slnx` in Visual Studio 2022 or newer (with WinUI / .NET desktop workloads).
-2. Build and run the `helvety.screentools` project. The project **defaults to x64** when no platform is set so plain `dotnet build` works; you can still pass `-p:Platform=x86` or `ARM64` explicitly. (**Any CPU** is remapped to x64 because WinUI/MSIX packaging cannot target neutral architecture.) Each build regenerates the **About** page **Build Version** (`v0.yyMMdd.HHmm.ss`).
+2. Build and run the `helvety.screentools` project. The project **defaults to x64** when no platform is set so plain `dotnet build` works; you can still pass `-p:Platform=x86` or `ARM64` explicitly. (**Any CPU** is remapped to x64 because WinUI/MSIX packaging cannot target neutral architecture.) The shipped **version** is defined in `helvety.screentools.csproj` (`ApplicationVersion`, `ApplicationDisplayVersion`, and `Version`, currently aligned with `Package.appxmanifest` / `app.manifest`); bump those together for each release. **About** shows the package version when installed (MSIX) or the assembly version when running unpackaged (`dotnet run` / F5).
 3. Use the navigation pane to switch between **General**, **Settings** (expand for section items), and **About**.
 4. Under **Settings**, choose a section:
-   - **General**: **System tray** (close-to-tray), **Editor performance mode**, and **Snap border** intensity (global for capture selection and Live Draw).
+   - **General**: **System tray** (close-to-tray), **Run at sign-in** (when packaged), **Editor performance mode**, and **Snap border** intensity (global for capture selection and Live Draw).
    - **Screen capture**: **Save location** (required for frozen-screen capture), master toggle, **Listen**-based hotkey editor (changes auto-save), **Capture quality**, and **Overlay** instructions.
    - **Live Draw**: master toggle, **Listen**-based hotkey editor (changes auto-save), **Line thickness**, and **Shape shortcuts** (per-tool modifiers). **Live Draw** can be configured without a save folder.
    - **Settings → General** also includes a **Reset all settings** action: all stored preferences revert to defaults (including the save folder, which is set again to the default desktop **Helvety Screen Tools captures** folder). Existing image files on disk are **not** deleted.
@@ -56,7 +108,8 @@ The app can be **packaged and deployed** (MSIX or unpackaged). Behavior and defa
 
 ## Notes
 
-- **About** Build Version: the value shown in **About** is written at **compile time** (not runtime). Rebuild the project to refresh it; it reflects the **local** machine clock in `v0.yyMMdd.HHmm.ss` form.
+- **Automated tests**: the solution currently has **no** `dotnet test` project; validation is by **build** (`dotnet build helvety.screentools.slnx` or the `.csproj` with `-c Release` and the desired `-p:Platform=`).
+- **About → Version**: **installed MSIX** shows `Package.Current` identity (matches release versioning). **Unpackaged** runs show the assembly version from the same `Version` MSBuild property.
 - **Capture quality** defaults to **Fast** for new settings profiles (missing `ScreenshotQualityMode` in LocalSettings). If you previously saved **Heavy** or **Optimized**, that choice is kept until you change it under **Settings → Screen capture → Capture quality**.
 - Default save folder when the app first creates one (and you have not cleared it in Settings) is **`Helvety Screen Tools captures`** on your desktop. The top-nav home item is labeled **General** and the page title is **Helvety Screen Tools**; this is not tied to any legacy “Screenshots” folder name.
 - Quality enhancement modes improve perceived readability for some text-heavy captures, but they cannot guarantee recovery of detail that is not present in source screen pixels.

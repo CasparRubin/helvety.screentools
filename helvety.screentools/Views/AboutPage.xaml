@@ -42,12 +42,12 @@
                         Content="github.com/CasparRubin/helvety.screentools"
                         NavigateUri="https://github.com/CasparRubin/helvety.screentools" />
                 </tk:SettingsCard>
-                <tk:SettingsCard Header="Build version">
+                <tk:SettingsCard Header="Version">
                     <tk:SettingsCard.HeaderIcon>
                         <FontIcon Glyph="&#xE946;" />
                     </tk:SettingsCard.HeaderIcon>
                     <TextBlock
-                        x:Name="BuildVersionText"
+                        x:Name="AppVersionText"
                         FontSize="14"
                         FontWeight="SemiBold"
                         TextWrapping="WrapWholeWords" />

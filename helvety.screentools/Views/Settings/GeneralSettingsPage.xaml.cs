@@ -1,7 +1,10 @@
 using helvety.screentools;
+using helvety.screentools.Services;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 using System;
+using System.Threading.Tasks;
+using Windows.ApplicationModel;
 
 namespace helvety.screentools.Views.Settings
 {
@@ -10,6 +13,7 @@ namespace helvety.screentools.Views.Settings
         private bool _isUpdatingMinimizeToTraySelection;
         private bool _isUpdatingEditorPerformanceModeSelection;
         private bool _isUpdatingBorderIntensitySelection;
+        private bool _isUpdatingRunAtSignInSelection;
 
         public GeneralSettingsPage()
         {
@@ -24,6 +28,7 @@ namespace helvety.screentools.Views.Settings
             InitializeMinimizeToTraySelection();
             InitializeEditorPerformanceModeSelection();
             InitializeBorderIntensitySelection();
+            _ = RefreshRunAtSignInToggleAsync();
         }
 
         private void SettingsService_SettingsChanged()
@@ -33,6 +38,7 @@ namespace helvety.screentools.Views.Settings
                 InitializeMinimizeToTraySelection();
                 InitializeEditorPerformanceModeSelection();
                 InitializeBorderIntensitySelection();
+                _ = RefreshRunAtSignInToggleAsync();
             });
         }
 
@@ -42,6 +48,33 @@ namespace helvety.screentools.Views.Settings
             InitializeMinimizeToTraySelection();
             InitializeEditorPerformanceModeSelection();
             InitializeBorderIntensitySelection();
+            _ = RefreshRunAtSignInToggleAsync();
+        }
+
+        private async Task RefreshRunAtSignInToggleAsync()
+        {
+            if (!StartupLaunchService.IsSupported)
+            {
+                RunAtSignInSection.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+                return;
+            }
+
+            RunAtSignInSection.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
+            var state = await StartupLaunchService.GetStateAsync();
+            if (state is null)
+            {
+                return;
+            }
+
+            _isUpdatingRunAtSignInSelection = true;
+            try
+            {
+                RunAtSignInToggle.IsOn = state == StartupTaskState.Enabled;
+            }
+            finally
+            {
+                _isUpdatingRunAtSignInSelection = false;
+            }
         }
 
         private void InitializeMinimizeToTraySelection()
@@ -90,6 +123,39 @@ namespace helvety.screentools.Views.Settings
             }
 
             SettingsService.SaveEditorPerformanceModeEnabled(EditorPerformanceModeToggle.IsOn);
+        }
+
+        private async void RunAtSignInToggle_Toggled(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+        {
+            if (_isUpdatingRunAtSignInSelection || !StartupLaunchService.IsSupported)
+            {
+                return;
+            }
+
+            if (RunAtSignInToggle.IsOn)
+            {
+                var state = await StartupLaunchService.RequestEnableAsync();
+                if (state != StartupTaskState.Enabled)
+                {
+                    _isUpdatingRunAtSignInSelection = true;
+                    try
+                    {
+                        RunAtSignInToggle.IsOn = false;
+                    }
+                    finally
+                    {
+                        _isUpdatingRunAtSignInSelection = false;
+                    }
+
+                    InAppToastService.Show(
+                        "Startup was not enabled. You can turn it on in Windows Settings → Apps → Startup.",
+                        InAppToastSeverity.Warning);
+                }
+            }
+            else
+            {
+                await StartupLaunchService.DisableAsync();
+            }
         }
 
         private void InitializeBorderIntensitySelection()

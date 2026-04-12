@@ -33,6 +33,21 @@
                 </tk:SettingsCard>
             </StackPanel>
 
+            <StackPanel x:Name="RunAtSignInSection" Spacing="{StaticResource AppSpacingStack}">
+                <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Startup" />
+                <tk:SettingsCard
+                    Description="Launch Helvety Screen Tools when you sign in to Windows so tray and global hotkeys are ready. This also appears under Windows Settings → Apps → Startup."
+                    Header="Run at sign-in">
+                    <tk:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE7B5;" />
+                    </tk:SettingsCard.HeaderIcon>
+                    <ToggleSwitch
+                        x:Name="RunAtSignInToggle"
+                        Style="{StaticResource SettingsInlineToggleSwitchStyle}"
+                        Toggled="RunAtSignInToggle_Toggled" />
+                </tk:SettingsCard>
+            </StackPanel>
+
             <StackPanel Spacing="{StaticResource AppSpacingStack}">
                 <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Image editor" />
                 <tk:SettingsCard
