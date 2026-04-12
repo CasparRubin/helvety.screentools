@@ -371,7 +371,7 @@ namespace helvety.screentools.Views
                     }
                 }
 
-                thumbnail = await TryLoadPreviewAsync(file, token).ConfigureAwait(false);
+                thumbnail = await RunPreviewLoadOnUiThreadAsync(file, token).ConfigureAwait(false);
                 if (thumbnail is null || token.IsCancellationRequested)
                 {
                     return;
@@ -387,6 +387,37 @@ namespace helvety.screentools.Views
             {
                 Debug.WriteLine($"[ScreenToolsPage] Thumbnail load failed for '{item.Path}': {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// BitmapImage, SoftwareBitmapSource, and WriteableBitmap are UI-thread affinity types in WinUI; preview decode must run on the dispatcher.
+        /// </summary>
+        private Task<ImageSource?> RunPreviewLoadOnUiThreadAsync(StorageFile file, CancellationToken token)
+        {
+            var tcs = new TaskCompletionSource<ImageSource?>(TaskCreationOptions.RunContinuationsAsynchronously);
+            if (!DispatcherQueue.TryEnqueue(async () =>
+            {
+                try
+                {
+                    if (token.IsCancellationRequested)
+                    {
+                        tcs.TrySetResult(null);
+                        return;
+                    }
+
+                    tcs.TrySetResult(await TryLoadPreviewAsync(file, token).ConfigureAwait(true));
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[ScreenToolsPage] UI-thread preview load failed for '{file.Path}': {ex.Message}");
+                    tcs.TrySetResult(null);
+                }
+            }))
+            {
+                tcs.TrySetResult(null);
+            }
+
+            return tcs.Task;
         }
 
         private Task TryAssignThumbnailOnUiThreadAsync(GalleryFileItem item, ImageSource thumbnail, CancellationToken token)
@@ -628,17 +659,25 @@ namespace helvety.screentools.Views
                     Height = sh
                 };
 
-                var writeable = new WriteableBitmap(sw, sh);
-                using (var stream = writeable.PixelBuffer.AsStream())
-                {
-                    await stream.WriteAsync(scaledBgra, 0, expectedLength).ConfigureAwait(true);
-                }
-
-                writeable.Invalidate();
+                // RenderTargetBitmap often omits WriteableBitmap-backed Images; BitmapImage from encoded pixels composites reliably.
+                using var pngStream = new InMemoryRandomAccessStream();
+                var encoder = await BitmapEncoder.CreateAsync(BitmapEncoder.PngEncoderId, pngStream).AsTask().ConfigureAwait(true);
+                encoder.SetPixelData(
+                    BitmapPixelFormat.Bgra8,
+                    BitmapAlphaMode.Premultiplied,
+                    (uint)sw,
+                    (uint)sh,
+                    96,
+                    96,
+                    scaledBgra);
+                await encoder.FlushAsync().AsTask().ConfigureAwait(true);
+                pngStream.Seek(0);
+                var baseBitmap = new BitmapImage();
+                await baseBitmap.SetSourceAsync(pngStream).AsTask().ConfigureAwait(true);
 
                 var baseImage = new Image
                 {
-                    Source = writeable,
+                    Source = baseBitmap,
                     Width = sw,
                     Height = sh,
                     Stretch = Stretch.None
@@ -664,22 +703,52 @@ namespace helvety.screentools.Views
                 surface.Arrange(new Rect(0, 0, sw, sh));
                 ThumbnailCompositionHost.UpdateLayout();
 
+                await Task.Yield();
+                if (token.IsCancellationRequested)
+                {
+                    ThumbnailCompositionHost.Children.Clear();
+                    tcs.TrySetResult(null);
+                    return;
+                }
+
                 var rtb = new RenderTargetBitmap();
                 await rtb.RenderAsync(surface, sw, sh);
+                var pixelWidth = rtb.PixelWidth;
+                var pixelHeight = rtb.PixelHeight;
+                if (pixelWidth <= 0 || pixelHeight <= 0)
+                {
+                    ThumbnailCompositionHost.Children.Clear();
+                    tcs.TrySetResult(null);
+                    return;
+                }
+
                 var buffer = await rtb.GetPixelsAsync();
+                var requiredBytes = checked((uint)pixelWidth * (uint)pixelHeight * 4);
+                if (buffer.Length < requiredBytes)
+                {
+                    ThumbnailCompositionHost.Children.Clear();
+                    tcs.TrySetResult(null);
+                    return;
+                }
+
+                var pixelBytes = buffer.ToArray();
+                if (IsThumbnailCompositeEssentiallyBlank(pixelBytes, pixelWidth, pixelHeight))
+                {
+                    ThumbnailCompositionHost.Children.Clear();
+                    tcs.TrySetResult(null);
+                    return;
+                }
 
                 ThumbnailCompositionHost.Children.Clear();
 
-                using var outputBitmap = SoftwareBitmap.CreateCopyFromBuffer(
-                    buffer,
-                    BitmapPixelFormat.Bgra8,
-                    sw,
-                    sh,
-                    BitmapAlphaMode.Premultiplied);
+                var output = new WriteableBitmap(pixelWidth, pixelHeight);
+                using (var outStream = output.PixelBuffer.AsStream())
+                {
+                    await outStream.WriteAsync(pixelBytes, 0, (int)requiredBytes).ConfigureAwait(true);
+                }
 
-                var source = new SoftwareBitmapSource();
-                await source.SetBitmapAsync(outputBitmap);
-                tcs.TrySetResult(source);
+                output.Invalidate();
+                tcs.TrySetResult(output);
             }
             catch (Exception ex)
             {
@@ -687,6 +756,41 @@ namespace helvety.screentools.Views
                 ThumbnailCompositionHost.Children.Clear();
                 tcs.TrySetResult(null);
             }
+        }
+
+        /// <summary>
+        /// True when a 5×5 sample grid over premultiplied BGRA is entirely low-alpha (empty RTB / failed base capture).
+        /// </summary>
+        private static bool IsThumbnailCompositeEssentiallyBlank(byte[] pixels, int width, int height)
+        {
+            if (width <= 0 || height <= 0)
+            {
+                return true;
+            }
+
+            var minLength = checked(width * height * 4);
+            if (pixels.Length < minLength)
+            {
+                return true;
+            }
+
+            const byte alphaThreshold = 16;
+            const int samplesPerAxis = 5;
+            for (var iy = 0; iy < samplesPerAxis; iy++)
+            {
+                var y = height == 1 ? 0 : iy * (height - 1) / (samplesPerAxis - 1);
+                for (var ix = 0; ix < samplesPerAxis; ix++)
+                {
+                    var x = width == 1 ? 0 : ix * (width - 1) / (samplesPerAxis - 1);
+                    var index = ((y * width) + x) * 4 + 3;
+                    if (pixels[index] >= alphaThreshold)
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            return true;
         }
 
         /// <summary>Decode order: scaled PNG from disk, BitmapImage decode, shell thumbnail.</summary>

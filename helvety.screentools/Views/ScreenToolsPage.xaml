@@ -13,17 +13,17 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!-- Off-screen host for RenderTargetBitmap when compositing vector overlays onto editable PNG thumbnails. -->
+        <!-- Off-screen host for RenderTargetBitmap when compositing vector overlays onto editable PNG thumbnails.
+             Size must cover max decode (520) and stay opaque; 1×1 + Opacity=0 breaks RTB capture of the WriteableBitmap base. -->
         <Grid
             x:Name="ThumbnailCompositionHost"
             Grid.RowSpan="2"
-            Width="1"
-            Height="1"
+            Width="520"
+            Height="520"
             Margin="-10000,0,0,0"
             HorizontalAlignment="Left"
             VerticalAlignment="Top"
-            IsHitTestVisible="False"
-            Opacity="0" />
+            IsHitTestVisible="False" />
 
         <StackPanel Spacing="{StaticResource AppSpacingStack}">
             <TextBlock Style="{StaticResource AppPageTitleTextStyle}" Text="Helvety Screen Tools" />
