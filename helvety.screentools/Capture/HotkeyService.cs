@@ -66,8 +66,21 @@ namespace helvety.screentools.Capture
 
         private void ReloadConfiguration()
         {
-            var hasValidSaveFolder = SettingsService.TryGetEffectiveSaveFolderPath(out _);
             var app = SettingsService.Load();
+            if (!app.GlobalHotkeyListenersEnabled)
+            {
+                lock (_stateLock)
+                {
+                    _captureBinding = null;
+                    _liveDrawBinding = null;
+                    ResetCaptureSequenceState();
+                    ResetLiveDrawSequenceState();
+                }
+
+                return;
+            }
+
+            var hasValidSaveFolder = SettingsService.TryGetEffectiveSaveFolderPath(out _);
             HotkeyBinding? captureBinding = (!app.CaptureHotkeyEnabled ||
                                              !SettingsService.TryGetEffectiveHotkey(out var captureHotkey) ||
                                              !hasValidSaveFolder)

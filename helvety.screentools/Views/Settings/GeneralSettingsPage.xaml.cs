@@ -3,7 +3,6 @@ using helvety.screentools.Services;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 using System;
-using System.Threading.Tasks;
 using Windows.ApplicationModel;
 
 namespace helvety.screentools.Views.Settings
@@ -13,7 +12,8 @@ namespace helvety.screentools.Views.Settings
         private bool _isUpdatingMinimizeToTraySelection;
         private bool _isUpdatingEditorPerformanceModeSelection;
         private bool _isUpdatingBorderIntensitySelection;
-        private bool _isUpdatingRunAtSignInSelection;
+        private bool _isUpdatingStartWithWindowsSelection;
+        private bool _isUpdatingGlobalHotkeyListenersSelection;
 
         public GeneralSettingsPage()
         {
@@ -26,9 +26,10 @@ namespace helvety.screentools.Views.Settings
         private void GeneralSettingsPage_Loaded(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
         {
             InitializeMinimizeToTraySelection();
+            InitializeGlobalHotkeyListenersSelection();
             InitializeEditorPerformanceModeSelection();
             InitializeBorderIntensitySelection();
-            _ = RefreshRunAtSignInToggleAsync();
+            InitializeStartWithWindowsToggle();
         }
 
         private void SettingsService_SettingsChanged()
@@ -36,9 +37,10 @@ namespace helvety.screentools.Views.Settings
             DispatcherQueue.TryEnqueue(() =>
             {
                 InitializeMinimizeToTraySelection();
+                InitializeGlobalHotkeyListenersSelection();
                 InitializeEditorPerformanceModeSelection();
                 InitializeBorderIntensitySelection();
-                _ = RefreshRunAtSignInToggleAsync();
+                InitializeStartWithWindowsToggle();
             });
         }
 
@@ -46,34 +48,44 @@ namespace helvety.screentools.Views.Settings
         {
             base.OnNavigatedTo(e);
             InitializeMinimizeToTraySelection();
+            InitializeGlobalHotkeyListenersSelection();
             InitializeEditorPerformanceModeSelection();
             InitializeBorderIntensitySelection();
-            _ = RefreshRunAtSignInToggleAsync();
+            InitializeStartWithWindowsToggle();
         }
 
-        private async Task RefreshRunAtSignInToggleAsync()
+        private void InitializeGlobalHotkeyListenersSelection()
         {
-            if (!StartupLaunchService.IsSupported)
-            {
-                RunAtSignInSection.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
-                return;
-            }
-
-            RunAtSignInSection.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
-            var state = await StartupLaunchService.GetStateAsync();
-            if (state is null)
-            {
-                return;
-            }
-
-            _isUpdatingRunAtSignInSelection = true;
+            var settings = SettingsService.Load();
+            _isUpdatingGlobalHotkeyListenersSelection = true;
             try
             {
-                RunAtSignInToggle.IsOn = state == StartupTaskState.Enabled;
+                GlobalHotkeyListenersToggle.IsOn = settings.GlobalHotkeyListenersEnabled;
             }
             finally
             {
-                _isUpdatingRunAtSignInSelection = false;
+                _isUpdatingGlobalHotkeyListenersSelection = false;
+            }
+        }
+
+        private void InitializeStartWithWindowsToggle()
+        {
+            if (!StartupLaunchService.IsSupported)
+            {
+                WindowsStartupSection.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+                return;
+            }
+
+            WindowsStartupSection.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
+            var settings = SettingsService.Load();
+            _isUpdatingStartWithWindowsSelection = true;
+            try
+            {
+                StartWithWindowsToggle.IsOn = settings.RunAtWindowsStartup;
+            }
+            finally
+            {
+                _isUpdatingStartWithWindowsSelection = false;
             }
         }
 
@@ -115,6 +127,16 @@ namespace helvety.screentools.Views.Settings
             SettingsService.SaveMinimizeToTrayOnClose(MinimizeToTrayToggle.IsOn);
         }
 
+        private void GlobalHotkeyListenersToggle_Toggled(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+        {
+            if (_isUpdatingGlobalHotkeyListenersSelection)
+            {
+                return;
+            }
+
+            SettingsService.SaveGlobalHotkeyListenersEnabled(GlobalHotkeyListenersToggle.IsOn);
+        }
+
         private void EditorPerformanceModeToggle_Toggled(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
         {
             if (_isUpdatingEditorPerformanceModeSelection)
@@ -125,26 +147,28 @@ namespace helvety.screentools.Views.Settings
             SettingsService.SaveEditorPerformanceModeEnabled(EditorPerformanceModeToggle.IsOn);
         }
 
-        private async void RunAtSignInToggle_Toggled(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+        private async void StartWithWindowsToggle_Toggled(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
         {
-            if (_isUpdatingRunAtSignInSelection || !StartupLaunchService.IsSupported)
+            if (_isUpdatingStartWithWindowsSelection || !StartupLaunchService.IsSupported)
             {
                 return;
             }
 
-            if (RunAtSignInToggle.IsOn)
+            if (StartWithWindowsToggle.IsOn)
             {
+                SettingsService.SaveRunAtWindowsStartup(true);
                 var state = await StartupLaunchService.RequestEnableAsync();
                 if (state != StartupTaskState.Enabled)
                 {
-                    _isUpdatingRunAtSignInSelection = true;
+                    SettingsService.SaveRunAtWindowsStartup(false);
+                    _isUpdatingStartWithWindowsSelection = true;
                     try
                     {
-                        RunAtSignInToggle.IsOn = false;
+                        StartWithWindowsToggle.IsOn = false;
                     }
                     finally
                     {
-                        _isUpdatingRunAtSignInSelection = false;
+                        _isUpdatingStartWithWindowsSelection = false;
                     }
 
                     InAppToastService.Show(
@@ -154,6 +178,7 @@ namespace helvety.screentools.Views.Settings
             }
             else
             {
+                SettingsService.SaveRunAtWindowsStartup(false);
                 await StartupLaunchService.DisableAsync();
             }
         }
@@ -200,7 +225,7 @@ namespace helvety.screentools.Views.Settings
             {
                 XamlRoot = XamlRoot,
                 Title = "Reset all settings to defaults?",
-                Content = "This clears all saved app settings and restores defaults. Files on disk (captures and exports) are not deleted.",
+                Content = "This clears all saved app settings and restores defaults (including Start with Windows and global hotkey listeners). Files on disk (captures and exports) are not deleted.",
                 PrimaryButtonText = "Reset",
                 CloseButtonText = "Cancel",
                 DefaultButton = ContentDialogButton.Close
@@ -213,6 +238,11 @@ namespace helvety.screentools.Views.Settings
             }
 
             SettingsService.ResetAllSettingsToDefaults();
+            if (StartupLaunchService.IsSupported && SettingsService.Load().RunAtWindowsStartup)
+            {
+                _ = StartupLaunchService.RequestEnableAsync();
+            }
+
             InAppToastService.Show("All settings were reset to defaults.", InAppToastSeverity.Success);
         }
     }

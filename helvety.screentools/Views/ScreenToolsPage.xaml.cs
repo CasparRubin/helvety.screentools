@@ -75,6 +75,7 @@ namespace helvety.screentools.Views
             CaptureGalleryNotifier.CaptureSavedToPath -= CaptureGalleryNotifier_CaptureSavedToPath;
             CaptureGalleryNotifier.CaptureSavedToPath += CaptureGalleryNotifier_CaptureSavedToPath;
             base.OnNavigatedTo(e);
+            UpdateGlobalHotkeyListenersWarningVisibility();
             _ = RefreshPageAsync();
         }
 
@@ -91,7 +92,24 @@ namespace helvety.screentools.Views
 
         private void SettingsService_SettingsChanged()
         {
-            DispatcherQueue.TryEnqueue(() => _ = RefreshPageAsync());
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                UpdateGlobalHotkeyListenersWarningVisibility();
+                _ = RefreshPageAsync();
+            });
+        }
+
+        private void UpdateGlobalHotkeyListenersWarningVisibility()
+        {
+            var enabled = SettingsService.Load().GlobalHotkeyListenersEnabled;
+            GlobalHotkeyListenersOffInfoBar.Visibility = enabled
+                ? Visibility.Collapsed
+                : Visibility.Visible;
+        }
+
+        private void OpenGeneralSettingsForHotkeys_Click(object sender, RoutedEventArgs e)
+        {
+            MainNavigationRequests.RequestNavigateToTag("general");
         }
 
         private void WatcherRefreshTimer_Tick(DispatcherQueueTimer sender, object args)

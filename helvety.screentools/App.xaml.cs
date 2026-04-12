@@ -39,6 +39,7 @@ namespace helvety.screentools
 
             _window = new MainWindow();
             MainAppWindow = _window;
+            _window.DispatcherQueue.TryEnqueue(() => _ = ApplyStartupLaunchPreferenceAsync());
             _window.Activate();
 
             var freezeFrameProvider = new GdiFreezeFrameProvider();
@@ -154,6 +155,30 @@ namespace helvety.screentools
                 _window?.Close();
                 Exit();
             });
+        }
+
+        private static async Task ApplyStartupLaunchPreferenceAsync()
+        {
+            if (!StartupLaunchService.IsSupported)
+            {
+                return;
+            }
+
+            try
+            {
+                if (SettingsService.Load().RunAtWindowsStartup)
+                {
+                    await StartupLaunchService.RequestEnableAsync();
+                }
+                else
+                {
+                    await StartupLaunchService.DisableAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Startup launch preference apply failed: {ex.Message}");
+            }
         }
     }
 }

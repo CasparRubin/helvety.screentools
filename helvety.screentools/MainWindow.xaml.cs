@@ -40,6 +40,7 @@ namespace helvety.screentools
             SettingsService.SettingsChanged += SettingsService_SettingsChanged;
             App.SessionStatusPublished += App_SessionStatusPublished;
             InAppToastService.ToastRequested += InAppToastService_ToastRequested;
+            MainNavigationRequests.NavigateToTagRequested += MainNavigationRequests_NavigateToTagRequested;
             Closed += MainWindow_Closed;
             NavigateToTag("home");
             AppNavigationView.SelectedItem = AppNavigationView.MenuItems[0];
@@ -79,7 +80,23 @@ namespace helvety.screentools
             SettingsService.SettingsChanged -= SettingsService_SettingsChanged;
             App.SessionStatusPublished -= App_SessionStatusPublished;
             InAppToastService.ToastRequested -= InAppToastService_ToastRequested;
+            MainNavigationRequests.NavigateToTagRequested -= MainNavigationRequests_NavigateToTagRequested;
             Closed -= MainWindow_Closed;
+        }
+
+        private void MainNavigationRequests_NavigateToTagRequested(string tag)
+        {
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                var navItem = FindNavigationViewItemByTag(AppNavigationView.MenuItems, tag);
+                if (navItem is not null)
+                {
+                    AppNavigationView.SelectedItem = navItem;
+                }
+
+                NavigateToTag(tag);
+                RefreshGlobalIssues();
+            });
         }
 
         internal void RestoreFromTray()

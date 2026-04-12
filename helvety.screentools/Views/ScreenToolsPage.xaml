@@ -10,6 +10,7 @@
     <Grid Padding="{StaticResource AppPaddingPageBottomHeavy}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
@@ -17,7 +18,7 @@
              Size must cover max decode (520) and stay opaque; 1×1 + Opacity=0 breaks RTB capture of the WriteableBitmap base. -->
         <Grid
             x:Name="ThumbnailCompositionHost"
-            Grid.RowSpan="2"
+            Grid.RowSpan="3"
             Width="520"
             Height="520"
             Margin="-10000,0,0,0"
@@ -25,7 +26,22 @@
             VerticalAlignment="Top"
             IsHitTestVisible="False" />
 
-        <StackPanel Spacing="{StaticResource AppSpacingStack}">
+        <InfoBar
+            x:Name="GlobalHotkeyListenersOffInfoBar"
+            Grid.Row="0"
+            Margin="0,0,0,12"
+            IsClosable="False"
+            IsOpen="True"
+            Message="Screen capture and Live Draw keyboard shortcuts will not respond while listeners are off."
+            Severity="Warning"
+            Title="Global hotkeys are turned off"
+            Visibility="Collapsed">
+            <InfoBar.ActionButton>
+                <HyperlinkButton Click="OpenGeneralSettingsForHotkeys_Click" Content="Open General settings" />
+            </InfoBar.ActionButton>
+        </InfoBar>
+
+        <StackPanel Grid.Row="1" Spacing="{StaticResource AppSpacingStack}">
             <TextBlock Style="{StaticResource AppPageTitleTextStyle}" Text="Helvety Screen Tools" />
             <TextBlock
                 x:Name="AppHeroDescriptionText"
@@ -35,7 +51,7 @@
         </StackPanel>
 
         <Border
-            Grid.Row="1"
+            Grid.Row="2"
             Margin="0,16,0,0"
             Padding="{StaticResource AppPaddingCardLarge}"
             Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"

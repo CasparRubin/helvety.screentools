@@ -31,20 +31,31 @@
                         Style="{StaticResource SettingsInlineToggleSwitchStyle}"
                         Toggled="MinimizeToTrayToggle_Toggled" />
                 </tk:SettingsCard>
+                <tk:SettingsCard
+                    Description="When off, screen capture and Live Draw keyboard shortcuts are ignored everywhere (useful if keys conflict with another app). The app keeps running; turn this back on to use hotkeys again."
+                    Header="Global hotkey listeners">
+                    <tk:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE144;" />
+                    </tk:SettingsCard.HeaderIcon>
+                    <ToggleSwitch
+                        x:Name="GlobalHotkeyListenersToggle"
+                        Style="{StaticResource SettingsInlineToggleSwitchStyle}"
+                        Toggled="GlobalHotkeyListenersToggle_Toggled" />
+                </tk:SettingsCard>
             </StackPanel>
 
-            <StackPanel x:Name="RunAtSignInSection" Spacing="{StaticResource AppSpacingStack}">
-                <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Startup" />
+            <StackPanel x:Name="WindowsStartupSection" Spacing="{StaticResource AppSpacingStack}">
+                <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Windows startup" />
                 <tk:SettingsCard
-                    Description="Launch Helvety Screen Tools when you sign in to Windows so tray and global hotkeys are ready. This also appears under Windows Settings → Apps → Startup."
-                    Header="Run at sign-in">
+                    Description="Start Helvety Screen Tools when Windows starts so the tray icon and global hotkeys are ready. You can also change this under Windows Settings → Apps → Startup."
+                    Header="Start with Windows">
                     <tk:SettingsCard.HeaderIcon>
                         <FontIcon Glyph="&#xE7B5;" />
                     </tk:SettingsCard.HeaderIcon>
                     <ToggleSwitch
-                        x:Name="RunAtSignInToggle"
+                        x:Name="StartWithWindowsToggle"
                         Style="{StaticResource SettingsInlineToggleSwitchStyle}"
-                        Toggled="RunAtSignInToggle_Toggled" />
+                        Toggled="StartWithWindowsToggle_Toggled" />
                 </tk:SettingsCard>
             </StackPanel>
 
@@ -87,7 +98,7 @@
             <StackPanel Spacing="{StaticResource AppSpacingStack}">
                 <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Danger zone" />
                 <tk:SettingsCard
-                    Description="Restores all preferences to defaults (including hotkeys, editor settings, snap-border intensity, Live Draw, capture quality, and save folder to the default desktop captures folder). Does not delete image files already on disk."
+                    Description="Restores all preferences to defaults (including hotkeys, global hotkey listeners, editor settings, snap-border intensity, Live Draw, capture quality, Start with Windows, and save folder to the default desktop captures folder). Does not delete image files already on disk."
                     Header="Reset all settings">
                     <tk:SettingsCard.HeaderIcon>
                         <FontIcon Glyph="&#xE74D;" />

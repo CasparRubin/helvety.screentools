@@ -53,11 +53,13 @@ namespace helvety.screentools
         private const bool DefaultEditorEmbedEditableMetadata = true;
         private const bool DefaultCaptureHotkeyEnabled = true;
         private const bool DefaultLiveDrawFeatureEnabled = true;
+        private const bool DefaultRunAtWindowsStartup = true;
+        private const bool DefaultGlobalHotkeyListenersEnabled = true;
 
         internal static event Action? SaveFolderPathChanged;
         internal static event Action? SettingsChanged;
 
-        private const int CurrentSettingsVersion = 5;
+        private const int CurrentSettingsVersion = 7;
         private const string DefaultCaptureFolderName = "Helvety Screen Tools captures";
         private const string SettingsVersionKey = "SettingsVersion";
         private const string SaveFolderPathKey = "SaveFolderPath";
@@ -87,6 +89,8 @@ namespace helvety.screentools
         private const string ScreenshotQualityModeKey = "ScreenshotQualityMode";
         private const string ShowScreenshotOverlayInstructionsKey = "ShowScreenshotOverlayInstructions";
         private const string MinimizeToTrayOnCloseKey = "MinimizeToTrayOnClose";
+        private const string RunAtWindowsStartupKey = "RunAtWindowsStartup";
+        private const string GlobalHotkeyListenersEnabledKey = "GlobalHotkeyListenersEnabled";
         private const string EditorPrimaryColorKey = "EditorPrimaryColor";
         private const string EditorPrimaryThicknessKey = "EditorPrimaryThickness";
         private const string EditorTextFontKey = "EditorTextFont";
@@ -145,6 +149,8 @@ namespace helvety.screentools
             ScreenshotQualityModeKey,
             ShowScreenshotOverlayInstructionsKey,
             MinimizeToTrayOnCloseKey,
+            RunAtWindowsStartupKey,
+            GlobalHotkeyListenersEnabledKey,
             LiveDrawMainStrokeThicknessKey,
             LiveDrawFreeDrawEnabledKey,
             LiveDrawSparkleEnabledKey,
@@ -213,6 +219,8 @@ namespace helvety.screentools
                                         minimizeToTrayValue is bool minimizeToTray
                 ? minimizeToTray
                 : DefaultMinimizeToTrayOnClose;
+            var runAtWindowsStartup = ReadBool(values, RunAtWindowsStartupKey, DefaultRunAtWindowsStartup);
+            var globalHotkeyListenersEnabled = ReadBool(values, GlobalHotkeyListenersEnabledKey, DefaultGlobalHotkeyListenersEnabled);
             var captureHotkeyEnabled = ReadBool(values, CaptureHotkeyEnabledKey, DefaultCaptureHotkeyEnabled);
             var liveDrawEnabled = ReadBool(values, LiveDrawEnabledKey, DefaultLiveDrawFeatureEnabled);
 
@@ -249,6 +257,8 @@ namespace helvety.screentools
                 screenshotQualityMode,
                 showScreenshotOverlayInstructions,
                 minimizeToTrayOnClose,
+                runAtWindowsStartup,
+                globalHotkeyListenersEnabled,
                 captureHotkeyEnabled,
                 liveDrawEnabled);
         }
@@ -347,6 +357,22 @@ namespace helvety.screentools
             var values = ApplicationData.Current.LocalSettings.Values;
             EnsureSettingsVersion(values);
             values[MinimizeToTrayOnCloseKey] = minimizeToTrayOnClose;
+            SettingsChanged?.Invoke();
+        }
+
+        internal static void SaveRunAtWindowsStartup(bool runAtWindowsStartup)
+        {
+            var values = ApplicationData.Current.LocalSettings.Values;
+            EnsureSettingsVersion(values);
+            values[RunAtWindowsStartupKey] = runAtWindowsStartup;
+            SettingsChanged?.Invoke();
+        }
+
+        internal static void SaveGlobalHotkeyListenersEnabled(bool enabled)
+        {
+            var values = ApplicationData.Current.LocalSettings.Values;
+            EnsureSettingsVersion(values);
+            values[GlobalHotkeyListenersEnabledKey] = enabled;
             SettingsChanged?.Invoke();
         }
 
@@ -924,7 +950,9 @@ namespace helvety.screentools
             }
 
             var appSettings = Load();
-            if (appSettings.CaptureHotkeyEnabled && !TryGetEffectiveHotkey(out _))
+            if (appSettings.GlobalHotkeyListenersEnabled &&
+                appSettings.CaptureHotkeyEnabled &&
+                !TryGetEffectiveHotkey(out _))
             {
                 var defaultHotkey = GetDefaultHotkey();
                 issues.Add(new GlobalSetupIssue(
@@ -937,7 +965,9 @@ namespace helvety.screentools
                     "settings"));
             }
 
-            if (appSettings.LiveDrawEnabled && IsLiveDrawHotkeyExplicitlyCleared())
+            if (appSettings.GlobalHotkeyListenersEnabled &&
+                appSettings.LiveDrawEnabled &&
+                IsLiveDrawHotkeyExplicitlyCleared())
             {
                 var defaultLive = GetDefaultLiveDrawHotkey();
                 issues.Add(new GlobalSetupIssue(
@@ -1048,6 +1078,22 @@ namespace helvety.screentools
                 }
             }
 
+            if (storedVersion < 6)
+            {
+                if (!values.ContainsKey(RunAtWindowsStartupKey))
+                {
+                    values[RunAtWindowsStartupKey] = DefaultRunAtWindowsStartup;
+                }
+            }
+
+            if (storedVersion < 7)
+            {
+                if (!values.ContainsKey(GlobalHotkeyListenersEnabledKey))
+                {
+                    values[GlobalHotkeyListenersEnabledKey] = DefaultGlobalHotkeyListenersEnabled;
+                }
+            }
+
             values[SettingsVersionKey] = CurrentSettingsVersion;
         }
 
@@ -1115,6 +1161,8 @@ namespace helvety.screentools
             values[ScreenshotQualityModeKey] = (int)DefaultScreenshotQualityMode;
             values[ShowScreenshotOverlayInstructionsKey] = DefaultShowScreenshotOverlayInstructions;
             values[MinimizeToTrayOnCloseKey] = DefaultMinimizeToTrayOnClose;
+            values[RunAtWindowsStartupKey] = DefaultRunAtWindowsStartup;
+            values[GlobalHotkeyListenersEnabledKey] = DefaultGlobalHotkeyListenersEnabled;
             values[LiveDrawMainStrokeThicknessKey] = DefaultLiveDrawMainStrokeThickness;
             values[EditorPrimaryColorKey] = DefaultEditorPrimaryColor;
             values[EditorPrimaryThicknessKey] = DefaultEditorPrimaryThickness;
@@ -1274,6 +1322,10 @@ namespace helvety.screentools
         ScreenshotQualityMode ScreenshotQualityMode,
         bool ShowScreenshotOverlayInstructions,
         bool MinimizeToTrayOnClose,
+        /// <summary>User wants the packaged app registered for sign-in startup (see <see cref="Services.StartupLaunchService"/>).</summary>
+        bool RunAtWindowsStartup,
+        /// <summary>When false, the low-level keyboard hook ignores capture and Live Draw chord sequences (Escape-to-cancel during overlays may still run).</summary>
+        bool GlobalHotkeyListenersEnabled,
         bool CaptureHotkeyEnabled,
         bool LiveDrawEnabled);
 
