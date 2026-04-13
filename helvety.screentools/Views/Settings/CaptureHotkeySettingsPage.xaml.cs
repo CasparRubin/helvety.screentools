@@ -528,7 +528,7 @@ namespace helvety.screentools.Views.Settings
 
         private bool TryApplyBinding(HotkeyBinding requestedBinding, bool persistSetting, out string statusMessage)
         {
-            if (_listenController is null || !_listenController.IsInstalled)
+            if (persistSetting && (_listenController is null || !_listenController.IsInstalled))
             {
                 statusMessage = "Keyboard hook failed to install.";
                 return false;

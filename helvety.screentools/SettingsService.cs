@@ -328,53 +328,23 @@ namespace helvety.screentools
         /// <summary>
         /// Persists global snap-border animation intensity (frozen-screen capture and Live Draw via <see cref="Capture.SnapBorderChromeController"/>).
         /// </summary>
-        internal static void SaveScreenshotBorderIntensity(ScreenshotBorderIntensity intensity)
-        {
-            var values = ApplicationData.Current.LocalSettings.Values;
-            EnsureSettingsVersion(values);
-            values[ScreenshotBorderIntensityKey] = (int)intensity;
-            SettingsChanged?.Invoke();
-        }
+        internal static void SaveScreenshotBorderIntensity(ScreenshotBorderIntensity intensity) =>
+            WriteSetting(ScreenshotBorderIntensityKey, (int)intensity);
 
-        internal static void SaveScreenshotQualityMode(ScreenshotQualityMode qualityMode)
-        {
-            var values = ApplicationData.Current.LocalSettings.Values;
-            EnsureSettingsVersion(values);
-            values[ScreenshotQualityModeKey] = (int)qualityMode;
-            SettingsChanged?.Invoke();
-        }
+        internal static void SaveScreenshotQualityMode(ScreenshotQualityMode qualityMode) =>
+            WriteSetting(ScreenshotQualityModeKey, (int)qualityMode);
 
-        internal static void SaveShowScreenshotOverlayInstructions(bool showInstructions)
-        {
-            var values = ApplicationData.Current.LocalSettings.Values;
-            EnsureSettingsVersion(values);
-            values[ShowScreenshotOverlayInstructionsKey] = showInstructions;
-            SettingsChanged?.Invoke();
-        }
+        internal static void SaveShowScreenshotOverlayInstructions(bool showInstructions) =>
+            WriteSetting(ShowScreenshotOverlayInstructionsKey, showInstructions);
 
-        internal static void SaveMinimizeToTrayOnClose(bool minimizeToTrayOnClose)
-        {
-            var values = ApplicationData.Current.LocalSettings.Values;
-            EnsureSettingsVersion(values);
-            values[MinimizeToTrayOnCloseKey] = minimizeToTrayOnClose;
-            SettingsChanged?.Invoke();
-        }
+        internal static void SaveMinimizeToTrayOnClose(bool minimizeToTrayOnClose) =>
+            WriteSetting(MinimizeToTrayOnCloseKey, minimizeToTrayOnClose);
 
-        internal static void SaveRunAtWindowsStartup(bool runAtWindowsStartup)
-        {
-            var values = ApplicationData.Current.LocalSettings.Values;
-            EnsureSettingsVersion(values);
-            values[RunAtWindowsStartupKey] = runAtWindowsStartup;
-            SettingsChanged?.Invoke();
-        }
+        internal static void SaveRunAtWindowsStartup(bool runAtWindowsStartup) =>
+            WriteSetting(RunAtWindowsStartupKey, runAtWindowsStartup);
 
-        internal static void SaveGlobalHotkeyListenersEnabled(bool enabled)
-        {
-            var values = ApplicationData.Current.LocalSettings.Values;
-            EnsureSettingsVersion(values);
-            values[GlobalHotkeyListenersEnabledKey] = enabled;
-            SettingsChanged?.Invoke();
-        }
+        internal static void SaveGlobalHotkeyListenersEnabled(bool enabled) =>
+            WriteSetting(GlobalHotkeyListenersEnabledKey, enabled);
 
         internal static void SaveEditorPerformanceModeEnabled(bool enabled)
         {
@@ -389,13 +359,8 @@ namespace helvety.screentools
             return ReadBool(values, EditorEmbedEditableMetadataKey, DefaultEditorEmbedEditableMetadata);
         }
 
-        internal static void SaveEditorEmbedEditableMetadataEnabled(bool enabled)
-        {
-            var values = ApplicationData.Current.LocalSettings.Values;
-            EnsureSettingsVersion(values);
-            values[EditorEmbedEditableMetadataKey] = enabled;
-            SettingsChanged?.Invoke();
-        }
+        internal static void SaveEditorEmbedEditableMetadataEnabled(bool enabled) =>
+            WriteSetting(EditorEmbedEditableMetadataKey, enabled);
 
         internal static EditorUiSettings LoadEditorUiSettings()
         {
@@ -429,21 +394,11 @@ namespace helvety.screentools
                 ReadBool(values, EditorGpuEffectsEnabledKey, DefaultEditorGpuEffectsEnabled));
         }
 
-        internal static void SaveCaptureHotkeyEnabled(bool enabled)
-        {
-            var values = ApplicationData.Current.LocalSettings.Values;
-            EnsureSettingsVersion(values);
-            values[CaptureHotkeyEnabledKey] = enabled;
-            SettingsChanged?.Invoke();
-        }
+        internal static void SaveCaptureHotkeyEnabled(bool enabled) =>
+            WriteSetting(CaptureHotkeyEnabledKey, enabled);
 
-        internal static void SaveLiveDrawEnabled(bool enabled)
-        {
-            var values = ApplicationData.Current.LocalSettings.Values;
-            EnsureSettingsVersion(values);
-            values[LiveDrawEnabledKey] = enabled;
-            SettingsChanged?.Invoke();
-        }
+        internal static void SaveLiveDrawEnabled(bool enabled) =>
+            WriteSetting(LiveDrawEnabledKey, enabled);
 
         internal static LiveDrawDrawingSettings LoadLiveDrawDrawingSettings()
         {
@@ -455,29 +410,14 @@ namespace helvety.screentools
                 ReadBool(values, LiveDrawSparkleEnabledKey, DefaultLiveDrawSparkleEnabled));
         }
 
-        internal static void SaveLiveDrawMainStrokeThickness(int thickness)
-        {
-            var values = ApplicationData.Current.LocalSettings.Values;
-            EnsureSettingsVersion(values);
-            values[LiveDrawMainStrokeThicknessKey] = Clamp(thickness, 1, 24);
-            SettingsChanged?.Invoke();
-        }
+        internal static void SaveLiveDrawMainStrokeThickness(int thickness) =>
+            WriteSetting(LiveDrawMainStrokeThicknessKey, Math.Clamp(thickness, 1, 24));
 
-        internal static void SaveLiveDrawFreeDrawEnabled(bool enabled)
-        {
-            var values = ApplicationData.Current.LocalSettings.Values;
-            EnsureSettingsVersion(values);
-            values[LiveDrawFreeDrawEnabledKey] = enabled;
-            SettingsChanged?.Invoke();
-        }
+        internal static void SaveLiveDrawFreeDrawEnabled(bool enabled) =>
+            WriteSetting(LiveDrawFreeDrawEnabledKey, enabled);
 
-        internal static void SaveLiveDrawSparkleEnabled(bool enabled)
-        {
-            var values = ApplicationData.Current.LocalSettings.Values;
-            EnsureSettingsVersion(values);
-            values[LiveDrawSparkleEnabledKey] = enabled;
-            SettingsChanged?.Invoke();
-        }
+        internal static void SaveLiveDrawSparkleEnabled(bool enabled) =>
+            WriteSetting(LiveDrawSparkleEnabledKey, enabled);
 
         internal static void SaveEditorUiSettings(EditorUiSettings settings)
         {
@@ -485,27 +425,27 @@ namespace helvety.screentools
             EnsureSettingsVersion(values);
 
             values[EditorPrimaryColorKey] = settings.PrimaryColorHex;
-            values[EditorPrimaryThicknessKey] = Clamp(settings.PrimaryThickness, 1, 24);
+            values[EditorPrimaryThicknessKey] = Math.Clamp(settings.PrimaryThickness, 1, 24);
             values[EditorTextFontKey] = settings.TextFont;
-            values[EditorTextSizeKey] = Clamp(settings.TextSize, 8, 180);
+            values[EditorTextSizeKey] = Math.Clamp(settings.TextSize, 8, 180);
             values[EditorTextBoldEnabledKey] = settings.TextBoldEnabled;
             values[EditorTextItalicEnabledKey] = settings.TextItalicEnabled;
             values[EditorTextBorderEnabledKey] = settings.TextBorderEnabled;
             values[EditorTextBorderColorKey] = settings.TextBorderColorHex;
-            values[EditorTextBorderThicknessKey] = Clamp(settings.TextBorderThickness, 1, 24);
+            values[EditorTextBorderThicknessKey] = Math.Clamp(settings.TextBorderThickness, 1, 24);
             values[EditorTextShadowEnabledKey] = settings.TextShadowEnabled;
             values[EditorBorderShadowEnabledKey] = settings.BorderShadowEnabled;
             values[EditorArrowBorderEnabledKey] = settings.ArrowBorderEnabled;
             values[EditorArrowBorderColorKey] = settings.ArrowBorderColorHex;
-            values[EditorArrowBorderThicknessKey] = Clamp(settings.ArrowBorderThickness, 1, 24);
+            values[EditorArrowBorderThicknessKey] = Math.Clamp(settings.ArrowBorderThickness, 1, 24);
             values[EditorArrowShadowEnabledKey] = settings.ArrowShadowEnabled;
             values[EditorArrowFormStyleKey] = settings.ArrowFormStyle;
-            values[EditorBlurRadiusKey] = Clamp(settings.BlurRadius, 1, 25);
-            values[EditorBlurFeatherKey] = Clamp(settings.BlurFeather, 0, 40);
+            values[EditorBlurRadiusKey] = Math.Clamp(settings.BlurRadius, 1, 25);
+            values[EditorBlurFeatherKey] = Math.Clamp(settings.BlurFeather, 0, 40);
             values[EditorBlurInvertModeKey] = settings.BlurInvertMode;
-            values[EditorHighlightDimPercentKey] = Clamp(settings.HighlightDimPercent, 0, 80);
+            values[EditorHighlightDimPercentKey] = Math.Clamp(settings.HighlightDimPercent, 0, 80);
             values[EditorHighlightInvertModeKey] = settings.HighlightInvertMode;
-            values[EditorRegionCornerRadiusKey] = Clamp(settings.RegionCornerRadius, 0, 24);
+            values[EditorRegionCornerRadiusKey] = Math.Clamp(settings.RegionCornerRadius, 0, 24);
             values[EditorPerformanceModeEnabledKey] = settings.PerformanceModeEnabled;
             values[EditorGpuEffectsEnabledKey] = settings.GpuEffectsEnabled;
             SettingsChanged?.Invoke();
@@ -545,25 +485,9 @@ namespace helvety.screentools
                 return false;
             }
 
-            if (a.Modifiers != b.Modifiers || !string.Equals(a.Display, b.Display, StringComparison.Ordinal))
-            {
-                return false;
-            }
-
-            if (a.Sequence.Count != b.Sequence.Count)
-            {
-                return false;
-            }
-
-            for (var i = 0; i < a.Sequence.Count; i++)
-            {
-                if (a.Sequence[i] != b.Sequence[i])
-                {
-                    return false;
-                }
-            }
-
-            return true;
+            return a.Modifiers == b.Modifiers &&
+                   string.Equals(a.Display, b.Display, StringComparison.Ordinal) &&
+                   a.Sequence.SequenceEqual(b.Sequence);
         }
 
         internal static bool HotkeyModifiersAndSequenceEqual(HotkeySettings? a, HotkeySettings? b)
@@ -573,20 +497,8 @@ namespace helvety.screentools
                 return false;
             }
 
-            if (a.Modifiers != b.Modifiers || a.Sequence.Count != b.Sequence.Count)
-            {
-                return false;
-            }
-
-            for (var i = 0; i < a.Sequence.Count; i++)
-            {
-                if (a.Sequence[i] != b.Sequence[i])
-                {
-                    return false;
-                }
-            }
-
-            return true;
+            return a.Modifiers == b.Modifiers &&
+                   a.Sequence.SequenceEqual(b.Sequence);
         }
 
         internal static void SaveLiveDrawHotkey(uint modifiers, IReadOnlyList<uint> sequence, string display)
@@ -1286,7 +1198,7 @@ namespace helvety.screentools
         private static int ReadInt(IPropertySet values, string key, int defaultValue, int minValue, int maxValue)
         {
             return values.TryGetValue(key, out var value) && value is int parsed
-                ? Clamp(parsed, minValue, maxValue)
+                ? Math.Clamp(parsed, minValue, maxValue)
                 : defaultValue;
         }
 
@@ -1306,101 +1218,12 @@ namespace helvety.screentools
                 : defaultValue;
         }
 
-        private static int Clamp(int value, int minValue, int maxValue)
+        private static void WriteSetting(string key, object value)
         {
-            return Math.Max(minValue, Math.Min(maxValue, value));
+            var values = ApplicationData.Current.LocalSettings.Values;
+            EnsureSettingsVersion(values);
+            values[key] = value;
+            SettingsChanged?.Invoke();
         }
     }
-
-    internal sealed record AppSettings(
-        string? SaveFolderPath,
-        HotkeySettings? Hotkey,
-        bool IsHotkeyCleared,
-        bool IsSaveFolderCleared,
-        /// <summary>Global snap-border intensity for capture selection overlay and Live Draw.</summary>
-        ScreenshotBorderIntensity ScreenshotBorderIntensity,
-        ScreenshotQualityMode ScreenshotQualityMode,
-        bool ShowScreenshotOverlayInstructions,
-        bool MinimizeToTrayOnClose,
-        /// <summary>User wants the packaged app registered for sign-in startup (see <see cref="Services.StartupLaunchService"/>).</summary>
-        bool RunAtWindowsStartup,
-        /// <summary>When false, the low-level keyboard hook ignores capture and Live Draw chord sequences (Escape-to-cancel during overlays may still run).</summary>
-        bool GlobalHotkeyListenersEnabled,
-        bool CaptureHotkeyEnabled,
-        bool LiveDrawEnabled);
-
-    internal sealed record HotkeySettings(uint Modifiers, IReadOnlyList<uint> Sequence, string Display);
-
-    internal sealed record EditorUiSettings(
-        string PrimaryColorHex,
-        int PrimaryThickness,
-        string TextFont,
-        int TextSize,
-        bool TextBoldEnabled,
-        bool TextItalicEnabled,
-        bool TextBorderEnabled,
-        string TextBorderColorHex,
-        int TextBorderThickness,
-        bool TextShadowEnabled,
-        bool BorderShadowEnabled,
-        bool ArrowBorderEnabled,
-        string ArrowBorderColorHex,
-        int ArrowBorderThickness,
-        bool ArrowShadowEnabled,
-        string ArrowFormStyle,
-        int BlurRadius,
-        int BlurFeather,
-        bool BlurInvertMode,
-        int HighlightDimPercent,
-        bool HighlightInvertMode,
-        int RegionCornerRadius,
-        bool PerformanceModeEnabled,
-        bool GpuEffectsEnabled);
-
-    /// <summary>
-    /// Visual strength of shared snap-border chrome (gradients, dashing, pulse) for frozen-screen capture and Live Draw.
-    /// </summary>
-    internal enum ScreenshotBorderIntensity
-    {
-        Subtle = 0,
-        Balanced = 1,
-        Bold = 2
-    }
-
-    internal enum ScreenshotQualityMode
-    {
-        Fast = 0,
-        Optimized = 1,
-        Heavy = 2
-    }
-
-    internal readonly record struct LiveDrawShapeModifiers(
-        LiveDrawRectangleModifier Rectangle,
-        LiveDrawRectangleModifier Arrow,
-        LiveDrawRectangleModifier StraightLine,
-        LiveDrawRectangleModifier CircleRight,
-        LiveDrawRectangleModifier EllipseRight);
-
-    internal sealed record LiveDrawDrawingSettings(
-        int MainStrokeThickness,
-        bool FreeDrawEnabled,
-        bool SparkleEnabled);
-
-    internal enum LiveDrawRectangleModifier
-    {
-        Shift = 0,
-        Control = 1,
-        Win = 2,
-        Alt = 3,
-        None = 4
-    }
-
-    internal sealed record GlobalSetupIssue(
-        InfoBarSeverity Severity,
-        string Title,
-        string Message,
-        string PrimaryActionText,
-        string PrimaryActionTag,
-        string SecondaryActionText,
-        string SecondaryActionTag);
 }

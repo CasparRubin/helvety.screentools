@@ -156,7 +156,7 @@ namespace helvety.screentools.Capture
         private Task<T> EnqueueAsync<T>(Func<T> work)
         {
             var completionSource = new TaskCompletionSource<T>();
-            _dispatcherQueue.TryEnqueue(() =>
+            if (!_dispatcherQueue.TryEnqueue(() =>
             {
                 try
                 {
@@ -166,7 +166,11 @@ namespace helvety.screentools.Capture
                 {
                     completionSource.TrySetException(ex);
                 }
-            });
+            }))
+            {
+                completionSource.TrySetException(
+                    new InvalidOperationException("Failed to enqueue work on the dispatcher."));
+            }
 
             return completionSource.Task;
         }
@@ -174,7 +178,7 @@ namespace helvety.screentools.Capture
         private Task<T> EnqueueAsync<T>(Func<Task<T>> work)
         {
             var completionSource = new TaskCompletionSource<T>();
-            _dispatcherQueue.TryEnqueue(async () =>
+            if (!_dispatcherQueue.TryEnqueue(async () =>
             {
                 try
                 {
@@ -184,7 +188,11 @@ namespace helvety.screentools.Capture
                 {
                     completionSource.TrySetException(ex);
                 }
-            });
+            }))
+            {
+                completionSource.TrySetException(
+                    new InvalidOperationException("Failed to enqueue work on the dispatcher."));
+            }
 
             return completionSource.Task;
         }

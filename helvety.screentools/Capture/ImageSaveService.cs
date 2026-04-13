@@ -179,36 +179,73 @@ namespace helvety.screentools.Capture
                 return clone;
             }
 
-            var destination = new byte[source.Length];
             var kernelSize = (radius * 2) + 1;
-            var kernelArea = kernelSize * kernelSize;
+            var intermediate = new byte[source.Length];
 
+            // Horizontal pass
             for (var y = 0; y < height; y++)
             {
+                var rowOffset = y * width * 4;
+                int sumB = 0, sumG = 0, sumR = 0;
+
+                for (var kx = -radius; kx <= radius; kx++)
+                {
+                    var sampleX = Math.Clamp(kx, 0, width - 1);
+                    var idx = rowOffset + sampleX * 4;
+                    sumB += source[idx];
+                    sumG += source[idx + 1];
+                    sumR += source[idx + 2];
+                }
+
                 for (var x = 0; x < width; x++)
                 {
-                    var b = 0;
-                    var g = 0;
-                    var r = 0;
+                    var destIdx = rowOffset + x * 4;
+                    intermediate[destIdx] = (byte)(sumB / kernelSize);
+                    intermediate[destIdx + 1] = (byte)(sumG / kernelSize);
+                    intermediate[destIdx + 2] = (byte)(sumR / kernelSize);
+                    intermediate[destIdx + 3] = 255;
 
-                    for (var ky = -radius; ky <= radius; ky++)
-                    {
-                        var sampleY = Math.Clamp(y + ky, 0, height - 1);
-                        for (var kx = -radius; kx <= radius; kx++)
-                        {
-                            var sampleX = Math.Clamp(x + kx, 0, width - 1);
-                            var sampleIndex = (sampleY * width + sampleX) * 4;
-                            b += source[sampleIndex];
-                            g += source[sampleIndex + 1];
-                            r += source[sampleIndex + 2];
-                        }
-                    }
+                    var removeX = Math.Clamp(x - radius, 0, width - 1);
+                    var addX = Math.Clamp(x + radius + 1, 0, width - 1);
+                    var removeIdx = rowOffset + removeX * 4;
+                    var addIdx = rowOffset + addX * 4;
+                    sumB += source[addIdx] - source[removeIdx];
+                    sumG += source[addIdx + 1] - source[removeIdx + 1];
+                    sumR += source[addIdx + 2] - source[removeIdx + 2];
+                }
+            }
 
-                    var destinationIndex = (y * width + x) * 4;
-                    destination[destinationIndex] = (byte)(b / kernelArea);
-                    destination[destinationIndex + 1] = (byte)(g / kernelArea);
-                    destination[destinationIndex + 2] = (byte)(r / kernelArea);
-                    destination[destinationIndex + 3] = 255;
+            // Vertical pass
+            var destination = new byte[source.Length];
+            for (var x = 0; x < width; x++)
+            {
+                var colPixelOffset = x * 4;
+                int sumB = 0, sumG = 0, sumR = 0;
+
+                for (var ky = -radius; ky <= radius; ky++)
+                {
+                    var sampleY = Math.Clamp(ky, 0, height - 1);
+                    var idx = sampleY * width * 4 + colPixelOffset;
+                    sumB += intermediate[idx];
+                    sumG += intermediate[idx + 1];
+                    sumR += intermediate[idx + 2];
+                }
+
+                for (var y = 0; y < height; y++)
+                {
+                    var destIdx = y * width * 4 + colPixelOffset;
+                    destination[destIdx] = (byte)(sumB / kernelSize);
+                    destination[destIdx + 1] = (byte)(sumG / kernelSize);
+                    destination[destIdx + 2] = (byte)(sumR / kernelSize);
+                    destination[destIdx + 3] = 255;
+
+                    var removeY = Math.Clamp(y - radius, 0, height - 1);
+                    var addY = Math.Clamp(y + radius + 1, 0, height - 1);
+                    var removeIdx = removeY * width * 4 + colPixelOffset;
+                    var addIdx = addY * width * 4 + colPixelOffset;
+                    sumB += intermediate[addIdx] - intermediate[removeIdx];
+                    sumG += intermediate[addIdx + 1] - intermediate[removeIdx + 1];
+                    sumR += intermediate[addIdx + 2] - intermediate[removeIdx + 2];
                 }
             }
 

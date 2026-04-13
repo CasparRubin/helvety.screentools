@@ -281,20 +281,8 @@ namespace helvety.screentools.Capture
                 return false;
             }
 
-            if (a.Value.Modifiers != b.Value.Modifiers || a.Value.Sequence.Length != b.Value.Sequence.Length)
-            {
-                return false;
-            }
-
-            for (var i = 0; i < a.Value.Sequence.Length; i++)
-            {
-                if (a.Value.Sequence[i] != b.Value.Sequence[i])
-                {
-                    return false;
-                }
-            }
-
-            return true;
+            return a.Value.Modifiers == b.Value.Modifiers &&
+                   a.Value.Sequence.AsSpan().SequenceEqual(b.Value.Sequence);
         }
 
         private void ResetCaptureSequenceState()
@@ -377,16 +365,7 @@ namespace helvety.screentools.Capture
             internal long LastMatchedStepAt;
         }
 
-        private static uint[] CopySequence(IReadOnlyList<uint> sequence)
-        {
-            var copy = new uint[sequence.Count];
-            for (var i = 0; i < sequence.Count; i++)
-            {
-                copy[i] = sequence[i];
-            }
-
-            return copy;
-        }
+        private static uint[] CopySequence(IReadOnlyList<uint> sequence) => [.. sequence];
 
         private readonly record struct HotkeyBinding(uint Modifiers, uint[] Sequence, string Display);
 

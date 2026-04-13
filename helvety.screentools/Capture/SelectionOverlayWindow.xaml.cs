@@ -155,7 +155,7 @@ namespace helvety.screentools.Capture
             HideSessionToast();
             UpdateInstructionStatus("Waiting for selection...");
 
-            SetWindowPos(_windowHandle, (nint)HwndTopmost, 0, 0, 0, 0, SwpNomove | SwpNosize | SwpFramechanged);
+            NativeInterop.SetWindowPos(_windowHandle, (nint)HwndTopmost, 0, 0, 0, 0, SwpNomove | SwpNosize | SwpFramechanged);
         }
 
         private void RenderBackground()
@@ -485,7 +485,7 @@ namespace helvety.screentools.Capture
                 return;
             }
 
-            var currentStyle = GetWindowLongPtr(_windowHandle, GwlStyle);
+            var currentStyle = NativeInterop.GetWindowLongPtr(_windowHandle, GwlStyle);
             if (currentStyle == nint.Zero)
             {
                 return;
@@ -495,10 +495,10 @@ namespace helvety.screentools.Capture
             var borderlessStyle = currentStyle & ~borderStyleMask;
             if (borderlessStyle != currentStyle)
             {
-                _ = SetWindowLongPtr(_windowHandle, GwlStyle, borderlessStyle);
+                _ = NativeInterop.SetWindowLongPtr(_windowHandle, GwlStyle, borderlessStyle);
             }
 
-            _ = SetWindowPos(
+            _ = NativeInterop.SetWindowPos(
                 _windowHandle,
                 (nint)HwndTopmost,
                 0,
@@ -515,8 +515,8 @@ namespace helvety.screentools.Capture
                 return;
             }
 
-            _ = SetForegroundWindow(_windowHandle);
-            _ = SetFocus(_windowHandle);
+            _ = NativeInterop.SetForegroundWindow(_windowHandle);
+            _ = NativeInterop.SetFocus(_windowHandle);
         }
 
         private void QueueEscapeFromNative()
@@ -674,76 +674,32 @@ namespace helvety.screentools.Capture
             return AppWindow.GetFromWindowId(windowId);
         }
 
-        [System.Runtime.InteropServices.DllImport("user32.dll")]
-        [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
-        private static extern bool SetForegroundWindow(nint hWnd);
-
-        [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true)]
-        private static extern nint SetFocus(nint hWnd);
-
-        [System.Runtime.InteropServices.DllImport("comctl32.dll", SetLastError = true)]
-        [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
+        [DllImport("comctl32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool SetWindowSubclass(
             nint hWnd,
             SubclassProcDelegate pfnSubclass,
             uint uIdSubclass,
             uint dwRefData);
 
-        [System.Runtime.InteropServices.DllImport("comctl32.dll", SetLastError = true)]
-        [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
+        [DllImport("comctl32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool RemoveWindowSubclass(nint hWnd, SubclassProcDelegate pfnSubclass, uint uIdSubclass);
 
-        [System.Runtime.InteropServices.DllImport("comctl32.dll", SetLastError = true)]
+        [DllImport("comctl32.dll", SetLastError = true)]
         private static extern nint DefSubclassProc(nint hWnd, uint msg, nint wParam, nint lParam);
 
-        [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true)]
-        [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
-        private static extern bool SetWindowPos(
-            nint hWnd,
-            nint hWndInsertAfter,
-            int X,
-            int Y,
-            int cx,
-            int cy,
-            uint uFlags);
-
-        [System.Runtime.InteropServices.DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW", SetLastError = true)]
-        private static extern nint GetWindowLongPtr64(nint hWnd, int nIndex);
-
-        [System.Runtime.InteropServices.DllImport("user32.dll", EntryPoint = "GetWindowLongW", SetLastError = true)]
-        private static extern int GetWindowLong32(nint hWnd, int nIndex);
-
-        [System.Runtime.InteropServices.DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW", SetLastError = true)]
-        private static extern nint SetWindowLongPtr64(nint hWnd, int nIndex, nint dwNewLong);
-
-        [System.Runtime.InteropServices.DllImport("user32.dll", EntryPoint = "SetWindowLongW", SetLastError = true)]
-        private static extern int SetWindowLong32(nint hWnd, int nIndex, int dwNewLong);
-
-        private static nint GetWindowLongPtr(nint hWnd, int nIndex)
-        {
-            return IntPtr.Size == 8
-                ? GetWindowLongPtr64(hWnd, nIndex)
-                : new nint(GetWindowLong32(hWnd, nIndex));
-        }
-
-        private static nint SetWindowLongPtr(nint hWnd, int nIndex, nint dwNewLong)
-        {
-            return IntPtr.Size == 8
-                ? SetWindowLongPtr64(hWnd, nIndex, dwNewLong)
-                : new nint(SetWindowLong32(hWnd, nIndex, dwNewLong.ToInt32()));
-        }
-
-        [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true)]
+        [DllImport("user32.dll", SetLastError = true)]
         private static extern nint LoadCursor(nint hInstance, nint lpCursorName);
 
-        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        [DllImport("user32.dll")]
         private static extern nint SetCursor(nint hCursor);
 
-        [System.Runtime.InteropServices.DllImport("user32.dll")]
-        [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool GetCursorPos(out PointStruct lpPoint);
 
-        [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+        [StructLayout(LayoutKind.Sequential)]
         private struct PointStruct
         {
             public int X;

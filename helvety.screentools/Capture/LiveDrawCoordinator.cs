@@ -79,7 +79,7 @@ namespace helvety.screentools.Capture
         private Task EnqueueVoidAsync(Func<Task> work)
         {
             var completionSource = new TaskCompletionSource();
-            _dispatcherQueue.TryEnqueue(async () =>
+            if (!_dispatcherQueue.TryEnqueue(async () =>
             {
                 try
                 {
@@ -90,7 +90,11 @@ namespace helvety.screentools.Capture
                 {
                     completionSource.TrySetException(ex);
                 }
-            });
+            }))
+            {
+                completionSource.TrySetException(
+                    new InvalidOperationException("Failed to enqueue work on the dispatcher."));
+            }
 
             return completionSource.Task;
         }

@@ -19,9 +19,9 @@
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
     <Nullable>enable</Nullable>
     <!-- MSIX / About: bump for each release (must increase for in-place upgrades). -->
-    <ApplicationDisplayVersion>1.0.0.3</ApplicationDisplayVersion>
-    <ApplicationVersion>1.0.0.3</ApplicationVersion>
-    <Version>1.0.0.3</Version>
+    <ApplicationDisplayVersion>1.0.1.0</ApplicationDisplayVersion>
+    <ApplicationVersion>1.0.1.0</ApplicationVersion>
+    <Version>1.0.1.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
