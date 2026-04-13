@@ -143,12 +143,7 @@ namespace helvety.screentools
                 return;
             }
 
-            var restoreWindow = _window?.IsHiddenToTray == true;
             await _liveDrawCoordinator.RunLiveDrawAsync(message => SessionStatusPublished?.Invoke(message));
-            if (restoreWindow)
-            {
-                _window?.DispatcherQueue.TryEnqueue(RestoreMainWindowFromTray);
-            }
         }
 
         private void RestoreMainWindowFromTray()
