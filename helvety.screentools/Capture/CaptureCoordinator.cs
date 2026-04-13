@@ -42,7 +42,7 @@ namespace helvety.screentools.Capture
             {
                 if (!SettingsService.TryGetEffectiveSaveFolderPath(out var outputFolderPath))
                 {
-                    publishStatus("Capture failed: no writable save folder configured.");
+                    publishStatus("Screenshot failed: no writable save folder configured.");
                     return new CaptureSessionResult(0, WasCanceled: false);
                 }
 
@@ -55,7 +55,7 @@ namespace helvety.screentools.Capture
                 }
                 catch (Exception ex)
                 {
-                    publishStatus($"Capture failed while freezing screen ({ex.Message}).");
+                    publishStatus($"Screenshot failed while freezing screen ({ex.Message}).");
                     return new CaptureSessionResult(0, WasCanceled: false);
                 }
 
@@ -75,7 +75,7 @@ namespace helvety.screentools.Capture
                     }
                     catch (Exception ex)
                     {
-                        publishStatus($"Capture failed while selecting area ({ex.Message}).");
+                        publishStatus($"Screenshot failed while selecting area ({ex.Message}).");
                         await EnqueueAsync(() =>
                         {
                             overlay.Close();
@@ -87,7 +87,7 @@ namespace helvety.screentools.Capture
                     if (action.Mode == SelectionCommitMode.Cancel || !action.Bounds.HasValue)
                     {
                         // Overlay is already closed by SelectionOverlayWindow.CompleteSelection; do not touch it here.
-                        publishStatus("Capture canceled.");
+                        publishStatus("Screenshot canceled.");
                         return new CaptureSessionResult(savedScreenshotCount, WasCanceled: true);
                     }
 
@@ -103,7 +103,7 @@ namespace helvety.screentools.Capture
                     }
                     catch (Exception ex)
                     {
-                        publishStatus($"Capture failed while saving image ({ex.Message}).");
+                        publishStatus($"Screenshot failed while saving image ({ex.Message}).");
                         return new CaptureSessionResult(savedScreenshotCount, WasCanceled: false);
                     }
 
@@ -116,11 +116,11 @@ namespace helvety.screentools.Capture
                         var filename = Path.GetFileName(saveResult.OutputPath);
                         await EnqueueAsync(() =>
                         {
-                            overlay.UpdateInstructionStatus("Ready for next capture...");
+                            overlay.UpdateInstructionStatus("Ready for next screenshot...");
                             overlay.ShowSessionToast($"Saved {filename}", saveResult.OutputPath);
                             return true;
                         });
-                        publishStatus($"Saved capture (staying in capture mode): {saveResult.OutputPath}");
+                        publishStatus($"Saved screenshot (staying in screenshot mode): {saveResult.OutputPath}");
                         continue;
                     }
 
@@ -138,11 +138,11 @@ namespace helvety.screentools.Capture
                     }
                     catch (Exception ex)
                     {
-                        publishStatus($"Saved capture but failed to copy clipboard ({DescribeException(ex)}).");
+                        publishStatus($"Saved screenshot but failed to copy clipboard ({DescribeException(ex)}).");
                         return new CaptureSessionResult(savedScreenshotCount, WasCanceled: false);
                     }
 
-                    publishStatus($"Saved capture and copied to clipboard: {saveResult.OutputPath}");
+                    publishStatus($"Saved screenshot and copied to clipboard: {saveResult.OutputPath}");
                     return new CaptureSessionResult(savedScreenshotCount, WasCanceled: false);
                 }
             }

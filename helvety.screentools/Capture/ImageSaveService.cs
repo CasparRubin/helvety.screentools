@@ -292,7 +292,7 @@ namespace helvety.screentools.Capture
         private static string BuildOutputPath(string outputFolderPath)
         {
             var timestamp = DateTime.Now.ToString("yyMMdd_HHmm_ss_fff");
-            var baseName = $"{timestamp}-HelvetyCapture";
+            var baseName = $"{timestamp}-HelvetyScreenshot";
             var candidatePath = Path.Combine(outputFolderPath, $"{baseName}.png");
             var duplicateCounter = 1;
             while (File.Exists(candidatePath))

@@ -467,7 +467,7 @@ namespace helvety.screentools.Capture
             _snapBorderChrome.StopSnapBorderAnimations();
             _snapBorderChrome.PickNextBorderPalette();
             InitializeSnapAtCurrentCursor();
-            UpdateInstructionStatus("Ready for next capture...");
+            UpdateInstructionStatus("Ready for next screenshot...");
         }
 
         private bool IsFullVirtualBounds(RectInt32 bounds)

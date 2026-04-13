@@ -32,7 +32,7 @@
                         Toggled="MinimizeToTrayToggle_Toggled" />
                 </tk:SettingsCard>
                 <tk:SettingsCard
-                    Description="When off, screen capture and Live Draw keyboard shortcuts are ignored everywhere (useful if keys conflict with another app). The app keeps running; turn this back on to use hotkeys again."
+                    Description="When off, screenshot and Live Draw keyboard shortcuts are ignored everywhere (useful if keys conflict with another app). The app keeps running; turn this back on to use hotkeys again."
                     Header="Global hotkey listeners">
                     <tk:SettingsCard.HeaderIcon>
                         <FontIcon Glyph="&#xE144;" />
@@ -77,7 +77,7 @@
             <StackPanel Spacing="{StaticResource AppSpacingStack}">
                 <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Animations" />
                 <tk:SettingsCard
-                    Description="How strong the animated selection border looks (same for capture and Live Draw)."
+                    Description="How strong the animated selection border looks (same for screenshot and Live Draw)."
                     Header="Snap border intensity">
                     <tk:SettingsCard.HeaderIcon>
                         <FontIcon Glyph="&#xE790;" />
@@ -98,7 +98,7 @@
             <StackPanel Spacing="{StaticResource AppSpacingStack}">
                 <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Danger zone" />
                 <tk:SettingsCard
-                    Description="Restores all preferences to defaults (including hotkeys, global hotkey listeners, editor settings, snap-border intensity, Live Draw, capture quality, Start with Windows, and save folder to the default desktop captures folder). Does not delete image files already on disk."
+                    Description="Restores all preferences to defaults (including hotkeys, global hotkey listeners, editor settings, snap-border intensity, Live Draw, screenshot quality, Start with Windows, and save folder to the default desktop screenshots folder). Does not delete image files already on disk."
                     Header="Reset all settings">
                     <tk:SettingsCard.HeaderIcon>
                         <FontIcon Glyph="&#xE74D;" />

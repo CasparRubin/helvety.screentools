@@ -35,7 +35,7 @@
                         Icon="Folder"
                         Tag="general" />
                     <NavigationViewItem
-                        Content="Screen capture"
+                        Content="Screenshot"
                         Icon="Camera"
                         Tag="capture" />
                     <NavigationViewItem

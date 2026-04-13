@@ -8,10 +8,10 @@ using Windows.Graphics;
 namespace helvety.screentools.Capture
 {
     /// <summary>
-    /// Fullscreen Win32 <c>WS_EX_LAYERED</c> + <c>SetLayeredWindowAttributes(..., LWA_COLORKEY)</c> with a
-    /// <see cref="DesktopWindowXamlSource"/> island. WinUI does not honor <c>LWA_COLORKEY</c> on its DirectComposition
-    /// surface (see microsoft-ui-xaml #8469), so we paint a GDI chroma-key fill in <c>WM_ERASEBKGND</c> and key out
-    /// <b>magenta</b>; the XAML root stays transparent so ink is drawn on top while the desktop shows through.
+    /// Fullscreen Win32 overlay with <c>WS_EX_NOREDIRECTIONBITMAP</c> + <c>DwmExtendFrameIntoClientArea</c> and a
+    /// <see cref="DesktopWindowXamlSource"/> island. The window has no GDI surface; DirectComposition handles all
+    /// rendering. Transparent areas in the XAML visual tree are truly transparent (zero alpha) without color keying,
+    /// which eliminates the subtle color tint that <c>LWA_COLORKEY</c> introduced on composited XAML islands.
     /// </summary>
     internal sealed class LiveDrawNativeHost : IDisposable
     {
@@ -28,13 +28,9 @@ namespace helvety.screentools.Capture
         private const uint WsClipchildren = 0x02000000;
         private const uint WsClipsiblings = 0x04000000;
 
-        private const uint WsExLayered = 0x00080000;
+        private const uint WsExNoRedirectionBitmap = 0x00200000;
         private const uint WsExTopmost = 0x00000008;
         private const uint WsExToolwindow = 0x00000080;
-
-        private const uint LwaColorkey = 0x00000001;
-        /// <summary>COLORREF magenta (GDI + layered color key); must not be used for ink strokes.</summary>
-        private const uint ColorkeyMagenta = 0x00FF00FF;
 
         private const uint WmErasebkgnd = 0x0014;
         private const uint WmKeydown = 0x0100;
@@ -81,7 +77,7 @@ namespace helvety.screentools.Capture
 
             var hInstance = GetModuleHandle(nint.Zero);
             _hwnd = CreateWindowExW(
-                WsExLayered | WsExTopmost | WsExToolwindow,
+                WsExNoRedirectionBitmap | WsExTopmost | WsExToolwindow,
                 GetClassName(),
                 "Live Draw",
                 WsPopup | WsClipchildren | WsClipsiblings,
@@ -99,21 +95,13 @@ namespace helvety.screentools.Capture
                 throw new InvalidOperationException($"CreateWindowEx failed: {Marshal.GetLastWin32Error()}");
             }
 
-            var exStyle = (uint)NativeInterop.GetWindowLongPtr(_hwnd, GwlExstyle).ToInt64();
-            if ((exStyle & WsExLayered) == 0)
-            {
-                _ = NativeInterop.SetWindowLongPtr(_hwnd, GwlExstyle, new nint(exStyle | WsExLayered));
-            }
-
-            if (!SetLayeredWindowAttributes(_hwnd, ColorkeyMagenta, 0, LwaColorkey))
-            {
-                throw new InvalidOperationException($"SetLayeredWindowAttributes failed: {Marshal.GetLastWin32Error()}");
-            }
-
             StripDecorations();
 
             var disable = 1;
             _ = DwmSetWindowAttribute(_hwnd, DwmwaTransitionsForceDisabled, ref disable, sizeof(int));
+
+            var margins = new MARGINS { Left = -1, Right = -1, Top = -1, Bottom = -1 };
+            _ = DwmExtendFrameIntoClientArea(_hwnd, ref margins);
 
             _xamlSource = new DesktopWindowXamlSource();
             var windowId = Win32Interop.GetWindowIdFromWindow(_hwnd);
@@ -245,16 +233,6 @@ namespace helvety.screentools.Capture
         {
             if (msg == WmErasebkgnd)
             {
-                if (GetClientRect(hWnd, out var rect))
-                {
-                    var brush = CreateSolidBrush((int)ColorkeyMagenta);
-                    if (brush != nint.Zero)
-                    {
-                        _ = FillRect(wParam, ref rect, brush);
-                        _ = DeleteObject(brush);
-                    }
-                }
-
                 return 1;
             }
 
@@ -280,25 +258,13 @@ namespace helvety.screentools.Capture
         }
 
         [StructLayout(LayoutKind.Sequential)]
-        private struct RECT
+        private struct MARGINS
         {
             public int Left;
-            public int Top;
             public int Right;
+            public int Top;
             public int Bottom;
         }
-
-        [DllImport("user32.dll", SetLastError = true)]
-        private static extern bool GetClientRect(nint hWnd, out RECT lpRect);
-
-        [DllImport("user32.dll", SetLastError = true)]
-        private static extern int FillRect(nint hDC, ref RECT lprc, nint hbr);
-
-        [DllImport("gdi32.dll", SetLastError = true)]
-        private static extern nint CreateSolidBrush(int crColor);
-
-        [DllImport("gdi32.dll", SetLastError = true)]
-        private static extern bool DeleteObject(nint hObject);
 
         [UnmanagedFunctionPointer(CallingConvention.StdCall)]
         private delegate nint WndProcDelegate(nint hWnd, uint msg, nint wParam, nint lParam);
@@ -354,11 +320,10 @@ namespace helvety.screentools.Capture
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool InvalidateRect(nint hWnd, nint lpRect, bool bErase);
 
-        [DllImport("user32.dll", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static extern bool SetLayeredWindowAttributes(nint hwnd, uint crKey, byte bAlpha, uint dwFlags);
-
         [DllImport("dwmapi.dll")]
         private static extern int DwmSetWindowAttribute(nint hwnd, int dwAttribute, ref int pvAttribute, int cbAttribute);
+
+        [DllImport("dwmapi.dll")]
+        private static extern int DwmExtendFrameIntoClientArea(nint hwnd, ref MARGINS pMarInset);
     }
 }

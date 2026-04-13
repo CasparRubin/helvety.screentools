@@ -4,7 +4,7 @@ using Microsoft.UI.Dispatching;
 namespace helvety.screentools.Capture
 {
     /// <summary>
-    /// Routes Escape and repeat-hotkey cancel to the active overlay session (capture or Live Draw).
+    /// Routes Escape and repeat-hotkey cancel to the active overlay session (screenshot or Live Draw).
     /// Called from the low-level keyboard hook thread; cancel actions are marshaled to the UI dispatcher.
     /// </summary>
     internal static class ActiveOverlayCancelService

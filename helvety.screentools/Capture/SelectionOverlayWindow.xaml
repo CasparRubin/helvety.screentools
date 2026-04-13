@@ -3,7 +3,7 @@
     x:Class="helvety.screentools.Capture.SelectionOverlayWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    Title="Capture Selection">
+    Title="Screenshot Selection">
     <Grid
         x:Name="RootGrid"
         UseSystemFocusVisuals="False"
@@ -87,10 +87,10 @@
                             FontSize="18"
                             FontWeight="SemiBold"
                             Foreground="White"
-                            Text="Screen capture" />
+                            Text="Screenshot" />
                         <TextBlock
                             Foreground="#FFE6E6E6"
-                            Text="Click to capture the snapped window or the full screen; drag to select a rectangle."
+                            Text="Click to save the snapped window or the full screen; drag to select a rectangle."
                             TextWrapping="WrapWholeWords" />
                     </StackPanel>
 
@@ -146,7 +146,7 @@
                             Foreground="White"
                             TextWrapping="WrapWholeWords">
                             <Run FontWeight="SemiBold" Text="Right click" />
-                            <Run Text=" saves the file and stays in capture mode (no clipboard copy)." />
+                            <Run Text=" saves the file and stays in screenshot mode (no clipboard copy)." />
                         </TextBlock>
 
                         <Border
@@ -168,7 +168,7 @@
                             Foreground="White"
                             TextWrapping="WrapWholeWords">
                             <Run FontWeight="SemiBold" Text="Esc" />
-                            <Run Text=" cancels capture mode." />
+                            <Run Text=" cancels screenshot mode." />
                         </TextBlock>
                     </Grid>
 
@@ -197,7 +197,7 @@
                         CornerRadius="0">
                         <TextBlock
                             Foreground="#FFDCDCDC"
-                            Text="Note: This panel is never included in saved captures."
+                            Text="Note: This panel is never included in saved screenshots."
                             TextWrapping="WrapWholeWords" />
                     </Border>
                 </StackPanel>
@@ -217,7 +217,7 @@
                         x:Name="SessionToastTitleText"
                         FontWeight="SemiBold"
                         Foreground="White"
-                        Text="Capture saved" />
+                        Text="Screenshot saved" />
                     <TextBlock
                         x:Name="SessionToastDetailText"
                         Foreground="#FFDCDCDC"

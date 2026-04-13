@@ -8,14 +8,14 @@ namespace helvety.screentools
         HotkeySettings? Hotkey,
         bool IsHotkeyCleared,
         bool IsSaveFolderCleared,
-        /// <summary>Global snap-border intensity for capture selection overlay and Live Draw.</summary>
+        /// <summary>Global snap-border intensity for screenshot selection overlay and Live Draw.</summary>
         ScreenshotBorderIntensity ScreenshotBorderIntensity,
         ScreenshotQualityMode ScreenshotQualityMode,
         bool ShowScreenshotOverlayInstructions,
         bool MinimizeToTrayOnClose,
         /// <summary>User wants the packaged app registered for sign-in startup (see <see cref="Services.StartupLaunchService"/>).</summary>
         bool RunAtWindowsStartup,
-        /// <summary>When false, the low-level keyboard hook ignores capture and Live Draw chord sequences (Escape-to-cancel during overlays may still run).</summary>
+        /// <summary>When false, the low-level keyboard hook ignores screenshot and Live Draw chord sequences (Escape-to-cancel during overlays may still run).</summary>
         bool GlobalHotkeyListenersEnabled,
         bool CaptureHotkeyEnabled,
         bool LiveDrawEnabled);
@@ -49,7 +49,7 @@ namespace helvety.screentools
         bool GpuEffectsEnabled);
 
     /// <summary>
-    /// Visual strength of shared snap-border chrome (gradients, dashing, pulse) for frozen-screen capture and Live Draw.
+    /// Visual strength of shared snap-border chrome (gradients, dashing, pulse) for screenshot and Live Draw.
     /// </summary>
     internal enum ScreenshotBorderIntensity
     {

@@ -199,7 +199,7 @@ namespace helvety.screentools.Views.Settings
                 SettingsService.TryGetEffectiveLiveDrawHotkey(out var live) &&
                 SettingsService.HotkeyModifiersAndSequenceEqual(shot, live))
             {
-                SetLiveDrawBindingStatus("Live Draw matches capture hotkey; change one so both stay distinct.");
+                SetLiveDrawBindingStatus("Live Draw matches screenshot hotkey; change one so both stay distinct.");
             }
 
             RegisterInitialLiveDrawBinding();
@@ -418,7 +418,7 @@ namespace helvety.screentools.Views.Settings
 
             if (SettingsService.HotkeyModifiersAndSequenceEqual(candidate, shot))
             {
-                message = "Live Draw hotkey must differ from the capture hotkey.";
+                message = "Live Draw hotkey must differ from the screenshot hotkey.";
                 return true;
             }
 

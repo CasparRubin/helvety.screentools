@@ -17,5 +17,8 @@ AppPackages/
 Thumbs.db
 ehthumbs.db
 
+# Release ZIPs (generated locally or by CI)
+helvety-screentools-*.zip
+
 # Build logs
 *.log

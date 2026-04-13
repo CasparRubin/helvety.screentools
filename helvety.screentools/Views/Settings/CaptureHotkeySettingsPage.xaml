@@ -12,16 +12,16 @@
     <ScrollViewer>
         <StackPanel Padding="{StaticResource AppPaddingPageBottomHeavy}" Spacing="{StaticResource AppSpacingSection}">
             <StackPanel Spacing="{StaticResource AppSpacingStack}">
-                <TextBlock Style="{StaticResource SettingsPageTitleTextStyle}" Text="Screen capture" />
+                <TextBlock Style="{StaticResource SettingsPageTitleTextStyle}" Text="Screenshot" />
                 <TextBlock
                     Style="{StaticResource SettingsSectionDescriptionTextStyle}"
-                    Text="Enable or disable capture, choose a save folder, set capture quality and overlay instructions, and use the Shortcut section below for your global hotkey. Snap-border animation intensity (shared with Live Draw) is under Settings → General. In the capture overlay, click without dragging to save the snapped window or the full virtual screen; drag to draw a rectangle. Left-click saves, copies to the clipboard, and exits; right-click saves without copying and stays in capture mode."
+                    Text="Enable or disable screenshots, choose a save folder, set screenshot quality and overlay instructions, and use the Shortcut section below for your global hotkey. Snap-border animation intensity (shared with Live Draw) is under Settings → General. In the screenshot overlay, click without dragging to save the snapped window or the full virtual screen; drag to draw a rectangle. Left-click saves, copies to the clipboard, and exits; right-click saves without copying and stays in screenshot mode."
                     TextWrapping="WrapWholeWords" />
             </StackPanel>
 
             <tk:SettingsCard
-                Description="When off, the capture shortcut is not active. Your saved keys remain stored."
-                Header="Screen capture">
+                Description="When off, the screenshot shortcut is not active. Your saved keys remain stored."
+                Header="Screenshot">
                 <tk:SettingsCard.HeaderIcon>
                     <FontIcon Glyph="&#xE722;" />
                 </tk:SettingsCard.HeaderIcon>
@@ -72,7 +72,7 @@
                             Text="Shortcut" />
 
                         <tk:SettingsCard
-                            Description="The shortcut that is currently active when capture is enabled."
+                            Description="The shortcut that is currently active when screenshots are enabled."
                             Header="Current shortcut">
                             <tk:SettingsCard.HeaderIcon>
                                 <FontIcon Glyph="&#xEDA7;" />
@@ -226,7 +226,7 @@
             </ContentControl>
 
             <StackPanel Spacing="{StaticResource AppSpacingStack}">
-                <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Capture quality" />
+                <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Screenshot quality" />
                 <tk:SettingsCard
                     Description="Fast is default. Optimized improves text; Heavy uses heavier processing on large selections."
                     Header="Quality mode">
@@ -249,7 +249,7 @@
             <StackPanel Spacing="{StaticResource AppSpacingStack}">
                 <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Overlay" />
                 <tk:SettingsCard
-                    Description="Show helper instructions in the capture overlay."
+                    Description="Show helper instructions in the screenshot overlay."
                     Header="Instructions">
                     <tk:SettingsCard.HeaderIcon>
                         <FontIcon Glyph="&#xE946;" />

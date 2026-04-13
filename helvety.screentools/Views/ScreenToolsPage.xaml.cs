@@ -34,7 +34,7 @@ namespace helvety.screentools.Views
     /// <summary>
     /// Home page (nav label "General", page title "Helvety Screen Tools"): lists files from the configured save folder with thumbnails and metadata.
     /// Left-click on an image opens the editor; right-click copies that image to the clipboard.
-    /// Refreshes enumerate the folder on a background thread, then apply updates under a short lock. After a capture, the list reloads the same way as on navigation.
+    /// Refreshes enumerate the folder on a background thread, then apply updates under a short lock. After a screenshot, the list reloads the same way as on navigation.
     /// The page intentionally stays minimal and focuses on browsing saved files.
     /// </summary>
     public sealed partial class ScreenToolsPage : Page
@@ -63,7 +63,7 @@ namespace helvety.screentools.Views
             _watcherRefreshTimer = DispatcherQueue.CreateTimer();
             _watcherRefreshTimer.Interval = TimeSpan.FromMilliseconds(120);
             _watcherRefreshTimer.IsRepeating = false;
-            // Debounce clustered file-system notifications from capture writes.
+            // Debounce clustered file-system notifications from screenshot writes.
             _watcherRefreshTimer.Tick += WatcherRefreshTimer_Tick;
             SettingsService.SaveFolderPathChanged += SettingsService_SaveFolderPathChanged;
             SettingsService.SettingsChanged += SettingsService_SettingsChanged;
@@ -147,7 +147,7 @@ namespace helvety.screentools.Views
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ScreenToolsPage] Post-capture gallery reload failed: {ex.Message}");
+                Debug.WriteLine($"[ScreenToolsPage] Post-screenshot gallery reload failed: {ex.Message}");
             }
         }
 
@@ -246,14 +246,14 @@ namespace helvety.screentools.Views
                 ? liveDrawHotkey.Display
                 : "not set";
             AppHeroDescriptionText.Text =
-                $"Capture your screen with smart snap selection ({captureBindingText}), draw live on your desktop in fullscreen ({liveDrawBindingText}), and edit saved images with crop, blur, highlight, text, borders, and arrows in the built-in editor.";
+                $"Take screenshots with smart snap selection ({captureBindingText}), draw live on your desktop in fullscreen ({liveDrawBindingText}), and edit saved images with crop, blur, highlight, text, borders, and arrows in the built-in editor.";
 
             if (plan.Kind == GalleryRefreshKind.NoSaveFolder)
             {
                 _imageFiles.Clear();
                 DisposeSaveFolderWatcher();
                 GalleryScrollViewer.Visibility = Visibility.Collapsed;
-                EmptyStateMessageText.Text = "Set a save location to store captures.";
+                EmptyStateMessageText.Text = "Set a save location to store screenshots.";
                 EmptyFolderCallout.Visibility = Visibility.Visible;
                 return;
             }
@@ -266,7 +266,7 @@ namespace helvety.screentools.Views
                 var liveHint = plan.HasLiveDrawHotkey
                     ? $" You can still use Live Draw with {plan.LiveHotkey.Display} (no save folder required for that hotkey)."
                     : string.Empty;
-                EmptyStateMessageText.Text = $"Set a capture hotkey to save files to this folder.{liveHint}";
+                EmptyStateMessageText.Text = $"Set a screenshot hotkey to save files to this folder.{liveHint}";
                 EmptyFolderCallout.Visibility = Visibility.Visible;
                 return;
             }
@@ -291,7 +291,7 @@ namespace helvety.screentools.Views
                 var liveLine = plan.HasLiveDrawHotkey
                     ? $" Live Draw: {plan.LiveHotkey.Display}."
                     : string.Empty;
-                EmptyStateMessageText.Text = $"Press {plan.Hotkey.Display} to create your first capture.{liveLine}";
+                EmptyStateMessageText.Text = $"Press {plan.Hotkey.Display} to create your first screenshot.{liveLine}";
                 EmptyFolderCallout.Visibility = Visibility.Visible;
                 return;
             }

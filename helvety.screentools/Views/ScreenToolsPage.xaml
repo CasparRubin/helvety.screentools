@@ -32,7 +32,7 @@
             Margin="0,0,0,12"
             IsClosable="False"
             IsOpen="True"
-            Message="Screen capture and Live Draw keyboard shortcuts will not respond while listeners are off."
+            Message="Screenshot and Live Draw keyboard shortcuts will not respond while listeners are off."
             Severity="Warning"
             Title="Global hotkeys are turned off"
             Visibility="Collapsed">
@@ -46,7 +46,7 @@
             <TextBlock
                 x:Name="AppHeroDescriptionText"
                 Style="{StaticResource AppPageSubtitleTextStyle}"
-                Text="Capture your screen with smart snap selection, draw live on your desktop in fullscreen, and edit saved images with crop, blur, highlight, text, borders, and arrows in the built-in editor."
+                Text="Take screenshots with smart snap selection, draw live on your desktop in fullscreen, and edit saved images with crop, blur, highlight, text, borders, and arrows in the built-in editor."
                 TextWrapping="WrapWholeWords" />
         </StackPanel>
 
@@ -71,11 +71,11 @@
                     VerticalAlignment="Center"
                     Visibility="Collapsed">
                     <StackPanel Spacing="{StaticResource AppSpacingContent}">
-                        <TextBlock Style="{StaticResource AppEmptyStateTitleTextStyle}" Text="No captures yet" />
+                        <TextBlock Style="{StaticResource AppEmptyStateTitleTextStyle}" Text="No screenshots yet" />
                         <TextBlock
                             x:Name="EmptyStateMessageText"
                             Style="{StaticResource AppEmptyStateBodyTextStyle}"
-                            Text="Set a save folder and capture hotkey to get started. Live Draw is configured in Settings and works without a save folder." />
+                            Text="Set a save folder and screenshot hotkey to get started. Live Draw is configured in Settings and works without a save folder." />
                     </StackPanel>
                 </Border>
 

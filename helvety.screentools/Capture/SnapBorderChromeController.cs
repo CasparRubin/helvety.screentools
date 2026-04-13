@@ -233,7 +233,7 @@ namespace helvety.screentools.Capture
         /// <summary>
         /// Live Draw only: scale snap-border rectangle/ellipse stroke weights so the main outline matches straight lines and arrows
         /// (same <paramref name="mainStrokeThicknessDip"/> as the Live Draw line thickness setting).
-        /// Selection overlay keeps the capture border intensity profile without calling this.
+        /// Selection overlay keeps the screenshot border intensity profile without calling this.
         /// </summary>
         internal void ApplyLiveDrawStrokeThickness(double mainStrokeThicknessDip)
         {

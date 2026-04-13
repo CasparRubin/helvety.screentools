@@ -113,7 +113,7 @@ namespace helvety.screentools.Views.Settings
         private void ListenController_EscapePressed()
         {
             StopStepCapture();
-            SetBindingStatus("Capture canceled.");
+            SetBindingStatus("Screenshot canceled.");
         }
 
         protected override void OnNavigatedTo(NavigationEventArgs e)
@@ -418,7 +418,7 @@ namespace helvety.screentools.Views.Settings
                 _currentBinding = null;
                 ResetEditor();
                 RefreshCaptureCurrentShortcutVisual();
-                SetBindingStatus("No capture hotkey set.");
+                SetBindingStatus("No screenshot hotkey set.");
                 UpdateFeatureAvailability();
                 return;
             }
@@ -569,7 +569,7 @@ namespace helvety.screentools.Views.Settings
             if (SettingsService.TryGetEffectiveLiveDrawHotkey(out var live) &&
                 SettingsService.HotkeyModifiersAndSequenceEqual(candidate, live))
             {
-                statusMessage = "Capture hotkey must differ from the Live Draw hotkey.";
+                statusMessage = "Screenshot hotkey must differ from the Live Draw hotkey.";
                 return false;
             }
 
@@ -668,7 +668,7 @@ namespace helvety.screentools.Views.Settings
                 SettingsService.ClearHotkey();
                 ResetEditor();
                 RefreshCaptureCurrentShortcutVisual();
-                SetBindingStatus("No capture hotkey set.");
+                SetBindingStatus("No screenshot hotkey set.");
                 UpdateFeatureAvailability();
                 return;
             }
@@ -721,7 +721,7 @@ namespace helvety.screentools.Views.Settings
         {
             if (_currentBinding is null)
             {
-                CaptureCurrentChordStrip.SetEmpty("(none)", "Capture hotkey: (none)");
+                CaptureCurrentChordStrip.SetEmpty("(none)", "Screenshot hotkey: (none)");
                 return;
             }
 
@@ -730,7 +730,7 @@ namespace helvety.screentools.Views.Settings
                 binding.Modifiers,
                 binding.Sequence,
                 GetCurrentShortcutAppearance(),
-                $"Capture hotkey: {binding.Display}");
+                $"Screenshot hotkey: {binding.Display}");
         }
 
         private HotkeyChordAppearance GetCurrentShortcutAppearance()

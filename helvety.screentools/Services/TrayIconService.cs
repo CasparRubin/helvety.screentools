@@ -47,7 +47,7 @@ namespace helvety.screentools.Services
 
             _taskbarIcon = new TaskbarIcon
             {
-                ToolTipText = "Helvety Screen Tools — capture & Live Draw",
+                ToolTipText = "Helvety Screen Tools — screenshot & Live Draw",
                 Icon = _trayIcon,
                 ContextFlyout = contextMenu,
                 LeftClickCommand = openCommand

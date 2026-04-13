@@ -14,8 +14,8 @@ using Windows.System;
 namespace helvety.screentools.Capture
 {
     /// <summary>
-    /// Live Draw vector overlay: full virtual-screen <see cref="UserControl"/> with a transparent root so the host
-    /// can key out the GDI chroma fill from <see cref="LiveDrawNativeHost"/>; ink renders above the desktop.
+    /// Live Draw vector overlay: full virtual-screen <see cref="UserControl"/> with a transparent root hosted inside
+    /// <see cref="LiveDrawNativeHost"/> (a <c>WS_EX_NOREDIRECTIONBITMAP</c> window); ink renders above the desktop.
     /// Left mouse: freehand when no shape modifier matches; rectangle, arrow, and straight line use the modifiers set in Settings.
     /// Right mouse: circle or ellipse with the chosen modifiers; plain right hold is the sparkle animation (no modifier).
     /// </summary>

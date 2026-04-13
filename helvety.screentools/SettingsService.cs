@@ -12,7 +12,7 @@ namespace helvety.screentools
     {
         internal const int MaxHotkeySequenceLength = 5;
         private const uint DefaultHotkeyModifiers = 0x0004; // Shift
-        /// <summary>Default persisted capture shortcut label (plus-separated); Settings shows the same chord as visual key pills.</summary>
+        /// <summary>Default persisted screenshot shortcut label (plus-separated); Settings shows the same chord as visual key pills.</summary>
         private const string DefaultHotkeyDisplay = "Shift+S+S+S";
         private const string DefaultHotkeySequence = "83,83,83";
         private const uint DefaultLiveDrawHotkeyModifiers = 0x0004; // Shift
@@ -326,7 +326,7 @@ namespace helvety.screentools
         }
 
         /// <summary>
-        /// Persists global snap-border animation intensity (frozen-screen capture and Live Draw via <see cref="Capture.SnapBorderChromeController"/>).
+        /// Persists global snap-border animation intensity (screenshot and Live Draw via <see cref="Capture.SnapBorderChromeController"/>).
         /// </summary>
         internal static void SaveScreenshotBorderIntensity(ScreenshotBorderIntensity intensity) =>
             WriteSetting(ScreenshotBorderIntensityKey, (int)intensity);
@@ -452,7 +452,7 @@ namespace helvety.screentools
         }
 
         /// <summary>
-        /// Removes all managed settings keys and reapplies defaults (including save folder to the default desktop captures folder, snap-border intensity, capture, Live Draw, and editor state).
+        /// Removes all managed settings keys and reapplies defaults (including save folder to the default desktop screenshots folder, snap-border intensity, screenshot, Live Draw, and editor state).
         /// </summary>
         internal static void ResetAllSettingsToDefaults()
         {
@@ -854,7 +854,7 @@ namespace helvety.screentools
                 issues.Add(new GlobalSetupIssue(
                     InfoBarSeverity.Error,
                     "Save location required",
-                    "Choose a writable folder to save and open captures in Screen Tools.",
+                    "Choose a writable folder to save and open screenshots in Screen Tools.",
                     $"Use Default ({defaultSaveFolderPath})",
                     "use-default-save-folder",
                     "Open Settings",
@@ -869,8 +869,8 @@ namespace helvety.screentools
                 var defaultHotkey = GetDefaultHotkey();
                 issues.Add(new GlobalSetupIssue(
                     InfoBarSeverity.Error,
-                    "Capture hotkey required",
-                    "Set a capture hotkey before capturing and saving to your folder.",
+                    "Screenshot hotkey required",
+                    "Set a screenshot hotkey before taking and saving screenshots to your folder.",
                     $"Use Default ({defaultHotkey.Display})",
                     "use-default-hotkey",
                     "Open Settings",

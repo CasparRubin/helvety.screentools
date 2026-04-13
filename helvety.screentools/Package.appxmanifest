@@ -11,7 +11,7 @@
   <Identity
     Name="e4d12237-970d-40b9-9bfa-ffe4e3b52350"
     Publisher="CN=ETH"
-    Version="1.0.1.0" />
+    Version="1.0.2.0" />
 
   <mp:PhoneIdentity PhoneProductId="e4d12237-970d-40b9-9bfa-ffe4e3b52350" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
@@ -36,7 +36,7 @@
       EntryPoint="$targetentrypoint$">
       <uap:VisualElements
         DisplayName="Helvety Screen Tools"
-        Description="Helvety Screen Tools — frozen-screen capture (selection overlay) and Live Draw (transparent layered ink; shapes, freehand, click-hold pointer sparkle)."
+        Description="Helvety Screen Tools — screenshot (selection overlay) and Live Draw (transparent layered ink; shapes, freehand, click-hold pointer sparkle)."
         BackgroundColor="transparent"
         Square150x150Logo="Assets\Square150x150Logo.png"
         Square44x44Logo="Assets\Square44x44Logo.png">

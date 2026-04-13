@@ -14,7 +14,7 @@
                 <TextBlock Style="{StaticResource AppPageTitleTextStyle}" Text="About" />
                 <TextBlock
                     Style="{StaticResource SettingsSectionDescriptionTextStyle}"
-                    Text="Use a global shortcut to capture your screen—snap to a window or drag a rectangle, then save or copy to the clipboard. Draw on your desktop with Live Draw, browse saved captures in a gallery, and open images in the built-in editor to crop, blur, highlight, add text, and more."
+                    Text="Use a global shortcut to take a screenshot—snap to a window or drag a rectangle, then save or copy to the clipboard. Draw on your desktop with Live Draw, browse saved screenshots in a gallery, and open images in the built-in editor to crop, blur, highlight, add text, and more."
                     TextWrapping="WrapWholeWords" />
             </StackPanel>
 
