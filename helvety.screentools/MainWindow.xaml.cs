@@ -112,6 +112,11 @@ namespace helvety.screentools
             Activate();
         }
 
+        internal void MarkHiddenToTray()
+        {
+            IsHiddenToTray = true;
+        }
+
         internal void RequestFullExit()
         {
             _allowFullExit = true;

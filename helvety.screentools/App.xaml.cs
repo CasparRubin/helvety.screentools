@@ -1,4 +1,5 @@
 using Microsoft.UI.Xaml;
+using Microsoft.Windows.AppLifecycle;
 using System;
 using System.Diagnostics;
 using System.Threading.Tasks;
@@ -40,7 +41,15 @@ namespace helvety.screentools
             _window = new MainWindow();
             MainAppWindow = _window;
             _window.DispatcherQueue.TryEnqueue(() => _ = ApplyStartupLaunchPreferenceAsync());
-            _window.Activate();
+
+            if (IsActivatedByStartupTask())
+            {
+                _window.MarkHiddenToTray();
+            }
+            else
+            {
+                _window.Activate();
+            }
 
             var freezeFrameProvider = new GdiFreezeFrameProvider();
             var windowSnapHitTester = new WindowSnapHitTester();
@@ -178,6 +187,19 @@ namespace helvety.screentools
             catch (Exception ex)
             {
                 Debug.WriteLine($"Startup launch preference apply failed: {ex.Message}");
+            }
+        }
+
+        private static bool IsActivatedByStartupTask()
+        {
+            try
+            {
+                var activatedArgs = AppInstance.GetCurrent().GetActivatedEventArgs();
+                return activatedArgs.Kind == ExtendedActivationKind.StartupTask;
+            }
+            catch
+            {
+                return false;
             }
         }
     }
