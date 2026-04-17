@@ -14,7 +14,7 @@ using UiFontStyle = Windows.UI.Text.FontStyle;
 namespace helvety.screentools.Editor
 {
     /// <summary>
-    /// Draws text, border, and arrow layers to a XAML canvas (editor surface or gallery thumbnail composite).
+    /// Draws text, border, and arrow layers to a XAML canvas.
     /// </summary>
     internal static class EditorVectorOverlayRenderer
     {
@@ -33,7 +33,7 @@ namespace helvety.screentools.Editor
         }
 
         /// <summary>
-        /// Draws layers in list order (back-to-front). Use with <see cref="GalleryEditablePngThumbnailComposer.ScaleVectorLayersInDrawOrder"/>.
+        /// Draws layers in list order (back-to-front) when caller already provides bottom-to-top sequence.
         /// </summary>
         internal static void DrawVectorLayersBottomToTop(
             IEnumerable<EditorLayer> layersBottomToTop,

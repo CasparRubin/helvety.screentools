@@ -21,7 +21,8 @@ The app can be **packaged and deployed** (MSIX or unpackaged). Behavior and defa
 - Built-in image editor tools (Move, Text, Border, Blur, Highlight, Arrow, Crop; Crop is last in the toolbar)
 - Single-row editor settings strip with horizontal overflow handling; settings switch contextually to the active tool (or selected layer while Move is active)
 - Layer list with drag-and-drop reordering (top item is rendered in front)
-- Export section under Layers (bottom-right) with Save As New File, Override Existing File, Copy, and contextual Save Crop
+- Export section under Layers (bottom-right) with **Save, copy and close** and **Save and close**; each save writes a new flattened PNG and closes the editor, while the first option also copies the result to clipboard
+- Saved edits are intentionally non-reeditable: reopening a saved image starts from the bitmap result, and new annotations can be added in a fresh edit session
 - Arrow drawing with live preview while dragging
 - Quick text re-edit via selected-layer editor controls
 - Blur settings include Radius, Corner Radius, Feather, and Invert; Highlight includes Dim, Corner Radius, and Invert (inside/outside targeting)

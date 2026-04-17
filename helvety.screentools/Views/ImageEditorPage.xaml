@@ -778,21 +778,8 @@
                             Background="{ThemeResource CardStrokeColorDefaultBrush}"
                             Opacity="0.75" />
                         <StackPanel Spacing="{StaticResource AppSpacingStack}">
-                            <Button Height="36" HorizontalAlignment="Stretch" Click="SaveButton_Click" Content="Save As New File" />
-                            <Button Height="36" HorizontalAlignment="Stretch" Click="OverrideButton_Click" Content="Overwrite Current File" />
-                            <Button Height="36" HorizontalAlignment="Stretch" Click="CopyButton_Click" Content="Copy to Clipboard" />
-                            <Button
-                                Height="36"
-                                HorizontalAlignment="Stretch"
-                                Click="SaveFlattenedButton_Click"
-                                Content="Save Flattened PNG" />
-                            <Button
-                                x:Name="SaveCropButton"
-                                Height="36"
-                                HorizontalAlignment="Stretch"
-                                Click="SaveCropButton_Click"
-                                Content="Save Crop"
-                                Visibility="Collapsed" />
+                            <Button Height="36" HorizontalAlignment="Stretch" Click="SaveCopyAndCloseButton_Click" Content="Save, copy and close" />
+                            <Button Height="36" HorizontalAlignment="Stretch" Click="SaveAndCloseButton_Click" Content="Save and close" />
                         </StackPanel>
                     </StackPanel>
                 </Border>

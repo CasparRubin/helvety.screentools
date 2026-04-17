@@ -14,18 +14,6 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!-- Off-screen host for RenderTargetBitmap when compositing vector overlays onto editable PNG thumbnails.
-             Size must cover max decode (520) and stay opaque; 1×1 + Opacity=0 breaks RTB capture of the WriteableBitmap base. -->
-        <Grid
-            x:Name="ThumbnailCompositionHost"
-            Grid.RowSpan="3"
-            Width="520"
-            Height="520"
-            Margin="-10000,0,0,0"
-            HorizontalAlignment="Left"
-            VerticalAlignment="Top"
-            IsHitTestVisible="False" />
-
         <InfoBar
             x:Name="GlobalHotkeyListenersOffInfoBar"
             Grid.Row="0"
@@ -82,7 +70,20 @@
                 <ScrollViewer x:Name="GalleryScrollViewer" Visibility="Collapsed">
                     <StackPanel Spacing="{StaticResource AppSpacingContent}">
                         <StackPanel Spacing="{StaticResource AppSpacingTight}">
-                            <TextBlock Style="{StaticResource AppContentSectionTitleTextStyle}" Text="Images" />
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock
+                                    Grid.Column="0"
+                                    Style="{StaticResource AppContentSectionTitleTextStyle}"
+                                    Text="Images" />
+                                <Button
+                                    Grid.Column="1"
+                                    Click="OpenImagesFolder_Click"
+                                    Content="Open folder" />
+                            </Grid>
                             <TextBlock
                                 Style="{StaticResource AppContentCaptionTextStyle}"
                                 Text="Left-click opens the editor. Right-click copies the image to the clipboard."

@@ -56,6 +56,28 @@ namespace helvety.screentools.Editor
             }
         }
 
+        internal static void CloseEditor(string filePath)
+        {
+            if (string.IsNullOrWhiteSpace(filePath))
+            {
+                return;
+            }
+
+            if (!OpenWindows.TryGetValue(filePath, out var window))
+            {
+                return;
+            }
+
+            try
+            {
+                window.Close();
+            }
+            catch
+            {
+                // If close fails, keep current editor window open.
+            }
+        }
+
         private static void TryMaximizeWindow(Window window)
         {
             try

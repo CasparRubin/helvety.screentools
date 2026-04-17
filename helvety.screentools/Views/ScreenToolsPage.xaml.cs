@@ -26,8 +26,6 @@ using Windows.Graphics.Imaging;
 using Windows.Storage;
 using Windows.Storage.FileProperties;
 using Windows.Storage.Streams;
-using Canvas = Microsoft.UI.Xaml.Controls.Canvas;
-using Image = Microsoft.UI.Xaml.Controls.Image;
 
 namespace helvety.screentools.Views
 {
@@ -50,8 +48,6 @@ namespace helvety.screentools.Views
         /// <summary>Serializes gallery updates so <see cref="_imageFiles"/> is not modified concurrently.</summary>
         private readonly SemaphoreSlim _refreshSemaphore = new(1, 1);
 
-        /// <summary>Limits concurrent UI-thread thumbnail composites (editable PNG + vectors).</summary>
-        private static readonly SemaphoreSlim ThumbnailCompositeSemaphore = new(2, 2);
         private FileSystemWatcher? _saveFolderWatcher;
         private string? _watchedFolderPath;
         private readonly DispatcherQueueTimer _watcherRefreshTimer;
@@ -110,6 +106,29 @@ namespace helvety.screentools.Views
         private void OpenGeneralSettingsForHotkeys_Click(object sender, RoutedEventArgs e)
         {
             MainNavigationRequests.RequestNavigateToTag("general");
+        }
+
+        private void OpenImagesFolder_Click(object sender, RoutedEventArgs e)
+        {
+            if (!SettingsService.TryGetEffectiveSaveFolderPath(out var folderPath))
+            {
+                InAppToastService.Show("Unable to open images folder. Configure a writable save folder in Settings.", InAppToastSeverity.Error);
+                return;
+            }
+
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "explorer.exe",
+                    Arguments = $"\"{folderPath}\"",
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                InAppToastService.Show($"Failed to open images folder ({ex.Message}).", InAppToastSeverity.Error);
+            }
         }
 
         private void WatcherRefreshTimer_Tick(DispatcherQueueTimer sender, object args)
@@ -319,12 +338,9 @@ namespace helvety.screentools.Views
                     {
                         var imageItem = new GalleryFileItem(
                             file.FullName,
-                            file.Name,
-                            BuildFileInfoText(file),
                             BuildImageGalleryDateLine(file),
                             BuildImageGallerySizeLine(file),
                             true,
-                            "🖼",
                             file.LastWriteTimeUtc.Ticks,
                             file.Length);
                         _imageFiles.Add(imageItem);
@@ -378,18 +394,7 @@ namespace helvety.screentools.Views
             try
             {
                 var file = await StorageFile.GetFileFromPathAsync(item.Path);
-                ImageSource? thumbnail;
-                if (string.Equals(Path.GetExtension(item.Path), ".png", StringComparison.OrdinalIgnoreCase))
-                {
-                    thumbnail = await TryLoadEditablePngThumbnailWithVectorsAsync(file, token).ConfigureAwait(false);
-                    if (thumbnail is not null && !token.IsCancellationRequested)
-                    {
-                        await TryAssignThumbnailOnUiThreadAsync(item, thumbnail, token);
-                        return;
-                    }
-                }
-
-                thumbnail = await RunPreviewLoadOnUiThreadAsync(file, token).ConfigureAwait(false);
+                var thumbnail = await RunPreviewLoadOnUiThreadAsync(file, token).ConfigureAwait(false);
                 if (thumbnail is null || token.IsCancellationRequested)
                 {
                     return;
@@ -525,290 +530,6 @@ namespace helvety.screentools.Views
             {
                 return null;
             }
-        }
-
-        private async Task<ImageSource?> TryLoadEditablePngThumbnailWithVectorsAsync(StorageFile file, CancellationToken token)
-        {
-            byte[] bytes;
-            try
-            {
-                bytes = await File.ReadAllBytesAsync(file.Path, token).ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[ScreenToolsPage] PNG read for thumbnail composite failed: {ex.Message}");
-                return null;
-            }
-
-            if (token.IsCancellationRequested)
-            {
-                return null;
-            }
-
-            using var ras = new InMemoryRandomAccessStream();
-            await ras.WriteAsync(bytes.AsBuffer());
-            ras.Seek(0);
-            BitmapDecoder decoder;
-            try
-            {
-                decoder = await BitmapDecoder.CreateAsync(ras);
-            }
-            catch
-            {
-                return null;
-            }
-
-            var pw = (int)decoder.OrientedPixelWidth;
-            var ph = (int)decoder.OrientedPixelHeight;
-            if (!GalleryEditablePngThumbnailComposer.TryGetThumbnailCompositePlan(
-                    bytes,
-                    file.Path,
-                    pw,
-                    ph,
-                    out var document,
-                    out _,
-                    out var scale,
-                    out var sw,
-                    out var sh))
-            {
-                return null;
-            }
-
-            var scaledPixels = await TryDecodeScaledPngBgraAsync(bytes, sw, sh, token).ConfigureAwait(false);
-            if (scaledPixels is null || token.IsCancellationRequested)
-            {
-                return null;
-            }
-
-            var layers = GalleryEditablePngThumbnailComposer.ScaleVectorLayersInDrawOrder(document.Layers, scale);
-
-            await ThumbnailCompositeSemaphore.WaitAsync(token).ConfigureAwait(false);
-            try
-            {
-                return await ComposeEditableThumbnailOnUiThreadAsync(scaledPixels, sw, sh, layers, token).ConfigureAwait(false);
-            }
-            finally
-            {
-                ThumbnailCompositeSemaphore.Release();
-            }
-        }
-
-        private static async Task<byte[]?> TryDecodeScaledPngBgraAsync(byte[] pngBytes, int scaledWidth, int scaledHeight, CancellationToken token)
-        {
-            using var ras = new InMemoryRandomAccessStream();
-            await ras.WriteAsync(pngBytes.AsBuffer());
-            ras.Seek(0);
-            BitmapDecoder decoder;
-            try
-            {
-                decoder = await BitmapDecoder.CreateAsync(ras);
-            }
-            catch
-            {
-                return null;
-            }
-
-            var transform = new BitmapTransform
-            {
-                ScaledWidth = (uint)Math.Max(1, scaledWidth),
-                ScaledHeight = (uint)Math.Max(1, scaledHeight),
-                InterpolationMode = BitmapInterpolationMode.Fant
-            };
-
-            var pixelData = await decoder.GetPixelDataAsync(
-                BitmapPixelFormat.Bgra8,
-                BitmapAlphaMode.Premultiplied,
-                transform,
-                ExifOrientationMode.IgnoreExifOrientation,
-                ColorManagementMode.ColorManageToSRgb);
-
-            if (token.IsCancellationRequested)
-            {
-                return null;
-            }
-
-            return pixelData.DetachPixelData();
-        }
-
-        private Task<ImageSource?> ComposeEditableThumbnailOnUiThreadAsync(
-            byte[] scaledBgra,
-            int sw,
-            int sh,
-            IReadOnlyList<EditorLayer> layersBottomToTop,
-            CancellationToken token)
-        {
-            var tcs = new TaskCompletionSource<ImageSource?>(TaskCreationOptions.RunContinuationsAsynchronously);
-            if (!DispatcherQueue.TryEnqueue(() => _ = ComposeEditableThumbnailCoreAsync(tcs, scaledBgra, sw, sh, layersBottomToTop, token)))
-            {
-                tcs.TrySetResult(null);
-            }
-
-            return tcs.Task;
-        }
-
-        private async Task ComposeEditableThumbnailCoreAsync(
-            TaskCompletionSource<ImageSource?> tcs,
-            byte[] scaledBgra,
-            int sw,
-            int sh,
-            IReadOnlyList<EditorLayer> layersBottomToTop,
-            CancellationToken token)
-        {
-            try
-            {
-                if (token.IsCancellationRequested)
-                {
-                    tcs.TrySetResult(null);
-                    return;
-                }
-
-                var expectedLength = checked(sw * sh * 4);
-                if (scaledBgra.Length < expectedLength)
-                {
-                    tcs.TrySetResult(null);
-                    return;
-                }
-
-                ThumbnailCompositionHost.Children.Clear();
-
-                var surface = new Grid
-                {
-                    Width = sw,
-                    Height = sh
-                };
-
-                // RenderTargetBitmap often omits WriteableBitmap-backed Images; BitmapImage from encoded pixels composites reliably.
-                using var pngStream = new InMemoryRandomAccessStream();
-                var encoder = await BitmapEncoder.CreateAsync(BitmapEncoder.PngEncoderId, pngStream).AsTask().ConfigureAwait(true);
-                encoder.SetPixelData(
-                    BitmapPixelFormat.Bgra8,
-                    BitmapAlphaMode.Premultiplied,
-                    (uint)sw,
-                    (uint)sh,
-                    96,
-                    96,
-                    scaledBgra);
-                await encoder.FlushAsync().AsTask().ConfigureAwait(true);
-                pngStream.Seek(0);
-                var baseBitmap = new BitmapImage();
-                await baseBitmap.SetSourceAsync(pngStream).AsTask().ConfigureAwait(true);
-
-                var baseImage = new Image
-                {
-                    Source = baseBitmap,
-                    Width = sw,
-                    Height = sh,
-                    Stretch = Stretch.None
-                };
-
-                var overlay = new Canvas
-                {
-                    Width = sw,
-                    Height = sh,
-                    IsHitTestVisible = false
-                };
-
-                surface.Children.Add(baseImage);
-                surface.Children.Add(overlay);
-
-                ThumbnailCompositionHost.Children.Add(surface);
-
-                EditorVectorOverlayRenderer.DrawVectorLayersBottomToTop(layersBottomToTop, overlay, suppressExpensiveEffects: true);
-
-                ThumbnailCompositionHost.Measure(new Size(sw, sh));
-                ThumbnailCompositionHost.Arrange(new Rect(0, 0, sw, sh));
-                surface.Measure(new Size(sw, sh));
-                surface.Arrange(new Rect(0, 0, sw, sh));
-                ThumbnailCompositionHost.UpdateLayout();
-
-                await Task.Yield();
-                if (token.IsCancellationRequested)
-                {
-                    ThumbnailCompositionHost.Children.Clear();
-                    tcs.TrySetResult(null);
-                    return;
-                }
-
-                var rtb = new RenderTargetBitmap();
-                await rtb.RenderAsync(surface, sw, sh);
-                var pixelWidth = rtb.PixelWidth;
-                var pixelHeight = rtb.PixelHeight;
-                if (pixelWidth <= 0 || pixelHeight <= 0)
-                {
-                    ThumbnailCompositionHost.Children.Clear();
-                    tcs.TrySetResult(null);
-                    return;
-                }
-
-                var buffer = await rtb.GetPixelsAsync();
-                var requiredBytes = checked((uint)pixelWidth * (uint)pixelHeight * 4);
-                if (buffer.Length < requiredBytes)
-                {
-                    ThumbnailCompositionHost.Children.Clear();
-                    tcs.TrySetResult(null);
-                    return;
-                }
-
-                var pixelBytes = buffer.ToArray();
-                if (IsThumbnailCompositeEssentiallyBlank(pixelBytes, pixelWidth, pixelHeight))
-                {
-                    ThumbnailCompositionHost.Children.Clear();
-                    tcs.TrySetResult(null);
-                    return;
-                }
-
-                ThumbnailCompositionHost.Children.Clear();
-
-                var output = new WriteableBitmap(pixelWidth, pixelHeight);
-                using (var outStream = output.PixelBuffer.AsStream())
-                {
-                    await outStream.WriteAsync(pixelBytes, 0, (int)requiredBytes).ConfigureAwait(true);
-                }
-
-                output.Invalidate();
-                tcs.TrySetResult(output);
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[ScreenToolsPage] Thumbnail vector composite failed: {ex.Message}");
-                ThumbnailCompositionHost.Children.Clear();
-                tcs.TrySetResult(null);
-            }
-        }
-
-        /// <summary>
-        /// True when a 5×5 sample grid over premultiplied BGRA is entirely low-alpha (empty RTB / failed base capture).
-        /// </summary>
-        private static bool IsThumbnailCompositeEssentiallyBlank(byte[] pixels, int width, int height)
-        {
-            if (width <= 0 || height <= 0)
-            {
-                return true;
-            }
-
-            var minLength = checked(width * height * 4);
-            if (pixels.Length < minLength)
-            {
-                return true;
-            }
-
-            const byte alphaThreshold = 16;
-            const int samplesPerAxis = 5;
-            for (var iy = 0; iy < samplesPerAxis; iy++)
-            {
-                var y = height == 1 ? 0 : iy * (height - 1) / (samplesPerAxis - 1);
-                for (var ix = 0; ix < samplesPerAxis; ix++)
-                {
-                    var x = width == 1 ? 0 : ix * (width - 1) / (samplesPerAxis - 1);
-                    var index = ((y * width) + x) * 4 + 3;
-                    if (pixels[index] >= alphaThreshold)
-                    {
-                        return false;
-                    }
-                }
-            }
-
-            return true;
         }
 
         /// <summary>Decode order: scaled PNG from disk, BitmapImage decode, shell thumbnail.</summary>
@@ -1077,17 +798,6 @@ namespace helvety.screentools.Views
             });
         }
 
-        private static string BuildFileInfoText(FileInfo file)
-        {
-            var extension = string.IsNullOrWhiteSpace(file.Extension)
-                ? "No extension"
-                : file.Extension.ToLowerInvariant();
-            var sizeText = FormatBytes(file.Length);
-            var dateText = file.LastWriteTime.ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture);
-            var relativeText = FormatRelativeAgo(file.LastWriteTime);
-            return $"{extension} • {sizeText} • {dateText} - {relativeText} ago";
-        }
-
         private static string BuildImageGalleryDateLine(FileInfo file)
         {
             var dateText = file.LastWriteTime.ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture);
@@ -1153,39 +863,27 @@ namespace helvety.screentools.Views
 
         public GalleryFileItem(
             string path,
-            string name,
-            string fileInfoText,
             string imageDateLine,
             string imageSizeLine,
             bool isEditableImage,
-            string fileGlyph,
             long lastWriteTimeUtcTicks,
             long fileLengthBytes)
         {
             Path = path;
-            Name = name;
-            FileInfoText = fileInfoText;
             ImageDateLine = imageDateLine;
             ImageSizeLine = imageSizeLine;
             IsEditableImage = isEditableImage;
-            FileGlyph = fileGlyph;
             LastWriteTimeUtcTicks = lastWriteTimeUtcTicks;
             FileLengthBytes = fileLengthBytes;
         }
 
         public string Path { get; }
 
-        public string Name { get; }
-
-        public string FileInfoText { get; }
-
         public string ImageDateLine { get; }
 
         public string ImageSizeLine { get; }
 
         public bool IsEditableImage { get; }
-
-        public string FileGlyph { get; }
 
         public long LastWriteTimeUtcTicks { get; }
 

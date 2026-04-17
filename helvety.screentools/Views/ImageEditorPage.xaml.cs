@@ -96,7 +96,6 @@ namespace helvety.screentools.Views
         private bool _hasAppliedInitialFitWidth;
         private bool _userAdjustedZoom;
         private double _lastAppliedFitWidthZoom = 1d;
-        private InMemoryRandomAccessStream? _clipboardImageStream;
         private bool _isCropSelected;
         private bool _isSyncingToolSettings;
         private bool _isInitializingUi = true;
@@ -149,8 +148,6 @@ namespace helvety.screentools.Views
             Unloaded -= ImageEditorPage_Unloaded;
             EditorScrollViewer.SizeChanged -= EditorScrollViewer_SizeChanged;
             EditorScrollViewer.ViewChanged -= EditorScrollViewer_ViewChanged;
-            _clipboardImageStream?.Dispose();
-            _clipboardImageStream = null;
         }
 
         private async void ImageEditorPage_Loaded(object sender, RoutedEventArgs e)
@@ -169,7 +166,6 @@ namespace helvety.screentools.Views
                 }
 
                 var file = await StorageFile.GetFileFromPathAsync(_filePath);
-                var sourcePngBytes = await File.ReadAllBytesAsync(_filePath);
                 using var stream = await file.OpenAsync(FileAccessMode.Read);
                 var decoder = await BitmapDecoder.CreateAsync(stream);
                 var pixelData = await decoder.GetPixelDataAsync(
@@ -208,8 +204,6 @@ namespace helvety.screentools.Views
                 _composeSampleCount = 0;
                 _composeSampleTotalMs = 0;
                 ApplyPersistedEditorUiSettings();
-                TryRestoreEditableState(sourcePngBytes);
-                UpdateCropActionVisibility();
                 SetActiveTool(EditorToolType.Move);
                 UpdateSelectedTextEditorVisibility();
                 await UpdateBaseImageAsync();
@@ -909,7 +903,6 @@ namespace helvety.screentools.Views
         {
             _pendingCropRect = null;
             _isCropSelected = false;
-            UpdateCropActionVisibility();
             UpdateDisplayedToolContext();
             UpdateToolButtonVisuals();
             UpdateSelectedTextEditorVisibility();
@@ -921,7 +914,6 @@ namespace helvety.screentools.Views
             _selectedLayerId = null;
             _isCropSelected = true;
             LayersListView.SelectedItem = null;
-            UpdateCropActionVisibility();
             UpdateDisplayedToolContext();
             UpdateToolButtonVisuals();
             UpdateSelectedTextEditorVisibility();
@@ -1237,17 +1229,11 @@ namespace helvety.screentools.Views
                 suppressExpensiveEffects);
         }
 
-        private async void SaveButton_Click(object sender, RoutedEventArgs e)
+        private async void SaveCopyAndCloseButton_Click(object sender, RoutedEventArgs e)
         {
             try
             {
-                CommitInlineTextEditor();
-                await RecomposeAsync(includeAdorners: true, includePixelEffects: true);
-                var outputPath = BuildOutputPath(_filePath, "_edited");
-                var pixels = await RenderCompositePixelsAsync(flattenVectorOverlaysInRaster: false);
-                await SavePngAsync(outputPath, pixels, _imageWidth, _imageHeight);
-                await SyncOriginalPixelsAfterEditableSaveAsync(pixels);
-                InAppToastService.Show($"Saved: {outputPath}", InAppToastSeverity.Success);
+                await ExecuteSaveAndCloseAsync(copyToClipboard: true);
             }
             catch (Exception ex)
             {
@@ -1255,124 +1241,43 @@ namespace helvety.screentools.Views
             }
         }
 
-        private async void OverrideButton_Click(object sender, RoutedEventArgs e)
+        private async void SaveAndCloseButton_Click(object sender, RoutedEventArgs e)
         {
             try
             {
-                CommitInlineTextEditor();
-                await RecomposeAsync(includeAdorners: true, includePixelEffects: true);
-                var pixels = await RenderCompositePixelsAsync(flattenVectorOverlaysInRaster: false);
-                await SavePngAsync(_filePath, pixels, _imageWidth, _imageHeight);
-                await SyncOriginalPixelsAfterEditableSaveAsync(pixels);
-                InAppToastService.Show($"Overridden: {_filePath}", InAppToastSeverity.Success);
+                await ExecuteSaveAndCloseAsync(copyToClipboard: false);
             }
             catch (Exception ex)
             {
-                InAppToastService.Show($"Override failed ({ex.Message}).", InAppToastSeverity.Error);
+                InAppToastService.Show($"Save failed ({ex.Message}).", InAppToastSeverity.Error);
             }
         }
 
-        private async void SaveFlattenedButton_Click(object sender, RoutedEventArgs e)
+        private async Task ExecuteSaveAndCloseAsync(bool copyToClipboard)
         {
-            try
-            {
-                CommitInlineTextEditor();
-                await RecomposeAsync(includeAdorners: true, includePixelEffects: true);
-                var outputPath = BuildOutputPath(_filePath, "_flat");
-                var pixels = await RenderCompositePixelsAsync(flattenVectorOverlaysInRaster: true);
-                await SavePngAsync(outputPath, pixels, _imageWidth, _imageHeight, embedEditableMetadata: false);
-                InAppToastService.Show($"Saved flattened image: {outputPath}", InAppToastSeverity.Success);
-            }
-            catch (Exception ex)
-            {
-                InAppToastService.Show($"Save flattened failed ({ex.Message}).", InAppToastSeverity.Error);
-            }
-        }
+            CommitInlineTextEditor();
+            await RecomposeAsync(includeAdorners: true, includePixelEffects: true);
 
-        private async void CopyButton_Click(object sender, RoutedEventArgs e)
-        {
-            try
+            if (_pendingCropRect.HasValue && !_pendingCropRect.Value.IsEmpty)
             {
-                CommitInlineTextEditor();
-                await RecomposeAsync(includeAdorners: true, includePixelEffects: true);
-                var pixels = await RenderCompositePixelsAsync(flattenVectorOverlaysInRaster: true);
-                _clipboardImageStream?.Dispose();
-                _clipboardImageStream = new InMemoryRandomAccessStream();
-                var encoder = await BitmapEncoder.CreateAsync(BitmapEncoder.PngEncoderId, _clipboardImageStream);
-                encoder.SetPixelData(
-                    BitmapPixelFormat.Bgra8,
-                    BitmapAlphaMode.Premultiplied,
-                    (uint)_imageWidth,
-                    (uint)_imageHeight,
-                    96,
-                    96,
-                    pixels);
-                await encoder.FlushAsync();
-                _clipboardImageStream.Seek(0);
-
-                var package = new DataPackage();
-                package.SetBitmap(RandomAccessStreamReference.CreateFromStream(_clipboardImageStream));
-                Clipboard.SetContent(package);
-                Clipboard.Flush();
-                InAppToastService.Show("Copied image to clipboard.", InAppToastSeverity.Success);
-            }
-            catch (Exception ex)
-            {
-                InAppToastService.Show($"Copy failed ({ex.Message}).", InAppToastSeverity.Error);
-            }
-        }
-
-        private async void SaveCropButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (!_pendingCropRect.HasValue || _pendingCropRect.Value.IsEmpty)
-            {
-                InAppToastService.Show("Select a crop region first.", InAppToastSeverity.Warning);
+                var region = _pendingCropRect.Value;
+                var fullPixels = await RenderCompositePixelsAsync();
+                var cropPixels = CropPixels(fullPixels, _imageWidth, _imageHeight, region);
+                var outputPath = BuildOutputPath(_filePath, "_crop");
+                await SaveNewImageAndCloseAsync(outputPath, cropPixels, region.Width, region.Height, "Cropped image saved", copyToClipboard);
                 return;
             }
 
-            try
-            {
-                CommitInlineTextEditor();
-                var region = _pendingCropRect.Value;
-                await RecomposeAsync(includeAdorners: true, includePixelEffects: true);
-                var fullPixels = await RenderCompositePixelsAsync(flattenVectorOverlaysInRaster: true);
-                var cropPixels = CropPixels(fullPixels, _imageWidth, _imageHeight, region);
-                var outputPath = BuildOutputPath(_filePath, "_crop");
-                await SavePngAsync(outputPath, cropPixels, region.Width, region.Height);
-                InAppToastService.Show($"Cropped image saved: {outputPath}", InAppToastSeverity.Success);
-            }
-            catch (Exception ex)
-            {
-                InAppToastService.Show($"Crop save failed ({ex.Message}).", InAppToastSeverity.Error);
-            }
-        }
-
-        private void UpdateCropActionVisibility()
-        {
-            SaveCropButton.Visibility = _pendingCropRect.HasValue && !_pendingCropRect.Value.IsEmpty
-                ? Visibility.Visible
-                : Visibility.Collapsed;
+            var pixels = await RenderCompositePixelsAsync();
+            var fullOutputPath = BuildOutputPath(_filePath, "_edited");
+            await SaveNewImageAndCloseAsync(fullOutputPath, pixels, _imageWidth, _imageHeight, "Saved", copyToClipboard);
         }
 
         /// <summary>
-        /// When <paramref name="flattenVectorOverlaysInRaster"/> is false, returns the GPU pixel buffer (blur/highlight only),
-        /// which matches how the editor displays the base image without burning text, borders, or arrows into PNG bytes.
-        /// When true, captures the full surface (base + vector overlays) for clipboard, flattened export, or other apps.
+        /// Captures the full editor surface as pixels. All exports are flattened so they can be viewed everywhere without editor state.
         /// </summary>
-        private async Task<byte[]> RenderCompositePixelsAsync(bool flattenVectorOverlaysInRaster)
+        private async Task<byte[]> RenderCompositePixelsAsync()
         {
-            if (!flattenVectorOverlaysInRaster)
-            {
-                if (_workingPixels is null || _document is null || _originalPixels is null)
-                {
-                    return await RenderCompositePixelsAsync(flattenVectorOverlaysInRaster: true);
-                }
-
-                var editableCopy = new byte[_workingPixels.Length];
-                System.Buffer.BlockCopy(_workingPixels, 0, editableCopy, 0, _workingPixels.Length);
-                return editableCopy;
-            }
-
             if (_document is not null &&
                 _workingPixels is not null &&
                 !_document.Layers.Any(layer => layer.IsVisible && layer is TextLayer or BorderLayer or ArrowLayer))
@@ -1390,41 +1295,34 @@ namespace helvety.screentools.Views
             return buffer.ToArray();
         }
 
-        private async Task SyncOriginalPixelsAfterEditableSaveAsync(byte[] pixels)
+        private async Task SaveNewImageAndCloseAsync(string outputPath, byte[] pixels, int width, int height, string successLabel, bool copyToClipboard)
         {
-            if (_originalPixels is null || pixels.Length != _originalPixels.Length)
+            await SavePngAsync(outputPath, pixels, width, height);
+            if (copyToClipboard)
             {
-                return;
+                await CopySavedImageToClipboardAsync(outputPath);
+                InAppToastService.Show($"{successLabel}: {outputPath}. Copied to clipboard.", InAppToastSeverity.Success);
+            }
+            else
+            {
+                InAppToastService.Show($"{successLabel}: {outputPath}.", InAppToastSeverity.Success);
             }
 
-            System.Buffer.BlockCopy(pixels, 0, _originalPixels, 0, pixels.Length);
-            if (_workingPixels is null || _workingPixels.Length != pixels.Length)
-            {
-                _workingPixels = new byte[pixels.Length];
-            }
-
-            System.Buffer.BlockCopy(pixels, 0, _workingPixels, 0, pixels.Length);
-            await UpdateBaseImageAsync();
-            RebuildOverlayVisuals(includeAdorners: true);
+            ImageEditorLauncher.CloseEditor(_filePath);
         }
 
-        private async Task SavePngAsync(string outputPath, byte[] pixels, int width, int height, bool embedEditableMetadata = true)
+        private static async Task CopySavedImageToClipboardAsync(string filePath)
+        {
+            var savedFile = await StorageFile.GetFileFromPathAsync(filePath);
+            var package = new DataPackage();
+            package.SetBitmap(RandomAccessStreamReference.CreateFromFile(savedFile));
+            Clipboard.SetContent(package);
+            Clipboard.Flush();
+        }
+
+        private async Task SavePngAsync(string outputPath, byte[] pixels, int width, int height)
         {
             var pngBytes = await EncodePngBytesAsync(pixels, width, height);
-            var shouldEmbedEditableMetadata = embedEditableMetadata &&
-                                             _document is not null &&
-                                             width == _imageWidth &&
-                                             height == _imageHeight;
-
-            if (shouldEmbedEditableMetadata && _document is not null)
-            {
-                var payload = EditorDocumentSerialization.Serialize(
-                    _document,
-                    new EditorRuntimeState(_blurInvertMode, _highlightDimPercent, _highlightInvertMode, _regionCornerRadius));
-
-                pngBytes = PngEditableMetadataCodec.WriteWithEditableState(pngBytes, payload);
-            }
-
             await File.WriteAllBytesAsync(outputPath, pngBytes);
         }
 
@@ -1445,55 +1343,6 @@ namespace helvety.screentools.Views
             using var memory = new MemoryStream();
             await stream.AsStreamForRead().CopyToAsync(memory);
             return memory.ToArray();
-        }
-
-        private void TryRestoreEditableState(byte[] sourcePngBytes)
-        {
-            if (_document is null)
-            {
-                return;
-            }
-
-            if (!PngEditableMetadataCodec.TryReadEditableState(sourcePngBytes, out var payloadJson))
-            {
-                return;
-            }
-
-            if (!EditorDocumentSerialization.TryDeserialize(
-                    payloadJson,
-                    _filePath,
-                    _imageWidth,
-                    _imageHeight,
-                    out var restoredDocument,
-                    out var runtimeState,
-                    out var loadedSchemaVersion))
-            {
-                return;
-            }
-
-            _document.Layers.Clear();
-            foreach (var layer in restoredDocument.Layers)
-            {
-                _document.Layers.Add(layer);
-            }
-
-            if (loadedSchemaVersion < 2 &&
-                restoredDocument.Layers.Any(layer =>
-                    layer.IsVisible && layer is TextLayer or BorderLayer or ArrowLayer))
-            {
-                InAppToastService.Show(
-                    "This PNG was saved with an older editor format. Text, borders, or arrows may appear doubled. Use Save Flattened PNG for other apps, or overwrite the file here to upgrade to the new format.",
-                    InAppToastSeverity.Warning);
-            }
-
-            _blurInvertMode = runtimeState.BlurInvertMode;
-            BlurInvertToggle.IsOn = _blurInvertMode;
-            _highlightDimPercent = Clamp(runtimeState.HighlightDimPercent, 0, MaxHighlightDimPercent);
-            HighlightDimSlider.Value = _highlightDimPercent;
-            HighlightDimValueText.Text = $"{_highlightDimPercent}%";
-            _highlightInvertMode = runtimeState.HighlightInvertMode;
-            HighlightInvertToggle.IsOn = _highlightInvertMode;
-            SetRegionCornerRadius(runtimeState.RegionCornerRadius);
         }
 
         private static byte[] CropPixels(byte[] source, int sourceWidth, int sourceHeight, EditorRect region)
@@ -1746,7 +1595,6 @@ namespace helvety.screentools.Views
             {
                 _pendingCropRect = resized;
                 _isCropSelected = true;
-                UpdateCropActionVisibility();
                 return;
             }
 

@@ -50,7 +50,6 @@ namespace helvety.screentools
         private const int DefaultEditorRegionCornerRadius = 8;
         private const bool DefaultEditorPerformanceModeEnabled = false;
         private const bool DefaultEditorGpuEffectsEnabled = true;
-        private const bool DefaultEditorEmbedEditableMetadata = true;
         private const bool DefaultCaptureHotkeyEnabled = true;
         private const bool DefaultLiveDrawFeatureEnabled = true;
         private const bool DefaultRunAtWindowsStartup = true;
@@ -101,17 +100,11 @@ namespace helvety.screentools
         private const string EditorTextBorderColorKey = "EditorTextBorderColor";
         private const string EditorTextBorderThicknessKey = "EditorTextBorderThickness";
         private const string EditorTextShadowEnabledKey = "EditorTextShadowEnabled";
-        private const string EditorTextShadowColorKey = "EditorTextShadowColor";
-        private const string EditorTextShadowOffsetKey = "EditorTextShadowOffset";
         private const string EditorBorderShadowEnabledKey = "EditorBorderShadowEnabled";
-        private const string EditorBorderShadowColorKey = "EditorBorderShadowColor";
-        private const string EditorBorderShadowOffsetKey = "EditorBorderShadowOffset";
         private const string EditorArrowBorderEnabledKey = "EditorArrowBorderEnabled";
         private const string EditorArrowBorderColorKey = "EditorArrowBorderColor";
         private const string EditorArrowBorderThicknessKey = "EditorArrowBorderThickness";
         private const string EditorArrowShadowEnabledKey = "EditorArrowShadowEnabled";
-        private const string EditorArrowShadowColorKey = "EditorArrowShadowColor";
-        private const string EditorArrowShadowOffsetKey = "EditorArrowShadowOffset";
         private const string EditorArrowFormStyleKey = "EditorArrowFormStyle";
         private const string EditorBlurRadiusKey = "EditorBlurRadius";
         private const string EditorBlurFeatherKey = "EditorBlurFeather";
@@ -121,7 +114,6 @@ namespace helvety.screentools
         private const string EditorRegionCornerRadiusKey = "EditorRegionCornerRadius";
         private const string EditorPerformanceModeEnabledKey = "EditorPerformanceModeEnabled";
         private const string EditorGpuEffectsEnabledKey = "EditorGpuEffectsEnabled";
-        private const string EditorEmbedEditableMetadataKey = "EditorEmbedEditableMetadata";
         private static readonly string[] ManagedSettingKeys =
         {
             SettingsVersionKey,
@@ -164,17 +156,11 @@ namespace helvety.screentools
             EditorTextBorderColorKey,
             EditorTextBorderThicknessKey,
             EditorTextShadowEnabledKey,
-            EditorTextShadowColorKey,
-            EditorTextShadowOffsetKey,
             EditorBorderShadowEnabledKey,
-            EditorBorderShadowColorKey,
-            EditorBorderShadowOffsetKey,
             EditorArrowBorderEnabledKey,
             EditorArrowBorderColorKey,
             EditorArrowBorderThicknessKey,
             EditorArrowShadowEnabledKey,
-            EditorArrowShadowColorKey,
-            EditorArrowShadowOffsetKey,
             EditorArrowFormStyleKey,
             EditorBlurRadiusKey,
             EditorBlurFeatherKey,
@@ -183,8 +169,7 @@ namespace helvety.screentools
             EditorHighlightInvertModeKey,
             EditorRegionCornerRadiusKey,
             EditorPerformanceModeEnabledKey,
-            EditorGpuEffectsEnabledKey,
-            EditorEmbedEditableMetadataKey
+            EditorGpuEffectsEnabledKey
         };
 
         internal static AppSettings Load()
@@ -351,16 +336,6 @@ namespace helvety.screentools
             var settings = LoadEditorUiSettings();
             SaveEditorUiSettings(settings with { PerformanceModeEnabled = enabled });
         }
-
-        internal static bool LoadEditorEmbedEditableMetadataEnabled()
-        {
-            var values = ApplicationData.Current.LocalSettings.Values;
-            EnsureSettingsVersion(values);
-            return ReadBool(values, EditorEmbedEditableMetadataKey, DefaultEditorEmbedEditableMetadata);
-        }
-
-        internal static void SaveEditorEmbedEditableMetadataEnabled(bool enabled) =>
-            WriteSetting(EditorEmbedEditableMetadataKey, enabled);
 
         internal static EditorUiSettings LoadEditorUiSettings()
         {
@@ -1100,7 +1075,6 @@ namespace helvety.screentools
             values[EditorRegionCornerRadiusKey] = DefaultEditorRegionCornerRadius;
             values[EditorPerformanceModeEnabledKey] = DefaultEditorPerformanceModeEnabled;
             values[EditorGpuEffectsEnabledKey] = DefaultEditorGpuEffectsEnabled;
-            values[EditorEmbedEditableMetadataKey] = DefaultEditorEmbedEditableMetadata;
         }
 
         private static bool IsValidHotkey(HotkeySettings hotkey)
