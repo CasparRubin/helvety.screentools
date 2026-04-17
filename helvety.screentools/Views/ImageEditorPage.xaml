@@ -54,7 +54,41 @@
                             <Border Style="{StaticResource ToolSettingItemBorderStyle}">
                                 <StackPanel VerticalAlignment="Center">
                                     <TextBlock Style="{StaticResource AppToolSettingCardTitleTextStyle}" Text="Move" />
-                                    <TextBlock Text="No specific settings for Move." />
+                                    <StackPanel
+                                        Orientation="Horizontal"
+                                        Spacing="{StaticResource AppSpacingStack}"
+                                        VerticalAlignment="Center">
+                                        <Button
+                                            x:Name="MoveZoomOutButton"
+                                            Width="40"
+                                            Height="34"
+                                            Click="MoveZoomOutButton_Click">
+                                            <SymbolIcon Symbol="Remove" />
+                                        </Button>
+                                        <Slider
+                                            x:Name="MoveZoomSlider"
+                                            Style="{StaticResource SettingsInlineSliderStyle}"
+                                            Width="180"
+                                            Height="34"
+                                            Minimum="0.1"
+                                            Maximum="8"
+                                            StepFrequency="0.05"
+                                            TickFrequency="0.25"
+                                            Value="1"
+                                            ValueChanged="MoveZoomSlider_ValueChanged" />
+                                        <Button
+                                            x:Name="MoveZoomInButton"
+                                            Width="40"
+                                            Height="34"
+                                            Click="MoveZoomInButton_Click">
+                                            <SymbolIcon Symbol="Add" />
+                                        </Button>
+                                        <TextBlock
+                                            x:Name="MoveZoomValueText"
+                                            MinWidth="56"
+                                            VerticalAlignment="Center"
+                                            Text="100%" />
+                                    </StackPanel>
                                 </StackPanel>
                             </Border>
                         </ItemsControl>
@@ -778,8 +812,20 @@
                             Background="{ThemeResource CardStrokeColorDefaultBrush}"
                             Opacity="0.75" />
                         <StackPanel Spacing="{StaticResource AppSpacingStack}">
-                            <Button Height="36" HorizontalAlignment="Stretch" Click="SaveCopyAndCloseButton_Click" Content="Save, copy and close" />
-                            <Button Height="36" HorizontalAlignment="Stretch" Click="SaveAndCloseButton_Click" Content="Save and close" />
+                            <Button
+                                x:Name="SaveCopyAndCloseButton"
+                                Style="{StaticResource AccentButtonStyle}"
+                                Height="36"
+                                HorizontalAlignment="Stretch"
+                                Click="SaveCopyAndCloseButton_Click"
+                                Content="Save, copy and close" />
+                            <Button
+                                x:Name="SaveAndCloseButton"
+                                Style="{StaticResource AccentButtonStyle}"
+                                Height="36"
+                                HorizontalAlignment="Stretch"
+                                Click="SaveAndCloseButton_Click"
+                                Content="Save and close" />
                         </StackPanel>
                     </StackPanel>
                 </Border>

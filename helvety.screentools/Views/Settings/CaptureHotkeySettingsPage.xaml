@@ -15,7 +15,7 @@
                 <TextBlock Style="{StaticResource SettingsPageTitleTextStyle}" Text="Screenshot" />
                 <TextBlock
                     Style="{StaticResource SettingsSectionDescriptionTextStyle}"
-                    Text="Enable or disable screenshots, choose a save folder, set screenshot quality and overlay instructions, and use the Shortcut section below for your global hotkey. Snap-border animation intensity (shared with Live Draw) is under Settings → General. In the screenshot overlay, click without dragging to save the snapped window or the full virtual screen; drag to draw a rectangle. Left-click saves, copies to the clipboard, and exits; right-click saves without copying and stays in screenshot mode."
+                    Text="Enable or disable screenshots, choose a save folder, set screenshot quality and overlay instructions, and use the Shortcut section below for your global hotkey. Snap-border animation intensity (shared with Live Draw) is under Settings → General. In the screenshot overlay, click without dragging to save the snapped window or the current monitor under the cursor; drag to draw a rectangle. Left-click saves, copies to the clipboard, and exits; right-click saves without copying and stays in screenshot mode."
                     TextWrapping="WrapWholeWords" />
             </StackPanel>
 

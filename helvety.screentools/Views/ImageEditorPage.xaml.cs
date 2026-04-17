@@ -53,6 +53,10 @@ namespace helvety.screentools.Views
         private const int MaxRegionCornerRadius = 24;
         private const int MaxPrimaryThickness = 24;
         private const int InteractiveOverlayThrottleMs = 8;
+        private const double MoveZoomMinimum = 0.1d;
+        private const double MoveZoomMaximum = 8d;
+        private const double MoveZoomSliderStep = 0.05d;
+        private const double MoveZoomButtonStep = 0.10d;
 
         private enum ResizeHandle
         {
@@ -93,6 +97,7 @@ namespace helvety.screentools.Views
         private int _inlineTextWrapWidth = 260;
         private bool _isCommittingInlineText;
         private bool _isApplyingFitWidthZoom;
+        private bool _isSyncingMoveZoomControls;
         private bool _hasAppliedInitialFitWidth;
         private bool _userAdjustedZoom;
         private double _lastAppliedFitWidthZoom = 1d;
@@ -129,6 +134,9 @@ namespace helvety.screentools.Views
         {
             _filePath = filePath;
             InitializeComponent();
+            UpdateExportButtonLabels();
+            ConfigureMoveZoomControlBounds();
+            SyncMoveZoomControlsFromScrollViewer();
             _isInitializingUi = false;
             Loaded += ImageEditorPage_Loaded;
             Unloaded += ImageEditorPage_Unloaded;
@@ -227,6 +235,8 @@ namespace helvety.screentools.Views
 
         private void EditorScrollViewer_ViewChanged(object? sender, ScrollViewerViewChangedEventArgs e)
         {
+            SyncMoveZoomControlsFromScrollViewer();
+
             if (_isApplyingFitWidthZoom || !_hasAppliedInitialFitWidth)
             {
                 return;
@@ -258,8 +268,7 @@ namespace helvety.screentools.Views
             }
 
             var targetZoom = viewportWidth / _imageWidth;
-            var minZoom = EditorScrollViewer.MinZoomFactor > 0 ? EditorScrollViewer.MinZoomFactor : 0.1f;
-            var maxZoom = EditorScrollViewer.MaxZoomFactor > minZoom ? EditorScrollViewer.MaxZoomFactor : 10f;
+            var (minZoom, maxZoom) = GetEffectiveZoomRange();
             var clampedZoom = Math.Clamp(targetZoom, minZoom, maxZoom);
 
             _isApplyingFitWidthZoom = true;
@@ -272,7 +281,96 @@ namespace helvety.screentools.Views
             finally
             {
                 _isApplyingFitWidthZoom = false;
+                SyncMoveZoomControlsFromScrollViewer();
             }
+        }
+
+        private (double MinZoom, double MaxZoom) GetEffectiveZoomRange()
+        {
+            var minZoomFromViewer = EditorScrollViewer.MinZoomFactor > 0
+                ? (double)EditorScrollViewer.MinZoomFactor
+                : MoveZoomMinimum;
+            var maxZoomFromViewer = EditorScrollViewer.MaxZoomFactor > minZoomFromViewer
+                ? (double)EditorScrollViewer.MaxZoomFactor
+                : MoveZoomMaximum;
+            var effectiveMin = Math.Clamp(MoveZoomMinimum, minZoomFromViewer, maxZoomFromViewer);
+            var effectiveMax = Math.Clamp(MoveZoomMaximum, effectiveMin, maxZoomFromViewer);
+            return (effectiveMin, effectiveMax);
+        }
+
+        private void ConfigureMoveZoomControlBounds()
+        {
+            var (minZoom, maxZoom) = GetEffectiveZoomRange();
+            MoveZoomSlider.Minimum = minZoom;
+            MoveZoomSlider.Maximum = maxZoom;
+            MoveZoomSlider.StepFrequency = MoveZoomSliderStep;
+        }
+
+        private void SyncMoveZoomControlsFromScrollViewer()
+        {
+            ConfigureMoveZoomControlBounds();
+            var (minZoom, maxZoom) = GetEffectiveZoomRange();
+            var currentZoom = Math.Clamp(
+                EditorScrollViewer.ZoomFactor > 0 ? (double)EditorScrollViewer.ZoomFactor : 1d,
+                minZoom,
+                maxZoom);
+
+            _isSyncingMoveZoomControls = true;
+            try
+            {
+                if (Math.Abs(MoveZoomSlider.Value - currentZoom) > 0.0001d)
+                {
+                    MoveZoomSlider.Value = currentZoom;
+                }
+
+                MoveZoomValueText.Text = $"{Math.Round(currentZoom * 100d):0}%";
+            }
+            finally
+            {
+                _isSyncingMoveZoomControls = false;
+            }
+        }
+
+        private void ApplyEditorZoom(double requestedZoom, bool markAsUserAdjusted)
+        {
+            var (minZoom, maxZoom) = GetEffectiveZoomRange();
+            var clampedZoom = Math.Clamp(requestedZoom, minZoom, maxZoom);
+            var currentZoom = EditorScrollViewer.ZoomFactor > 0 ? (double)EditorScrollViewer.ZoomFactor : 1d;
+            if (Math.Abs(currentZoom - clampedZoom) < 0.0001d)
+            {
+                SyncMoveZoomControlsFromScrollViewer();
+                return;
+            }
+
+            EditorScrollViewer.ChangeView(horizontalOffset: null, verticalOffset: null, zoomFactor: (float)clampedZoom, disableAnimation: true);
+            if (markAsUserAdjusted && _hasAppliedInitialFitWidth)
+            {
+                _userAdjustedZoom = true;
+            }
+
+            SyncMoveZoomControlsFromScrollViewer();
+        }
+
+        private void MoveZoomOutButton_Click(object sender, RoutedEventArgs e)
+        {
+            var currentZoom = EditorScrollViewer.ZoomFactor > 0 ? (double)EditorScrollViewer.ZoomFactor : 1d;
+            ApplyEditorZoom(currentZoom - MoveZoomButtonStep, markAsUserAdjusted: true);
+        }
+
+        private void MoveZoomInButton_Click(object sender, RoutedEventArgs e)
+        {
+            var currentZoom = EditorScrollViewer.ZoomFactor > 0 ? (double)EditorScrollViewer.ZoomFactor : 1d;
+            ApplyEditorZoom(currentZoom + MoveZoomButtonStep, markAsUserAdjusted: true);
+        }
+
+        private void MoveZoomSlider_ValueChanged(object sender, RangeBaseValueChangedEventArgs e)
+        {
+            if (_isInitializingUi || _isSyncingMoveZoomControls)
+            {
+                return;
+            }
+
+            ApplyEditorZoom(e.NewValue, markAsUserAdjusted: true);
         }
 
         private void Layers_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -372,7 +470,15 @@ namespace helvety.screentools.Views
             HighlightToolSettingsPanel.Visibility = _settingsTool == EditorToolType.Highlight ? Visibility.Visible : Visibility.Collapsed;
             ArrowToolSettingsPanel.Visibility = _settingsTool == EditorToolType.Arrow ? Visibility.Visible : Visibility.Collapsed;
             CropToolSettingsPanel.Visibility = _settingsTool == EditorToolType.Crop ? Visibility.Visible : Visibility.Collapsed;
+            UpdateExportButtonLabels();
             UpdateArrowShadowToggleState(forceOffWhenUnsupported: true);
+        }
+
+        private void UpdateExportButtonLabels()
+        {
+            var cropIsActive = _pendingCropRect.HasValue && !_pendingCropRect.Value.IsEmpty;
+            SaveCopyAndCloseButton.Content = cropIsActive ? "Save crop, copy and close" : "Save, copy and close";
+            SaveAndCloseButton.Content = cropIsActive ? "Save crop and close" : "Save and close";
         }
 
         private EditorToolType ResolveSettingsTool()

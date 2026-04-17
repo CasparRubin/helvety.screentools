@@ -337,6 +337,14 @@ namespace helvety.screentools.Capture
                 return;
             }
 
+            var screenX = _freezeFrame.VirtualBounds.X + (int)Math.Round(clamped.X);
+            var screenY = _freezeFrame.VirtualBounds.Y + (int)Math.Round(clamped.Y);
+            if (MonitorBoundsResolver.TryGetMonitorBoundsAtPoint(screenX, screenY, out var monitorBounds))
+            {
+                CompleteSelection(new SelectionAction(_activeCommitMode, monitorBounds));
+                return;
+            }
+
             CompleteSelection(new SelectionAction(_activeCommitMode, _freezeFrame.VirtualBounds));
         }
 

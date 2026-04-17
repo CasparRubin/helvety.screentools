@@ -10,7 +10,7 @@ The app can be **packaged and deployed** (MSIX or unpackaged). Behavior and defa
 
 - **Two independent global hotkeys**: screenshot (default `Shift+S+S+S`) and Live Draw (default `Shift+D+D+D`). They must use different sequences; the app blocks applying duplicates in Settings.
 - **Settings layout**: the main **NavigationView** has a single left rail. **Settings** is an expandable group (PowerToys-style) with **General**, **Screenshot**, and **Live Draw**. **General** covers close-to-tray, **Run at sign-in** (Windows **Startup** apps; packaged MSIX only—hidden when running unpackaged), editor performance, global **snap-border intensity** (Subtle / Balanced / Bold; **default Bold**) for both screenshot and Live Draw, and a **Reset all settings** action (does not change Windows startup registration). **Screenshot** includes save folder, master **On/Off**, hotkey editor, screenshot quality, and overlay instructions. **Live Draw** includes a master **On/Off** toggle (shortcuts stay stored when off), global hotkey editor, **Line thickness**, and **Shape shortcuts** (per-tool modifiers plus fixed free draw and sparkle).
-- **Screenshot** (global hotkey): overlay with window snapping (highlighted border). **Esc** cancels and closes the overlay. **Click** (without dragging) commits the snapped window under the cursor, or the full virtual screen if nothing snaps; **drag** selects a custom rectangle. Left-click saves, copies to clipboard, and exits; right-click saves (no clipboard copy) and stays in the same screenshot session.
+- **Screenshot** (global hotkey): overlay with window snapping (highlighted border). **Esc** cancels and closes the overlay. **Click** (without dragging) commits the snapped window under the cursor, or the current monitor under the cursor if nothing snaps; **drag** selects a custom rectangle. Left-click saves, copies to clipboard, and exits; right-click saves (no clipboard copy) and stays in the same screenshot session.
 - **Live Draw**: global hotkey → fullscreen **Win32 `WS_EX_NOREDIRECTIONBITMAP` host** with a **DesktopWindowXamlSource** island (vector markup only; no desktop BitBlt). **Esc** ends the session. **Settings → Live Draw → Line thickness** controls the stroke width for rectangles/ellipses/freehand arrows and straight-line ink. **Settings → Live Draw → Shape shortcuts** assigns **Shift**, **Ctrl**, **Alt**, **Win**, or **None** (unbound) to **Rectangle**, **Arrow**, and **Straight line** (left mouse; each non-None modifier must be unique) and to **Circle** and **Ellipse** (right drag; must differ unless one is **None**). Left drag with **no** matching shape modifier is **free draw**; right click and hold with **no** circle/ellipse modifier is the **sparkle** animation (fixed). **Rectangles, ellipses, circles, arrows, straight lines, freehand, and sparkle** use the same snap-border chrome as screenshot selection (gradients, dashing, pulse). **Does not require a save folder**; saving screenshots from screenshot mode still requires a writable save location.
 - **Navigation**: left **NavigationView** with **General** (home), an expandable **Settings** group (**General**, **Screenshot**, **Live Draw**), and **About**. **About** shows a short product summary, the app **Version** (package version when installed; assembly version when running unpackaged), and links to [helvety.com](https://helvety.com/) and the [GitHub repository](https://github.com/CasparRubin/helvety.screentools).
 - Close-to-tray behavior (notification area) with optional full-exit-on-close setting.
@@ -21,7 +21,7 @@ The app can be **packaged and deployed** (MSIX or unpackaged). Behavior and defa
 - Built-in image editor tools (Move, Text, Border, Blur, Highlight, Arrow, Crop; Crop is last in the toolbar)
 - Single-row editor settings strip with horizontal overflow handling; settings switch contextually to the active tool (or selected layer while Move is active)
 - Layer list with drag-and-drop reordering (top item is rendered in front)
-- Export section under Layers (bottom-right) with **Save, copy and close** and **Save and close**; each save writes a new flattened PNG and closes the editor, while the first option also copies the result to clipboard
+- Export section under Layers (bottom-right) with **Save, copy and close** and **Save and close** (or **Save crop...** variants while crop is active); each save writes a new flattened PNG and closes the editor, while the first option also copies the result to clipboard
 - Saved edits are intentionally non-reeditable: reopening a saved image starts from the bitmap result, and new annotations can be added in a fresh edit session
 - Arrow drawing with live preview while dragging
 - Quick text re-edit via selected-layer editor controls
@@ -122,8 +122,8 @@ A [GitHub Actions workflow](.github/workflows/release.yml) automates builds and 
 3. Tag and push:
 
 ```bash
-git tag v1.0.2
-git push origin v1.0.2
+git tag v1.3.0
+git push origin v1.3.0
 ```
 
 The workflow builds self-contained portable ZIPs for **x64** and **arm64**, then creates a GitHub Release with auto-generated release notes and the ZIPs attached. No certificate or MSIX signing is needed for the portable distribution.

@@ -90,7 +90,7 @@
                             Text="Screenshot" />
                         <TextBlock
                             Foreground="#FFE6E6E6"
-                            Text="Click to save the snapped window or the full screen; drag to select a rectangle."
+                            Text="Click to save the snapped window or the current screen; drag to select a rectangle."
                             TextWrapping="WrapWholeWords" />
                     </StackPanel>
 
@@ -124,7 +124,7 @@
                             Foreground="White"
                             TextWrapping="WrapWholeWords">
                             <Run FontWeight="SemiBold" Text="Left click" />
-                            <Run Text=" saves the snapped area (or full screen if nothing snaps), copies to clipboard, and exits. Drag for a custom rectangle." />
+                            <Run Text=" saves the snapped area (or the current screen if nothing snaps), copies to clipboard, and exits. Drag for a custom rectangle." />
                         </TextBlock>
 
                         <Border
