@@ -11,10 +11,12 @@ namespace helvety.screentools.Services
     {
         private readonly TaskbarIcon _taskbarIcon;
         private readonly Icon? _trayIcon;
+        private readonly MenuFlyoutItem _globalListenersMenuItem;
 
         public TrayIconService(Action openMainWindow, Action exitApplication)
         {
             var openCommand = new DelegateCommand(_ => openMainWindow());
+            var toggleGlobalListenersCommand = new DelegateCommand(_ => ToggleGlobalHotkeyListeners());
             var exitCommand = new DelegateCommand(_ => exitApplication());
             var contextMenu = new MenuFlyout();
 
@@ -23,6 +25,12 @@ namespace helvety.screentools.Services
                 Text = "Open Helvety Screen Tools",
                 Command = openCommand
             };
+
+            _globalListenersMenuItem = new MenuFlyoutItem
+            {
+                Command = toggleGlobalListenersCommand
+            };
+            UpdateGlobalHotkeyListenersMenuItemText();
 
             var separator = new MenuFlyoutSeparator();
 
@@ -42,6 +50,7 @@ namespace helvety.screentools.Services
             }
 
             contextMenu.Items.Add(openMenuItem);
+            contextMenu.Items.Add(_globalListenersMenuItem);
             contextMenu.Items.Add(separator);
             contextMenu.Items.Add(exitMenuItem);
 
@@ -53,13 +62,34 @@ namespace helvety.screentools.Services
                 LeftClickCommand = openCommand
             };
 
+            SettingsService.SettingsChanged += SettingsService_SettingsChanged;
             _taskbarIcon.ForceCreate();
         }
 
         public void Dispose()
         {
+            SettingsService.SettingsChanged -= SettingsService_SettingsChanged;
             _taskbarIcon.Dispose();
             _trayIcon?.Dispose();
+        }
+
+        private void SettingsService_SettingsChanged()
+        {
+            _taskbarIcon.DispatcherQueue.TryEnqueue(UpdateGlobalHotkeyListenersMenuItemText);
+        }
+
+        private static void ToggleGlobalHotkeyListeners()
+        {
+            var globalHotkeyListenersEnabled = SettingsService.Load().GlobalHotkeyListenersEnabled;
+            SettingsService.SaveGlobalHotkeyListenersEnabled(!globalHotkeyListenersEnabled);
+        }
+
+        private void UpdateGlobalHotkeyListenersMenuItemText()
+        {
+            var globalHotkeyListenersEnabled = SettingsService.Load().GlobalHotkeyListenersEnabled;
+            _globalListenersMenuItem.Text = globalHotkeyListenersEnabled
+                ? "Disable global listeners"
+                : "Enable global listeners";
         }
 
         private sealed class DelegateCommand : ICommand
