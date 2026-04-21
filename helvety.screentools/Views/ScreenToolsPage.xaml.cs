@@ -5,6 +5,7 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.UI.Xaml.Navigation;
+using Microsoft.UI.Xaml.Data;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -30,7 +31,7 @@ using Windows.Storage.Streams;
 namespace helvety.screentools.Views
 {
     /// <summary>
-    /// Home page (nav label "General", page title "Helvety Screen Tools"): lists files from the configured save folder with thumbnails and metadata.
+    /// Home page (nav label "General", page title "Helvety Screen Tools"): lists files from the configured save folder with thumbnails and metadata, grouped by date sections (Today/Yesterday/Last Week/Older).
     /// Left-click on an image opens the editor; right-click copies that image to the clipboard.
     /// Refreshes enumerate the folder on a background thread, then apply updates under a short lock. After a screenshot, the list reloads the same way as on navigation.
     /// The page intentionally stays minimal and focuses on browsing saved files.
@@ -42,7 +43,7 @@ namespace helvety.screentools.Views
             ".png"
         };
 
-        private readonly ObservableCollection<GalleryFileItem> _imageFiles = new();
+        private readonly ObservableCollection<GallerySectionGroup> _imageFileGroups = new();
         /// <summary>Cancellation only on page unload so in-flight thumbnail loads are not dropped when the gallery refreshes.</summary>
         private CancellationTokenSource? _thumbnailLoadLifetimeCts;
         /// <summary>Serializes gallery updates so <see cref="_imageFiles"/> is not modified concurrently.</summary>
@@ -55,7 +56,7 @@ namespace helvety.screentools.Views
         public ScreenToolsPage()
         {
             InitializeComponent();
-            ImageFilesGridView.ItemsSource = _imageFiles;
+            GroupedImageFilesViewSource.Source = _imageFileGroups;
             _watcherRefreshTimer = DispatcherQueue.CreateTimer();
             _watcherRefreshTimer.Interval = TimeSpan.FromMilliseconds(120);
             _watcherRefreshTimer.IsRepeating = false;
@@ -183,6 +184,39 @@ namespace helvety.screentools.Views
             return item.LastWriteTimeUtcTicks == file.LastWriteTimeUtc.Ticks && item.FileLengthBytes == file.Length;
         }
 
+        private static GalleryDateBucket ResolveGalleryDateBucket(DateTime lastWriteTime)
+        {
+            var today = DateTime.Today;
+            var date = lastWriteTime.Date;
+            if (date == today)
+            {
+                return GalleryDateBucket.Today;
+            }
+
+            if (date == today.AddDays(-1))
+            {
+                return GalleryDateBucket.Yesterday;
+            }
+
+            if (date >= today.AddDays(-7))
+            {
+                return GalleryDateBucket.LastWeek;
+            }
+
+            return GalleryDateBucket.Older;
+        }
+
+        private static string GetGalleryDateBucketHeader(GalleryDateBucket bucket)
+        {
+            return bucket switch
+            {
+                GalleryDateBucket.Today => "Today",
+                GalleryDateBucket.Yesterday => "Yesterday",
+                GalleryDateBucket.LastWeek => "Last Week",
+                _ => "Older"
+            };
+        }
+
         private void ScreenToolsPage_Unloaded(object sender, RoutedEventArgs e)
         {
             _thumbnailLoadLifetimeCts?.Cancel();
@@ -269,7 +303,7 @@ namespace helvety.screentools.Views
 
             if (plan.Kind == GalleryRefreshKind.NoSaveFolder)
             {
-                _imageFiles.Clear();
+                _imageFileGroups.Clear();
                 DisposeSaveFolderWatcher();
                 GalleryScrollViewer.Visibility = Visibility.Collapsed;
                 EmptyStateMessageText.Text = "Set a save location to store screenshots.";
@@ -279,7 +313,7 @@ namespace helvety.screentools.Views
 
             if (plan.Kind == GalleryRefreshKind.NoHotkey)
             {
-                _imageFiles.Clear();
+                _imageFileGroups.Clear();
                 DisposeSaveFolderWatcher();
                 GalleryScrollViewer.Visibility = Visibility.Collapsed;
                 var liveHint = plan.HasLiveDrawHotkey
@@ -292,7 +326,7 @@ namespace helvety.screentools.Views
 
             if (plan.Kind == GalleryRefreshKind.FolderMissing)
             {
-                _imageFiles.Clear();
+                _imageFileGroups.Clear();
                 DisposeSaveFolderWatcher();
                 GalleryScrollViewer.Visibility = Visibility.Collapsed;
                 EmptyStateMessageText.Text = "Save folder is missing. Reconfigure it in Settings.";
@@ -305,7 +339,7 @@ namespace helvety.screentools.Views
 
             if (plan.Kind == GalleryRefreshKind.EmptyFolder || allFiles.Length == 0)
             {
-                _imageFiles.Clear();
+                _imageFileGroups.Clear();
                 GalleryScrollViewer.Visibility = Visibility.Collapsed;
                 var liveLine = plan.HasLiveDrawHotkey
                     ? $" Live Draw: {plan.LiveHotkey.Display}."
@@ -315,11 +349,21 @@ namespace helvety.screentools.Views
                 return;
             }
 
-            var previousImagesByPath = _imageFiles.ToDictionary(x => x.Path, StringComparer.OrdinalIgnoreCase);
-            _imageFiles.Clear();
+            var previousImagesByPath = _imageFileGroups
+                .SelectMany(group => group)
+                .ToDictionary(x => x.Path, StringComparer.OrdinalIgnoreCase);
+            _imageFileGroups.Clear();
 
             EnsureThumbnailLoadLifetime();
             var token = _thumbnailLoadLifetimeCts!.Token;
+
+            var groupedImages = new Dictionary<GalleryDateBucket, List<GalleryFileItem>>
+            {
+                [GalleryDateBucket.Today] = new List<GalleryFileItem>(),
+                [GalleryDateBucket.Yesterday] = new List<GalleryFileItem>(),
+                [GalleryDateBucket.LastWeek] = new List<GalleryFileItem>(),
+                [GalleryDateBucket.Older] = new List<GalleryFileItem>()
+            };
 
             foreach (var file in allFiles)
             {
@@ -330,23 +374,51 @@ namespace helvety.screentools.Views
 
                 if (IsEditableImage(file.Extension))
                 {
+                    GalleryFileItem item;
                     if (previousImagesByPath.TryGetValue(file.FullName, out var reusedImage) && GalleryItemMatchesFile(reusedImage, file))
                     {
-                        _imageFiles.Add(reusedImage);
+                        item = reusedImage;
                     }
                     else
                     {
-                        var imageItem = new GalleryFileItem(
+                        item = new GalleryFileItem(
                             file.FullName,
                             BuildImageGalleryDateLine(file),
                             BuildImageGallerySizeLine(file),
                             true,
                             file.LastWriteTimeUtc.Ticks,
                             file.Length);
-                        _imageFiles.Add(imageItem);
-                        _ = LoadThumbnailAsync(imageItem, token);
+                        _ = LoadThumbnailAsync(item, token);
                     }
+
+                    var bucket = ResolveGalleryDateBucket(file.LastWriteTime);
+                    groupedImages[bucket].Add(item);
                 }
+            }
+
+            var orderedBuckets = new[]
+            {
+                GalleryDateBucket.Today,
+                GalleryDateBucket.Yesterday,
+                GalleryDateBucket.LastWeek,
+                GalleryDateBucket.Older
+            };
+
+            foreach (var bucket in orderedBuckets)
+            {
+                var items = groupedImages[bucket];
+                if (items.Count == 0)
+                {
+                    continue;
+                }
+
+                var group = new GallerySectionGroup(GetGalleryDateBucketHeader(bucket));
+                foreach (var item in items)
+                {
+                    group.Add(item);
+                }
+
+                _imageFileGroups.Add(group);
             }
 
             EmptyFolderCallout.Visibility = Visibility.Collapsed;
@@ -487,11 +559,14 @@ namespace helvety.screentools.Views
 
         private GalleryFileItem? FindGalleryImageItemByPath(string path)
         {
-            foreach (var entry in _imageFiles)
+            foreach (var group in _imageFileGroups)
             {
-                if (string.Equals(entry.Path, path, StringComparison.OrdinalIgnoreCase))
+                foreach (var entry in group)
                 {
-                    return entry;
+                    if (string.Equals(entry.Path, path, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return entry;
+                    }
                 }
             }
 
@@ -855,6 +930,24 @@ namespace helvety.screentools.Views
 
             return string.Format(CultureInfo.InvariantCulture, "{0:0.#} {1}", length, sizes[order]);
         }
+    }
+
+    internal enum GalleryDateBucket
+    {
+        Today,
+        Yesterday,
+        LastWeek,
+        Older
+    }
+
+    internal sealed class GallerySectionGroup : ObservableCollection<GalleryFileItem>
+    {
+        public GallerySectionGroup(string title)
+        {
+            Title = title;
+        }
+
+        public string Title { get; }
     }
 
     internal sealed class GalleryFileItem : INotifyPropertyChanged

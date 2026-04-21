@@ -6,6 +6,18 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
+    <Page.Resources>
+        <CollectionViewSource
+            x:Name="GroupedImageFilesViewSource"
+            IsSourceGrouped="True" />
+
+        <DataTemplate x:Key="GalleryGroupHeaderTemplate">
+            <TextBlock
+                Margin="0,6,0,8"
+                Style="{StaticResource AppContentSectionTitleTextStyle}"
+                Text="{Binding Title}" />
+        </DataTemplate>
+    </Page.Resources>
 
     <Grid Padding="{StaticResource AppPaddingPageBottomHeavy}">
         <Grid.RowDefinitions>
@@ -38,63 +50,69 @@
                 TextWrapping="WrapWholeWords" />
         </StackPanel>
 
-        <Border
+        <StackPanel
             Grid.Row="2"
             Margin="0,16,0,0"
-            Padding="{StaticResource AppPaddingCardLarge}"
-            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-            BorderThickness="1"
-            CornerRadius="{StaticResource AppCornerRadiusCard}">
-            <Grid>
-                <Border
-                    x:Name="EmptyFolderCallout"
-                    MaxWidth="700"
-                    Padding="28"
-                    Background="{ThemeResource SubtleFillColorTertiaryBrush}"
-                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                    BorderThickness="1"
-                    CornerRadius="{StaticResource AppCornerRadiusCard}"
-                    HorizontalAlignment="Center"
-                    VerticalAlignment="Center"
-                    Visibility="Collapsed">
-                    <StackPanel Spacing="{StaticResource AppSpacingContent}">
-                        <TextBlock Style="{StaticResource AppEmptyStateTitleTextStyle}" Text="No screenshots yet" />
-                        <TextBlock
-                            x:Name="EmptyStateMessageText"
-                            Style="{StaticResource AppEmptyStateBodyTextStyle}"
-                            Text="Set a save folder and screenshot hotkey to get started. Live Draw is configured in Settings and works without a save folder." />
-                    </StackPanel>
-                </Border>
+            Spacing="{StaticResource AppSpacingContent}">
+            <StackPanel Spacing="{StaticResource AppSpacingTight}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock
+                        Grid.Column="0"
+                        Style="{StaticResource AppContentSectionTitleTextStyle}"
+                        Text="Images" />
+                    <Button
+                        Grid.Column="1"
+                        Click="OpenImagesFolder_Click"
+                        Content="Open folder" />
+                </Grid>
+                <TextBlock
+                    Style="{StaticResource AppContentCaptionTextStyle}"
+                    Text="Left-click opens the editor. Right-click copies the image to the clipboard."
+                    TextWrapping="WrapWholeWords" />
+            </StackPanel>
 
-                <ScrollViewer x:Name="GalleryScrollViewer" Visibility="Collapsed">
-                    <StackPanel Spacing="{StaticResource AppSpacingContent}">
-                        <StackPanel Spacing="{StaticResource AppSpacingTight}">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock
-                                    Grid.Column="0"
-                                    Style="{StaticResource AppContentSectionTitleTextStyle}"
-                                    Text="Images" />
-                                <Button
-                                    Grid.Column="1"
-                                    Click="OpenImagesFolder_Click"
-                                    Content="Open folder" />
-                            </Grid>
+            <Border
+                Padding="{StaticResource AppPaddingCardLarge}"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="{StaticResource AppCornerRadiusCard}">
+                <Grid>
+                    <Border
+                        x:Name="EmptyFolderCallout"
+                        MaxWidth="700"
+                        Padding="28"
+                        Background="{ThemeResource SubtleFillColorTertiaryBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="{StaticResource AppCornerRadiusCard}"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Visibility="Collapsed">
+                        <StackPanel Spacing="{StaticResource AppSpacingContent}">
+                            <TextBlock Style="{StaticResource AppEmptyStateTitleTextStyle}" Text="No screenshots yet" />
                             <TextBlock
-                                Style="{StaticResource AppContentCaptionTextStyle}"
-                                Text="Left-click opens the editor. Right-click copies the image to the clipboard."
-                                TextWrapping="WrapWholeWords" />
+                                x:Name="EmptyStateMessageText"
+                                Style="{StaticResource AppEmptyStateBodyTextStyle}"
+                                Text="Set a save folder and screenshot hotkey to get started. Live Draw is configured in Settings and works without a save folder." />
                         </StackPanel>
+                    </Border>
+
+                    <ScrollViewer x:Name="GalleryScrollViewer" Visibility="Collapsed">
                         <GridView
                             x:Name="ImageFilesGridView"
                             IsItemClickEnabled="True"
+                            ItemsSource="{Binding Source={StaticResource GroupedImageFilesViewSource}}"
                             ItemClick="ImageFilesGridView_ItemClick"
                             RightTapped="ImageFilesGridView_RightTapped"
                             SelectionMode="None">
+                            <GridView.GroupStyle>
+                                <GroupStyle HeaderTemplate="{StaticResource GalleryGroupHeaderTemplate}" />
+                            </GridView.GroupStyle>
                             <GridView.ItemTemplate>
                                 <DataTemplate>
                                     <Border
@@ -144,9 +162,9 @@
                                 </DataTemplate>
                             </GridView.ItemTemplate>
                         </GridView>
-                    </StackPanel>
-                </ScrollViewer>
-            </Grid>
-        </Border>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+        </StackPanel>
     </Grid>
 </Page>

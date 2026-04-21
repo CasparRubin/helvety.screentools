@@ -15,7 +15,7 @@ The app can be **packaged and deployed** (MSIX or unpackaged). Behavior and defa
 - **Navigation**: left **NavigationView** with **General** (home), an expandable **Settings** group (**General**, **Screenshot**, **Live Draw**), and **About**. **About** shows a short product summary, the app **Version** (package version when installed; assembly version when running unpackaged), and links to [helvety.com](https://helvety.com/) and the [GitHub repository](https://github.com/CasparRubin/helvety.screentools).
 - Close-to-tray behavior (notification area) with optional full-exit-on-close setting.
 - Restore main window after screenshot or Live Draw when the window was tray-hidden (screenshot path restores after at least one save; Live Draw restores after the session ends).
-- **General** home page (titled **Helvety Screen Tools**): after each **screenshot** is saved to the configured folder, the coordinator notifies this page so the gallery **reloads** (same as navigating back to home). Other saves (for example from the editor) rely on the folder watcher and debounced rescan like any file change. For **`.png`** files thumbnails use a **scaled decode from disk** (about max width 520px), then a generic file decode, then the **shell thumbnail** provider. A **debounced** `FileSystemWatcher` still runs a full folder rescan so ordering and metadata stay correct. **Listing files** for a refresh runs on a **background thread** before the gallery lock; applying updates to the grid stays **serialized**. Thumbnails attach to the **visible row by file path**. In-flight thumbnail work is **not** cancelled on every refresh (only when leaving the page). Under the **Images** heading, the UI reminds you that **left-click** opens the image in the editor and **right-click** copies the image to the clipboard.
+- **General** home page (titled **Helvety Screen Tools**): after each **screenshot** is saved to the configured folder, the coordinator notifies this page so the gallery **reloads** (same as navigating back to home). Other saves (for example from the editor) rely on the folder watcher and debounced rescan like any file change. For **`.png`** files thumbnails use a **scaled decode from disk** (about max width 520px), then a generic file decode, then the **shell thumbnail** provider. A **debounced** `FileSystemWatcher` still runs a full folder rescan so ordering and metadata stay correct. **Listing files** for a refresh runs on a **background thread** before the gallery lock; applying updates to the grid stays **serialized**. Images are grouped into date sections (**Today**, **Yesterday**, **Last Week**, **Older**). Thumbnails attach to the **visible row by file path**. In-flight thumbnail work is **not** cancelled on every refresh (only when leaving the page). The images header sits above the card and reminds you that **left-click** opens the image in the editor and **right-click** copies the image to the clipboard.
 - Thumbnail previews for common image formats (PNG, JPG/JPEG, BMP, GIF, TIFF; WebP when a codec is installed)
 - File metadata shown as European date/time format (`dd.MM.yyyy HH:mm`) plus relative age (`... ago`)
 - Built-in image editor tools (Move, Text, Border, Blur, Highlight, Arrow, Crop; Crop is last in the toolbar)
@@ -117,13 +117,13 @@ Use **Install** above for `dotnet run`, unpackaged **exe** locations, and **MSIX
 
 A [GitHub Actions workflow](.github/workflows/release.yml) automates builds and GitHub Releases. To publish a new version:
 
-1. Bump the version in `helvety.screentools.csproj` (`ApplicationDisplayVersion`, `ApplicationVersion`, and `Version`) and in `Package.appxmanifest` so they stay aligned.
+1. Bump the version in `helvety.screentools.csproj` (`ApplicationDisplayVersion`, `ApplicationVersion`, and `Version`), `Package.appxmanifest`, and `app.manifest` so they stay aligned.
 2. Commit the version bump.
 3. Tag and push:
 
 ```bash
-git tag v1.3.0
-git push origin v1.3.0
+git tag v1.4.0
+git push origin v1.4.0
 ```
 
 The workflow builds self-contained portable ZIPs for **x64** and **arm64**, then creates a GitHub Release with auto-generated release notes and the ZIPs attached. No certificate or MSIX signing is needed for the portable distribution.
