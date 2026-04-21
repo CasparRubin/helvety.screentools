@@ -122,8 +122,8 @@ A [GitHub Actions workflow](.github/workflows/release.yml) automates builds and 
 3. Tag and push:
 
 ```bash
-git tag v1.4.0
-git push origin v1.4.0
+git tag v1.5.0
+git push origin v1.5.0
 ```
 
 The workflow builds self-contained portable ZIPs for **x64** and **arm64**, then creates a GitHub Release with auto-generated release notes and the ZIPs attached. No certificate or MSIX signing is needed for the portable distribution.

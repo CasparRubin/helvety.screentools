@@ -50,11 +50,17 @@
                 TextWrapping="WrapWholeWords" />
         </StackPanel>
 
-        <StackPanel
+        <Grid
             Grid.Row="2"
-            Margin="0,16,0,0"
-            Spacing="{StaticResource AppSpacingContent}">
-            <StackPanel Spacing="{StaticResource AppSpacingTight}">
+            Margin="0,16,0,0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <StackPanel
+                Grid.Row="0"
+                Spacing="{StaticResource AppSpacingTight}">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
@@ -76,6 +82,8 @@
             </StackPanel>
 
             <Border
+                Grid.Row="1"
+                Margin="0,12,0,0"
                 Padding="{StaticResource AppPaddingCardLarge}"
                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
@@ -102,7 +110,7 @@
                         </StackPanel>
                     </Border>
 
-                    <ScrollViewer x:Name="GalleryScrollViewer" Visibility="Collapsed">
+                    <Grid x:Name="GalleryScrollViewer" Visibility="Collapsed">
                         <GridView
                             x:Name="ImageFilesGridView"
                             IsItemClickEnabled="True"
@@ -162,9 +170,9 @@
                                 </DataTemplate>
                             </GridView.ItemTemplate>
                         </GridView>
-                    </ScrollViewer>
+                    </Grid>
                 </Grid>
             </Border>
-        </StackPanel>
+        </Grid>
     </Grid>
 </Page>
