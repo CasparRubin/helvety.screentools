@@ -87,6 +87,7 @@ namespace helvety.screentools.Views
             DispatcherQueue.TryEnqueue(() => _ = RefreshPageAsync());
         }
 
+        /// <summary>App-level settings only (not editor toolbar defaults—those do not raise <see cref="SettingsService.SettingsChanged"/>).</summary>
         private void SettingsService_SettingsChanged()
         {
             DispatcherQueue.TryEnqueue(() =>

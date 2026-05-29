@@ -62,7 +62,7 @@
             <StackPanel Spacing="{StaticResource AppSpacingStack}">
                 <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Image editor" />
                 <tk:SettingsCard
-                    Description="Reduces expensive effects while dragging or resizing for smoother editing. Disable only if you need full preview during movement."
+                    Description="Reduces expensive effects while dragging or resizing layers for smoother editing. Applies to open editor windows immediately. Disable only if you need full preview during layer moves and resizes."
                     Header="Editor performance mode">
                     <tk:SettingsCard.HeaderIcon>
                         <FontIcon Glyph="&#xE9F5;" />
@@ -98,7 +98,7 @@
             <StackPanel Spacing="{StaticResource AppSpacingStack}">
                 <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Danger zone" />
                 <tk:SettingsCard
-                    Description="Restores all preferences to defaults (including hotkeys, global hotkey listeners, editor tool UI defaults, snap-border intensity, Live Draw, screenshot quality, Start with Windows, and save folder to the default desktop Helvety Screen Tools captures folder). Does not delete image files already on disk. Viewport zoom in the editor is per session and is not stored in settings."
+                    Description="Restores all preferences to defaults (including hotkeys, global hotkey listeners, editor tool UI defaults, snap-border intensity, Live Draw, screenshot quality, Start with Windows, and save folder to the default desktop Helvety Screen Tools captures folder). Open editor windows pick up reset defaults (including performance mode). Does not delete image files already on disk. Viewport zoom in the editor is per session and is not stored in settings."
                     Header="Reset all settings">
                     <tk:SettingsCard.HeaderIcon>
                         <FontIcon Glyph="&#xE74D;" />

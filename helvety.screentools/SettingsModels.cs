@@ -22,7 +22,10 @@ namespace helvety.screentools
 
     internal sealed record HotkeySettings(uint Modifiers, IReadOnlyList<uint> Sequence, string Display);
 
-    /// <summary>Persisted editor tool defaults (sliders, colors, performance). Viewport zoom is session-only on <c>ImageEditorPage</c>.</summary>
+    /// <summary>
+    /// Persisted editor tool defaults (sliders, colors, performance). Viewport zoom is session-only on <c>ImageEditorPage</c>.
+    /// Toolbar changes save via <see cref="SettingsService.SaveEditorUiSettings"/> without notifying the main app; performance mode and reset use the notifying path.
+    /// </summary>
     internal sealed record EditorUiSettings(
         string PrimaryColorHex,
         int PrimaryThickness,

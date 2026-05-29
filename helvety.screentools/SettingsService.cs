@@ -56,7 +56,10 @@ namespace helvety.screentools
         private const bool DefaultGlobalHotkeyListenersEnabled = true;
 
         internal static event Action? SaveFolderPathChanged;
+        /// <summary>Raised when app-level preferences change (save folder, hotkeys, tray, screenshot/Live Draw, etc.). Not raised when the image editor toolbar persists tool defaults.</summary>
         internal static event Action? SettingsChanged;
+        /// <summary>Raised when editor defaults change from the main app (e.g. performance mode, reset all). Not raised for in-editor toolbar saves.</summary>
+        internal static event Action? EditorUiSettingsChanged;
 
         private const int CurrentSettingsVersion = 7;
         private const string DefaultCaptureFolderName = "Helvety Screen Tools captures";
@@ -331,6 +334,7 @@ namespace helvety.screentools
         internal static void SaveGlobalHotkeyListenersEnabled(bool enabled) =>
             WriteSetting(GlobalHotkeyListenersEnabledKey, enabled);
 
+        /// <summary>Updates performance mode from Settings → General; notifies open editors via <see cref="EditorUiSettingsChanged"/>.</summary>
         internal static void SaveEditorPerformanceModeEnabled(bool enabled)
         {
             var settings = LoadEditorUiSettings();
@@ -394,7 +398,14 @@ namespace helvety.screentools
         internal static void SaveLiveDrawSparkleEnabled(bool enabled) =>
             WriteSetting(LiveDrawSparkleEnabledKey, enabled);
 
-        internal static void SaveEditorUiSettings(EditorUiSettings settings)
+        /// <summary>
+        /// Persists editor tool UI defaults (toolbar and <see cref="EditorUiSettings.PerformanceModeEnabled"/>).
+        /// </summary>
+        /// <param name="notifyAppSettingsChanged">
+        /// When <see langword="true"/> (default), raises <see cref="EditorUiSettingsChanged"/> and <see cref="SettingsChanged"/>
+        /// (e.g. performance mode from Settings → General, reset all). When <see langword="false"/>, only writes storage—used by the editor toolbar so the main window stays in the background.
+        /// </param>
+        internal static void SaveEditorUiSettings(EditorUiSettings settings, bool notifyAppSettingsChanged = true)
         {
             var values = ApplicationData.Current.LocalSettings.Values;
             EnsureSettingsVersion(values);
@@ -423,11 +434,16 @@ namespace helvety.screentools
             values[EditorRegionCornerRadiusKey] = Math.Clamp(settings.RegionCornerRadius, 0, 24);
             values[EditorPerformanceModeEnabledKey] = settings.PerformanceModeEnabled;
             values[EditorGpuEffectsEnabledKey] = settings.GpuEffectsEnabled;
-            SettingsChanged?.Invoke();
+            if (notifyAppSettingsChanged)
+            {
+                EditorUiSettingsChanged?.Invoke();
+                SettingsChanged?.Invoke();
+            }
         }
 
         /// <summary>
         /// Removes all managed settings keys and reapplies defaults (including save folder to the default desktop Helvety Screen Tools captures folder, snap-border intensity, screenshot, Live Draw, and persisted editor tool UI defaults—not in-session viewport zoom).
+        /// Raises <see cref="EditorUiSettingsChanged"/> and <see cref="SettingsChanged"/> so open editor windows and the main shell resync.
         /// </summary>
         internal static void ResetAllSettingsToDefaults()
         {
@@ -440,6 +456,7 @@ namespace helvety.screentools
 
             ApplyDefaultSettings(values);
             SaveFolderPathChanged?.Invoke();
+            EditorUiSettingsChanged?.Invoke();
             SettingsChanged?.Invoke();
         }
 

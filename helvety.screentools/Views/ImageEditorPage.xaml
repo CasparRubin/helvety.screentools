@@ -6,6 +6,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:editor="using:helvety.screentools.Editor"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    KeyDown="ImageEditorPage_KeyDown"
     mc:Ignorable="d">
 
     <Grid Padding="{StaticResource AppPaddingEditorChrome}" RowSpacing="{StaticResource AppSpacingContent}">
@@ -49,7 +50,7 @@
                     ZoomMode="Disabled">
                     <Grid>
                         <ItemsControl
-                            x:Name="MoveToolSettingsPanel"
+                            x:Name="CanvasToolSettingsPanel"
                             Style="{StaticResource ToolSettingsItemsControlStyle}">
                             <Border Style="{StaticResource ToolSettingItemBorderStyle}">
                                 <StackPanel VerticalAlignment="Center">
@@ -59,14 +60,14 @@
                                         Spacing="{StaticResource AppSpacingStack}"
                                         VerticalAlignment="Center">
                                         <Button
-                                            x:Name="MoveZoomOutButton"
+                                            x:Name="CanvasZoomOutButton"
                                             Width="40"
                                             Height="34"
-                                            Click="MoveZoomOutButton_Click">
+                                            Click="CanvasZoomOutButton_Click">
                                             <SymbolIcon Symbol="Remove" />
                                         </Button>
                                         <Slider
-                                            x:Name="MoveZoomSlider"
+                                            x:Name="CanvasZoomSlider"
                                             Style="{StaticResource SettingsInlineSliderStyle}"
                                             Width="180"
                                             Height="34"
@@ -75,24 +76,24 @@
                                             StepFrequency="0.05"
                                             TickFrequency="0.25"
                                             Value="1"
-                                            ValueChanged="MoveZoomSlider_ValueChanged" />
+                                            ValueChanged="CanvasZoomSlider_ValueChanged" />
                                         <Button
-                                            x:Name="MoveZoomInButton"
+                                            x:Name="CanvasZoomInButton"
                                             Width="40"
                                             Height="34"
-                                            Click="MoveZoomInButton_Click">
+                                            Click="CanvasZoomInButton_Click">
                                             <SymbolIcon Symbol="Add" />
                                         </Button>
                                         <TextBlock
-                                            x:Name="MoveZoomValueText"
+                                            x:Name="CanvasZoomValueText"
                                             MinWidth="56"
                                             VerticalAlignment="Center"
                                             Text="100%" />
                                         <Button
-                                            x:Name="MoveZoomResetButton"
+                                            x:Name="CanvasZoomResetButton"
                                             Height="34"
                                             VerticalAlignment="Center"
-                                            Click="MoveZoomResetButton_Click"
+                                            Click="CanvasZoomResetButton_Click"
                                             Content="Reset"
                                             ToolTipService.ToolTip="Fit image to viewport width" />
                                     </StackPanel>
@@ -555,14 +556,14 @@
                     <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Tools" />
                     <StackPanel Spacing="{StaticResource AppSpacingStack}">
                         <Button
-                            x:Name="MoveToolButton"
+                            x:Name="CanvasToolButton"
                             Width="124"
                             Height="64"
-                            Tag="Move"
+                            Tag="Canvas"
                             Click="ToolButton_Click">
                             <StackPanel Spacing="{StaticResource AppSpacingTight}" HorizontalAlignment="Center" VerticalAlignment="Center">
                                 <FontIcon Glyph="&#xE7C9;" />
-                                <TextBlock Style="{StaticResource AppEditorToolLabelTextStyle}" Text="Move" />
+                                <TextBlock Style="{StaticResource AppEditorToolLabelTextStyle}" Text="Canvas" />
                             </StackPanel>
                         </Button>
 
@@ -709,10 +710,12 @@
                         <Canvas
                             x:Name="OverlayCanvas"
                             Background="Transparent"
+                            IsTabStop="True"
                             DoubleTapped="OverlayCanvas_DoubleTapped"
                             PointerPressed="OverlayCanvas_PointerPressed"
                             PointerMoved="OverlayCanvas_PointerMoved"
-                            PointerReleased="OverlayCanvas_PointerReleased" />
+                            PointerReleased="OverlayCanvas_PointerReleased"
+                            PointerWheelChanged="OverlayCanvas_PointerWheelChanged" />
                     </Grid>
                 </ScrollViewer>
             </Border>
@@ -792,7 +795,7 @@
                                                 Grid.Column="1"
                                                 Click="RemoveLayerButton_Click"
                                                 Tag="{x:Bind Id}"
-                                                ToolTipService.ToolTip="Delete layer">
+                                                ToolTipService.ToolTip="Delete selected layer (Delete or Backspace)">
                                                 <SymbolIcon Symbol="Delete" />
                                             </Button>
                                         </Grid>

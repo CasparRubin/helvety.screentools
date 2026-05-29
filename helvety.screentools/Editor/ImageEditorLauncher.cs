@@ -8,6 +8,7 @@ using WinRT.Interop;
 
 namespace helvety.screentools.Editor
 {
+    /// <summary>Opens <c>.png</c> files in dedicated editor windows (one per path); activating an already-open path brings that window forward.</summary>
     internal static class ImageEditorLauncher
     {
         private static readonly Dictionary<string, Window> OpenWindows = new(StringComparer.OrdinalIgnoreCase);

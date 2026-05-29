@@ -8,6 +8,7 @@ using Windows.UI;
 
 namespace helvety.screentools.Editor
 {
+    /// <summary>Draws image-editor arrow layers (tapered, straight, or line-only) on a XAML <see cref="Canvas"/>.</summary>
     internal static class ArrowRendering
     {
         internal static void DrawArrowLayer(ArrowLayer arrowLayer, bool suppressExpensiveEffects, Canvas targetCanvas)
@@ -23,16 +24,27 @@ namespace helvety.screentools.Editor
             if (!suppressExpensiveEffects && arrowLayer.HasBorder)
             {
                 var borderThickness = Clamp(arrowLayer.BorderThickness, 1, 8);
+                var isTapered = arrowLayer.FormStyle == ArrowFormStyle.Tapered;
                 DrawArrowPrimitive(
                     arrowLayer,
                     ParseColor(arrowLayer.BorderColorHex),
-                    baseThickness + (borderThickness * 2),
+                    isTapered ? baseThickness : baseThickness + borderThickness,
+                    isTapered ? borderThickness : 0,
                     0,
                     0,
+                    useUniformSegmentAlpha: isTapered,
                     targetCanvas);
             }
 
-            DrawArrowPrimitive(arrowLayer, ParseColor(arrowLayer.ColorHex), baseThickness, 0, 0, targetCanvas);
+            DrawArrowPrimitive(
+                arrowLayer,
+                ParseColor(arrowLayer.ColorHex),
+                baseThickness,
+                0,
+                0,
+                0,
+                useUniformSegmentAlpha: false,
+                targetCanvas);
         }
 
         private static void DrawFeatheredArrowShadow(ArrowLayer arrowLayer, double baseThickness, Canvas targetCanvas)
@@ -47,8 +59,10 @@ namespace helvety.screentools.Editor
                     arrowLayer,
                     ScaleColorAlpha(shadowColor, step.alphaScale),
                     Math.Max(1, baseThickness * step.thicknessScale),
+                    0,
                     offset,
                     offset,
+                    useUniformSegmentAlpha: false,
                     targetCanvas);
             }
         }
@@ -59,7 +73,15 @@ namespace helvety.screentools.Editor
             return ColorHelper.FromArgb(alpha, color.R, color.G, color.B);
         }
 
-        private static void DrawArrowPrimitive(ArrowLayer arrowLayer, Color color, double thickness, double offsetX, double offsetY, Canvas targetCanvas)
+        private static void DrawArrowPrimitive(
+            ArrowLayer arrowLayer,
+            Color color,
+            double thickness,
+            double widthExpansion,
+            double offsetX,
+            double offsetY,
+            bool useUniformSegmentAlpha,
+            Canvas targetCanvas)
         {
             var strokeBrush = new SolidColorBrush(color);
             var startX = arrowLayer.StartX + offsetX;
@@ -112,8 +134,8 @@ namespace helvety.screentools.Editor
 
             if (isTapered)
             {
-                var tailHalfWidth = Math.Max(0.2, thickness * 0.12);
-                var nearHeadHalfWidth = Math.Max(tailHalfWidth + 1.4, Math.Min((headWidth / 2d) - 0.9, thickness * 1.95));
+                var tailHalfWidth = Math.Max(0.2, thickness * 0.12) + widthExpansion;
+                var nearHeadHalfWidth = Math.Max(tailHalfWidth + 1.4, Math.Min((headWidth / 2d) - 0.9, thickness * 1.95)) + widthExpansion;
                 var shaftDx = baseX - startX;
                 var shaftDy = baseY - startY;
                 var shaftLength = Math.Sqrt((shaftDx * shaftDx) + (shaftDy * shaftDy));
@@ -132,8 +154,17 @@ namespace helvety.screentools.Editor
                     var x1 = startX + (shaftDx * t1);
                     var y1 = startY + (shaftDy * t1);
 
-                    var alphaT = Math.Pow((t0 + t1) / 2d, 1.45);
-                    var segmentAlpha = (byte)Math.Clamp((int)Math.Round(color.A * alphaT), 0, color.A);
+                    byte segmentAlpha;
+                    if (useUniformSegmentAlpha)
+                    {
+                        segmentAlpha = color.A;
+                    }
+                    else
+                    {
+                        var alphaT = Math.Pow((t0 + t1) / 2d, 1.45);
+                        segmentAlpha = (byte)Math.Clamp((int)Math.Round(color.A * alphaT), 0, color.A);
+                    }
+
                     if (segmentAlpha == 0)
                     {
                         continue;
@@ -167,16 +198,20 @@ namespace helvety.screentools.Editor
                 });
             }
 
+            var headHalfWidth = (headWidth / 2d) + widthExpansion;
+            var headLeftX = baseX + (normalX * headHalfWidth);
+            var headLeftY = baseY + (normalY * headHalfWidth);
+            var headRightX = baseX - (normalX * headHalfWidth);
+            var headRightY = baseY - (normalY * headHalfWidth);
+
             targetCanvas.Children.Add(new Polygon
             {
                 Fill = strokeBrush,
-                Stroke = strokeBrush,
-                StrokeThickness = 1,
                 Points = new PointCollection
                 {
                     new Point(tipX, tipY),
-                    new Point(leftX, leftY),
-                    new Point(rightX, rightY)
+                    new Point(headLeftX, headLeftY),
+                    new Point(headRightX, headRightY)
                 }
             });
         }

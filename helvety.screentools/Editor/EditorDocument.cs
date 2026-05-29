@@ -5,8 +5,8 @@ namespace helvety.screentools.Editor
 {
     internal enum EditorToolType
     {
-        /// <summary>Reposition layers; settings strip shows viewport zoom (<c>Size</c> card) or the selected layer's tool when applicable.</summary>
-        Move = 0,
+        /// <summary>Canvas tool: select, move, and resize layers. Settings strip shows viewport zoom (<c>Size</c> card) or the selected layer's tool when applicable.</summary>
+        Canvas = 0,
         Text = 1,
         Border = 2,
         Blur = 3,
@@ -26,8 +26,11 @@ namespace helvety.screentools.Editor
 
     internal enum ArrowFormStyle
     {
+        /// <summary>Default tapered shaft with filled head (image editor Arrow tool).</summary>
         Tapered = 0,
+        /// <summary>Straight shaft with filled head (image editor Arrow tool).</summary>
         Straight = 1,
+        /// <summary>Line without a head; used by Live Draw straight-line ink, not exposed in the image editor UI.</summary>
         LineOnly = 2
     }
 
@@ -397,7 +400,7 @@ namespace helvety.screentools.Editor
 
         internal ArrowFormStyle FormStyle { get; set; }
 
-        internal bool HasBorder { get; set; } = true;
+        internal bool HasBorder { get; set; } = false;
 
         internal string BorderColorHex { get; set; } = "#FFFFFFFF";
 

@@ -9,9 +9,6 @@ using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.UI.Text;
 using Rectangle = Microsoft.UI.Xaml.Shapes.Rectangle;
 using Ellipse = Microsoft.UI.Xaml.Shapes.Ellipse;
-using Line = Microsoft.UI.Xaml.Shapes.Line;
-using Polygon = Microsoft.UI.Xaml.Shapes.Polygon;
-using Polyline = Microsoft.UI.Xaml.Shapes.Polyline;
 using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
@@ -34,7 +31,11 @@ using UiFontStyle = Windows.UI.Text.FontStyle;
 namespace helvety.screentools.Views
 {
     /// <summary>
-    /// Layer-based image editor opened from the General home gallery, or after a screenshot: tools, layers, export, and editor settings.
+    /// Layer-based PNG editor in a dedicated <see cref="Microsoft.UI.Xaml.Window"/> (see <see cref="Editor.ImageEditorLauncher"/>).
+    /// Tools: Canvas (select, move, resize), Text, Border, Blur, Highlight, Arrow, and Crop.
+    /// Delete and Backspace remove the selected layer or crop region (not while inline text editing has focus).
+    /// Mouse wheel over the canvas adjusts the selected layer's primary size; Ctrl+wheel zooms the viewport.
+    /// Toolbar defaults persist without refreshing the main app window.
     /// </summary>
     public sealed partial class ImageEditorPage : Page
     {
@@ -53,10 +54,13 @@ namespace helvety.screentools.Views
         private const int MaxRegionCornerRadius = 24;
         private const int MaxPrimaryThickness = 24;
         private const int InteractiveOverlayThrottleMs = 8;
-        private const double MoveZoomMinimum = 0.1d;
-        private const double MoveZoomMaximum = 8d;
-        private const double MoveZoomSliderStep = 0.05d;
-        private const double MoveZoomButtonStep = 0.10d;
+        private const double CanvasZoomMinimum = 0.1d;
+        private const double CanvasZoomMaximum = 8d;
+        private const double CanvasZoomSliderStep = 0.05d;
+        private const double CanvasZoomButtonStep = 0.10d;
+        private const int WheelResizeDetent = 120;
+        private const int WheelResizeMaxStepsPerEvent = 5;
+        private const int MaxBlurRadius = 25;
 
         private enum ResizeHandle
         {
@@ -87,7 +91,7 @@ namespace helvety.screentools.Views
         private Rectangle? _selectionRectangle;
         private EditorRect? _pendingCropRect;
         private bool _isBusy;
-        private EditorToolType _activeTool = EditorToolType.Move;
+        private EditorToolType _activeTool = EditorToolType.Canvas;
         private Guid? _selectedLayerId;
         private EditorLayer? _dragLayer;
         private Point _lastPointerPoint;
@@ -97,9 +101,9 @@ namespace helvety.screentools.Views
         private int _inlineTextWrapWidth = 260;
         private bool _isCommittingInlineText;
         private bool _isApplyingFitWidthZoom;
-        private bool _isSyncingMoveZoomControls;
+        private bool _isSyncingCanvasZoomControls;
         private bool _hasAppliedInitialFitWidth;
-        /// <summary>When true, viewport resize no longer auto-applies fit-width zoom until <see cref="MoveZoomResetButton_Click"/> or a new image is opened.</summary>
+        /// <summary>When true, viewport resize no longer auto-applies fit-width zoom until <see cref="CanvasZoomResetButton_Click"/> or a new image is opened.</summary>
         private bool _userAdjustedZoom;
         private double _lastAppliedFitWidthZoom = 1d;
         private bool _isCropSelected;
@@ -112,7 +116,7 @@ namespace helvety.screentools.Views
         private Guid? _resizeLayerId;
         private bool _resizeTargetIsCrop;
         private double _resizeStartTextFontSize;
-        private EditorToolType _settingsTool = EditorToolType.Move;
+        private EditorToolType _settingsTool = EditorToolType.Canvas;
         private int _highlightDimPercent = 35;
         private bool _blurInvertMode;
         private bool _highlightInvertMode;
@@ -130,29 +134,36 @@ namespace helvety.screentools.Views
         private readonly Stopwatch _composeStopwatch = new();
         private int _composeSampleCount;
         private long _composeSampleTotalMs;
+        private KeyboardAccelerator? _deleteSelectionAccelerator;
+        private KeyboardAccelerator? _backspaceSelectionAccelerator;
+        private bool _deleteSelectionInProgress;
 
         public ImageEditorPage(string filePath)
         {
             _filePath = filePath;
             InitializeComponent();
+            RegisterEditorKeyboardAccelerators();
             UpdateExportButtonLabels();
-            ConfigureMoveZoomControlBounds();
-            SyncMoveZoomControlsFromScrollViewer();
+            ConfigureCanvasZoomControlBounds();
+            SyncCanvasZoomControlsFromScrollViewer();
             _isInitializingUi = false;
             Loaded += ImageEditorPage_Loaded;
             Unloaded += ImageEditorPage_Unloaded;
+            SettingsService.EditorUiSettingsChanged += SettingsService_EditorUiSettingsChanged;
             EditorScrollViewer.SizeChanged += EditorScrollViewer_SizeChanged;
             EditorScrollViewer.ViewChanged += EditorScrollViewer_ViewChanged;
         }
 
         private void ImageEditorPage_Unloaded(object sender, RoutedEventArgs e)
         {
+            UnregisterEditorKeyboardAccelerators();
             CommitInlineTextEditor();
             if (_document is not null)
             {
                 _document.Layers.CollectionChanged -= Layers_CollectionChanged;
             }
 
+            SettingsService.EditorUiSettingsChanged -= SettingsService_EditorUiSettingsChanged;
             Loaded -= ImageEditorPage_Loaded;
             Unloaded -= ImageEditorPage_Unloaded;
             EditorScrollViewer.SizeChanged -= EditorScrollViewer_SizeChanged;
@@ -162,6 +173,14 @@ namespace helvety.screentools.Views
         private async void ImageEditorPage_Loaded(object sender, RoutedEventArgs e)
         {
             await LoadImageAsync();
+        }
+
+        /// <summary>Syncs runtime flags when performance mode changes from Settings → General or after reset all.</summary>
+        private void SettingsService_EditorUiSettingsChanged()
+        {
+            var settings = SettingsService.LoadEditorUiSettings();
+            _performanceModeEnabled = settings.PerformanceModeEnabled;
+            _gpuEffectsEnabled = settings.GpuEffectsEnabled;
         }
 
         private async Task LoadImageAsync()
@@ -213,7 +232,7 @@ namespace helvety.screentools.Views
                 _composeSampleCount = 0;
                 _composeSampleTotalMs = 0;
                 ApplyPersistedEditorUiSettings();
-                SetActiveTool(EditorToolType.Move);
+                SetActiveTool(EditorToolType.Canvas);
                 UpdateSelectedTextEditorVisibility();
                 await UpdateBaseImageAsync();
                 ApplyFitWidthZoom();
@@ -236,7 +255,7 @@ namespace helvety.screentools.Views
 
         private void EditorScrollViewer_ViewChanged(object? sender, ScrollViewerViewChangedEventArgs e)
         {
-            SyncMoveZoomControlsFromScrollViewer();
+            SyncCanvasZoomControlsFromScrollViewer();
 
             if (_isApplyingFitWidthZoom || !_hasAppliedInitialFitWidth)
             {
@@ -276,7 +295,7 @@ namespace helvety.screentools.Views
             return true;
         }
 
-        /// <summary>Sets scroll viewer zoom so the image spans the viewport width; updates Move tool Size controls.</summary>
+        /// <summary>Sets scroll viewer zoom so the image spans the viewport width; updates Canvas tool Size controls.</summary>
         private void ApplyFitWidthZoom()
         {
             if (!TryGetFitWidthZoom(out var clampedZoom))
@@ -294,7 +313,7 @@ namespace helvety.screentools.Views
             finally
             {
                 _isApplyingFitWidthZoom = false;
-                SyncMoveZoomControlsFromScrollViewer();
+                SyncCanvasZoomControlsFromScrollViewer();
             }
         }
 
@@ -302,49 +321,49 @@ namespace helvety.screentools.Views
         {
             var minZoomFromViewer = EditorScrollViewer.MinZoomFactor > 0
                 ? (double)EditorScrollViewer.MinZoomFactor
-                : MoveZoomMinimum;
+                : CanvasZoomMinimum;
             var maxZoomFromViewer = EditorScrollViewer.MaxZoomFactor > minZoomFromViewer
                 ? (double)EditorScrollViewer.MaxZoomFactor
-                : MoveZoomMaximum;
-            var effectiveMin = Math.Clamp(MoveZoomMinimum, minZoomFromViewer, maxZoomFromViewer);
-            var effectiveMax = Math.Clamp(MoveZoomMaximum, effectiveMin, maxZoomFromViewer);
+                : CanvasZoomMaximum;
+            var effectiveMin = Math.Clamp(CanvasZoomMinimum, minZoomFromViewer, maxZoomFromViewer);
+            var effectiveMax = Math.Clamp(CanvasZoomMaximum, effectiveMin, maxZoomFromViewer);
             return (effectiveMin, effectiveMax);
         }
 
-        private void ConfigureMoveZoomControlBounds()
+        private void ConfigureCanvasZoomControlBounds()
         {
             var (minZoom, maxZoom) = GetEffectiveZoomRange();
-            MoveZoomSlider.Minimum = minZoom;
-            MoveZoomSlider.Maximum = maxZoom;
-            MoveZoomSlider.StepFrequency = MoveZoomSliderStep;
+            CanvasZoomSlider.Minimum = minZoom;
+            CanvasZoomSlider.Maximum = maxZoom;
+            CanvasZoomSlider.StepFrequency = CanvasZoomSliderStep;
         }
 
-        private void SyncMoveZoomControlsFromScrollViewer()
+        private void SyncCanvasZoomControlsFromScrollViewer()
         {
-            ConfigureMoveZoomControlBounds();
+            ConfigureCanvasZoomControlBounds();
             var (minZoom, maxZoom) = GetEffectiveZoomRange();
             var currentZoom = Math.Clamp(
                 EditorScrollViewer.ZoomFactor > 0 ? (double)EditorScrollViewer.ZoomFactor : 1d,
                 minZoom,
                 maxZoom);
 
-            _isSyncingMoveZoomControls = true;
+            _isSyncingCanvasZoomControls = true;
             try
             {
-                if (Math.Abs(MoveZoomSlider.Value - currentZoom) > 0.0001d)
+                if (Math.Abs(CanvasZoomSlider.Value - currentZoom) > 0.0001d)
                 {
-                    MoveZoomSlider.Value = currentZoom;
+                    CanvasZoomSlider.Value = currentZoom;
                 }
 
-                MoveZoomValueText.Text = $"{Math.Round(currentZoom * 100d):0}%";
+                CanvasZoomValueText.Text = $"{Math.Round(currentZoom * 100d):0}%";
 
                 var isAtFitWidth = TryGetFitWidthZoom(out var fitZoom)
                     && Math.Abs(currentZoom - fitZoom) <= 0.01d;
-                MoveZoomResetButton.IsEnabled = _userAdjustedZoom || !isAtFitWidth;
+                CanvasZoomResetButton.IsEnabled = _userAdjustedZoom || !isAtFitWidth;
             }
             finally
             {
-                _isSyncingMoveZoomControls = false;
+                _isSyncingCanvasZoomControls = false;
             }
         }
 
@@ -355,7 +374,7 @@ namespace helvety.screentools.Views
             var currentZoom = EditorScrollViewer.ZoomFactor > 0 ? (double)EditorScrollViewer.ZoomFactor : 1d;
             if (Math.Abs(currentZoom - clampedZoom) < 0.0001d)
             {
-                SyncMoveZoomControlsFromScrollViewer();
+                SyncCanvasZoomControlsFromScrollViewer();
                 return;
             }
 
@@ -365,30 +384,30 @@ namespace helvety.screentools.Views
                 _userAdjustedZoom = true;
             }
 
-            SyncMoveZoomControlsFromScrollViewer();
+            SyncCanvasZoomControlsFromScrollViewer();
         }
 
-        private void MoveZoomOutButton_Click(object sender, RoutedEventArgs e)
+        private void CanvasZoomOutButton_Click(object sender, RoutedEventArgs e)
         {
             var currentZoom = EditorScrollViewer.ZoomFactor > 0 ? (double)EditorScrollViewer.ZoomFactor : 1d;
-            ApplyEditorZoom(currentZoom - MoveZoomButtonStep, markAsUserAdjusted: true);
+            ApplyEditorZoom(currentZoom - CanvasZoomButtonStep, markAsUserAdjusted: true);
         }
 
-        private void MoveZoomInButton_Click(object sender, RoutedEventArgs e)
+        private void CanvasZoomInButton_Click(object sender, RoutedEventArgs e)
         {
             var currentZoom = EditorScrollViewer.ZoomFactor > 0 ? (double)EditorScrollViewer.ZoomFactor : 1d;
-            ApplyEditorZoom(currentZoom + MoveZoomButtonStep, markAsUserAdjusted: true);
+            ApplyEditorZoom(currentZoom + CanvasZoomButtonStep, markAsUserAdjusted: true);
         }
 
-        private void MoveZoomResetButton_Click(object sender, RoutedEventArgs e)
+        private void CanvasZoomResetButton_Click(object sender, RoutedEventArgs e)
         {
             _userAdjustedZoom = false;
             ApplyFitWidthZoom();
         }
 
-        private void MoveZoomSlider_ValueChanged(object sender, RangeBaseValueChangedEventArgs e)
+        private void CanvasZoomSlider_ValueChanged(object sender, RangeBaseValueChangedEventArgs e)
         {
-            if (_isInitializingUi || _isSyncingMoveZoomControls)
+            if (_isInitializingUi || _isSyncingCanvasZoomControls)
             {
                 return;
             }
@@ -486,7 +505,7 @@ namespace helvety.screentools.Views
         private void UpdateDisplayedToolContext()
         {
             _settingsTool = ResolveSettingsTool();
-            MoveToolSettingsPanel.Visibility = _settingsTool == EditorToolType.Move ? Visibility.Visible : Visibility.Collapsed;
+            CanvasToolSettingsPanel.Visibility = _settingsTool == EditorToolType.Canvas ? Visibility.Visible : Visibility.Collapsed;
             TextToolSettingsPanel.Visibility = _settingsTool == EditorToolType.Text ? Visibility.Visible : Visibility.Collapsed;
             BorderToolSettingsPanel.Visibility = _settingsTool == EditorToolType.Border ? Visibility.Visible : Visibility.Collapsed;
             BlurToolSettingsPanel.Visibility = _settingsTool == EditorToolType.Blur ? Visibility.Visible : Visibility.Collapsed;
@@ -506,7 +525,7 @@ namespace helvety.screentools.Views
 
         private EditorToolType ResolveSettingsTool()
         {
-            if (_activeTool != EditorToolType.Move)
+            if (_activeTool != EditorToolType.Canvas)
             {
                 return _activeTool;
             }
@@ -518,7 +537,7 @@ namespace helvety.screentools.Views
 
             if (!TryGetSelectedLayer(out var selectedLayer) || selectedLayer is null)
             {
-                return EditorToolType.Move;
+                return EditorToolType.Canvas;
             }
 
             return selectedLayer.LayerType switch
@@ -528,7 +547,7 @@ namespace helvety.screentools.Views
                 EditorLayerType.Blur => EditorToolType.Blur,
                 EditorLayerType.Arrow => EditorToolType.Arrow,
                 EditorLayerType.Highlight => EditorToolType.Highlight,
-                _ => EditorToolType.Move
+                _ => EditorToolType.Canvas
             };
         }
 
@@ -571,8 +590,8 @@ namespace helvety.screentools.Views
                 ? normalThemeBrush
                 : new SolidColorBrush(ColorHelper.FromArgb(255, 40, 40, 40));
 
-            var highlightedTool = _activeTool == EditorToolType.Move ? _settingsTool : _activeTool;
-            MoveToolButton.Background = highlightedTool == EditorToolType.Move ? selectedBrush : normalBrush;
+            var highlightedTool = _activeTool == EditorToolType.Canvas ? _settingsTool : _activeTool;
+            CanvasToolButton.Background = highlightedTool == EditorToolType.Canvas ? selectedBrush : normalBrush;
             TextToolButton.Background = highlightedTool == EditorToolType.Text ? selectedBrush : normalBrush;
             BorderToolButton.Background = highlightedTool == EditorToolType.Border ? selectedBrush : normalBrush;
             BlurToolButton.Background = highlightedTool == EditorToolType.Blur ? selectedBrush : normalBrush;
@@ -606,13 +625,15 @@ namespace helvety.screentools.Views
                 }
             }
 
+            OverlayCanvas.Focus(FocusState.Pointer);
+
             if (_activeTool == EditorToolType.Text)
             {
                 BeginSelectionDrag(point);
                 return;
             }
 
-            if (_activeTool == EditorToolType.Move)
+            if (_activeTool == EditorToolType.Canvas)
             {
                 if (TryBeginResize(point, e))
                 {
@@ -664,9 +685,174 @@ namespace helvety.screentools.Views
             e.Handled = true;
         }
 
+        private void OverlayCanvas_PointerWheelChanged(object sender, PointerRoutedEventArgs e)
+        {
+            if (!CanAdjustSelectedLayerSizeByWheel(e))
+            {
+                return;
+            }
+
+            var delta = e.GetCurrentPoint(OverlayCanvas).Properties.MouseWheelDelta;
+            if (delta == 0)
+            {
+                return;
+            }
+
+            var steps = (int)Math.Round(delta / (double)WheelResizeDetent);
+            if (steps == 0)
+            {
+                steps = delta > 0 ? 1 : -1;
+            }
+
+            steps = Clamp(steps, -WheelResizeMaxStepsPerEvent, WheelResizeMaxStepsPerEvent);
+            if (TryAdjustSelectedLayerSizeByWheel(steps, out var valueChanged) && valueChanged)
+            {
+                e.Handled = true;
+            }
+        }
+
+        private bool CanAdjustSelectedLayerSizeByWheel(PointerRoutedEventArgs e)
+        {
+            if (_document is null || !_selectedLayerId.HasValue)
+            {
+                return false;
+            }
+
+            if ((e.KeyModifiers & VirtualKeyModifiers.Control) != 0)
+            {
+                return false;
+            }
+
+            if (_inlineTextEditor is not null &&
+                _inlineTextEditor.Visibility == Visibility.Visible &&
+                _inlineTextEditor.FocusState != FocusState.Unfocused)
+            {
+                return false;
+            }
+
+            if (_isDraggingSelection || _isResizingSelection || _isPreviewingArrow)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        private bool TryAdjustSelectedLayerSizeByWheel(int step, out bool valueChanged)
+        {
+            valueChanged = false;
+            if (step == 0 || _document is null || !_selectedLayerId.HasValue)
+            {
+                return false;
+            }
+
+            var layer = TryGetLayerById(_selectedLayerId.Value);
+            if (layer is null)
+            {
+                return false;
+            }
+
+            _isSyncingToolSettings = true;
+            try
+            {
+                switch (layer)
+                {
+                    case TextLayer:
+                        {
+                            var current = (int)Math.Round(TextSizeNumberBox.Value);
+                            var next = Clamp(current + step, 8, 180);
+                            if (next == current)
+                            {
+                                return true;
+                            }
+
+                            TextSizeNumberBox.Value = next;
+                            valueChanged = true;
+                            break;
+                        }
+
+                    case BorderLayer:
+                        {
+                            var current = (int)Math.Round(BorderThicknessNumberBox.Value);
+                            var next = Clamp(current + step, 1, MaxPrimaryThickness);
+                            if (next == current)
+                            {
+                                return true;
+                            }
+
+                            BorderThicknessNumberBox.Value = next;
+                            valueChanged = true;
+                            break;
+                        }
+
+                    case BlurLayer:
+                        {
+                            var current = (int)Math.Round(BlurRadiusNumberBox.Value);
+                            var next = Clamp(current + step, 1, MaxBlurRadius);
+                            if (next == current)
+                            {
+                                return true;
+                            }
+
+                            BlurRadiusNumberBox.Value = next;
+                            valueChanged = true;
+                            break;
+                        }
+
+                    case ArrowLayer:
+                        {
+                            var current = (int)Math.Round(ArrowThicknessNumberBox.Value);
+                            var next = Clamp(current + step, 1, MaxPrimaryThickness);
+                            if (next == current)
+                            {
+                                return true;
+                            }
+
+                            ArrowThicknessNumberBox.Value = next;
+                            valueChanged = true;
+                            break;
+                        }
+
+                    case HighlightLayer:
+                        {
+                            var next = Clamp(_highlightDimPercent + step, 0, MaxHighlightDimPercent);
+                            if (next == _highlightDimPercent)
+                            {
+                                return true;
+                            }
+
+                            _highlightDimPercent = next;
+                            HighlightDimSlider.Value = _highlightDimPercent;
+                            HighlightDimValueText.Text = $"{_highlightDimPercent}%";
+                            valueChanged = true;
+                            break;
+                        }
+
+                    default:
+                        return false;
+                }
+            }
+            finally
+            {
+                _isSyncingToolSettings = false;
+            }
+
+            if (layer is HighlightLayer)
+            {
+                QueueRecompose(includeAdorners: true, includePixelEffects: true);
+                SaveCurrentEditorUiSettings();
+                return true;
+            }
+
+            ApplySettingsToSelectedLayer();
+            UpdateAllSettingValueTexts();
+            SaveCurrentEditorUiSettings();
+            return true;
+        }
+
         private void OverlayCanvas_PointerMoved(object sender, PointerRoutedEventArgs e)
         {
-            if (_activeTool == EditorToolType.Move && _isResizingSelection)
+            if (_activeTool == EditorToolType.Canvas && _isResizingSelection)
             {
                 var currentPoint = e.GetCurrentPoint(OverlayCanvas).Position;
                 ApplyResize(currentPoint);
@@ -690,7 +876,7 @@ namespace helvety.screentools.Views
                 return;
             }
 
-            if (_activeTool == EditorToolType.Move && _dragLayer is not null)
+            if (_activeTool == EditorToolType.Canvas && _dragLayer is not null)
             {
                 var currentPoint = e.GetCurrentPoint(OverlayCanvas).Position;
                 var dx = currentPoint.X - _lastPointerPoint.X;
@@ -768,7 +954,7 @@ namespace helvety.screentools.Views
                 _isPreviewingArrow = false;
                 RemoveSelectionRectangle();
                 RebuildOverlayVisuals(includeAdorners: true);
-                if (AddArrowLayer(endPoint, _dragStartPoint))
+                if (AddArrowLayer(_dragStartPoint, endPoint))
                 {
                     await FinalizeRegionPlacementAsync(clearCropSelection: true);
                 }
@@ -863,7 +1049,7 @@ namespace helvety.screentools.Views
                 ClearCropSelection();
             }
 
-            SetActiveTool(EditorToolType.Move);
+            SetActiveTool(EditorToolType.Canvas);
             await RecomposeAsync(includeAdorners: true, includePixelEffects: true);
         }
 
@@ -1063,14 +1249,139 @@ namespace helvety.screentools.Views
                 return;
             }
 
+            await RemoveLayerAsync(layer);
+        }
+
+        /// <summary>Removes a layer from the document and refreshes the canvas; used by the layers panel button and Delete/Backspace.</summary>
+        private async Task RemoveLayerAsync(EditorLayer layer)
+        {
+            if (_document is null)
+            {
+                return;
+            }
+
             _document.Layers.Remove(layer);
             if (_selectedLayerId == layer.Id)
             {
                 _selectedLayerId = null;
             }
 
+            LayersListView.SelectedItem = null;
+            UpdateDisplayedToolContext();
             UpdateSelectedTextEditorVisibility();
             await RecomposeAsync(includeAdorners: true, includePixelEffects: LayerAffectsPixels(layer));
+        }
+
+        private void RegisterEditorKeyboardAccelerators()
+        {
+            _deleteSelectionAccelerator = new KeyboardAccelerator { Key = VirtualKey.Delete };
+            _deleteSelectionAccelerator.Invoked += EditorDeleteSelectionAccelerator_Invoked;
+            KeyboardAccelerators.Add(_deleteSelectionAccelerator);
+
+            _backspaceSelectionAccelerator = new KeyboardAccelerator { Key = VirtualKey.Back };
+            _backspaceSelectionAccelerator.Invoked += EditorDeleteSelectionAccelerator_Invoked;
+            KeyboardAccelerators.Add(_backspaceSelectionAccelerator);
+        }
+
+        private void UnregisterEditorKeyboardAccelerators()
+        {
+            if (_deleteSelectionAccelerator is not null)
+            {
+                _deleteSelectionAccelerator.Invoked -= EditorDeleteSelectionAccelerator_Invoked;
+                KeyboardAccelerators.Remove(_deleteSelectionAccelerator);
+                _deleteSelectionAccelerator = null;
+            }
+
+            if (_backspaceSelectionAccelerator is not null)
+            {
+                _backspaceSelectionAccelerator.Invoked -= EditorDeleteSelectionAccelerator_Invoked;
+                KeyboardAccelerators.Remove(_backspaceSelectionAccelerator);
+                _backspaceSelectionAccelerator = null;
+            }
+        }
+
+        private void EditorDeleteSelectionAccelerator_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+        {
+            if (!CanProcessDeleteSelectionKey())
+            {
+                return;
+            }
+
+            args.Handled = true;
+            _ = ProcessDeleteSelectionKeyAsync();
+        }
+
+        private async void ImageEditorPage_KeyDown(object sender, KeyRoutedEventArgs e)
+        {
+            if (e.Key != VirtualKey.Delete && e.Key != VirtualKey.Back)
+            {
+                return;
+            }
+
+            if (!CanProcessDeleteSelectionKey())
+            {
+                return;
+            }
+
+            if (await ProcessDeleteSelectionKeyAsync())
+            {
+                e.Handled = true;
+            }
+        }
+
+        private bool CanProcessDeleteSelectionKey()
+        {
+            if (_document is null)
+            {
+                return false;
+            }
+
+            if (_inlineTextEditor is not null &&
+                _inlineTextEditor.Visibility == Visibility.Visible &&
+                _inlineTextEditor.FocusState != FocusState.Unfocused)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        private async Task<bool> ProcessDeleteSelectionKeyAsync()
+        {
+            if (_deleteSelectionInProgress || !CanProcessDeleteSelectionKey())
+            {
+                return false;
+            }
+
+            _deleteSelectionInProgress = true;
+            try
+            {
+                if (_selectedLayerId.HasValue)
+                {
+                    var layer = TryGetLayerById(_selectedLayerId.Value);
+                    if (layer is not null)
+                    {
+                        await RemoveLayerAsync(layer);
+                        return true;
+                    }
+
+                    _selectedLayerId = null;
+                    LayersListView.SelectedItem = null;
+                }
+
+                if (_isCropSelected && _pendingCropRect.HasValue)
+                {
+                    ClearCropSelection();
+                    await RecomposeAsync(includeAdorners: true, includePixelEffects: false);
+                    return true;
+                }
+
+                return false;
+            }
+            finally
+            {
+                _deleteSelectionInProgress = false;
+            }
         }
 
         private async void LayerVisibilityCheckBox_Changed(object sender, RoutedEventArgs e)
@@ -1126,6 +1437,7 @@ namespace helvety.screentools.Views
             UpdateDisplayedToolContext();
             UpdateToolButtonVisuals();
             UpdateSelectedTextEditorVisibility();
+            OverlayCanvas.Focus(FocusState.Programmatic);
             await RecomposeAsync(includeAdorners: true, includePixelEffects: false);
         }
 
@@ -1343,10 +1655,10 @@ namespace helvety.screentools.Views
             }
 
             var previewLayer = new ArrowLayer(
-                _arrowPreviewEndPoint.X,
-                _arrowPreviewEndPoint.Y,
                 _dragStartPoint.X,
                 _dragStartPoint.Y,
+                _arrowPreviewEndPoint.X,
+                _arrowPreviewEndPoint.Y,
                 1,
                 DefaultPrimaryColor,
                 ArrowFormStyle.Tapered);
@@ -1971,7 +2283,7 @@ namespace helvety.screentools.Views
 
         private void UpdateSelectedTextEditorVisibility()
         {
-            if (_document is null || _isCropSelected || _activeTool != EditorToolType.Move || !_selectedLayerId.HasValue)
+            if (_document is null || _isCropSelected || _activeTool != EditorToolType.Canvas || !_selectedLayerId.HasValue)
             {
                 EditSelectedTextButton.Visibility = Visibility.Collapsed;
                 return;
@@ -2028,14 +2340,14 @@ namespace helvety.screentools.Views
                         SelectLayer(existingLayer);
                     }
 
-                    SetActiveTool(EditorToolType.Move);
+                    SetActiveTool(EditorToolType.Canvas);
                     QueueRecompose(includeAdorners: true, includePixelEffects: false);
                     return;
                 }
 
                 if (string.IsNullOrWhiteSpace(text))
                 {
-                    SetActiveTool(EditorToolType.Move);
+                    SetActiveTool(EditorToolType.Canvas);
                     QueueRecompose(includeAdorners: true, includePixelEffects: false);
                     return;
                 }
@@ -2051,7 +2363,7 @@ namespace helvety.screentools.Views
 
                 _document.Layers.Insert(0, layer);
                 SelectLayer(layer);
-                SetActiveTool(EditorToolType.Move);
+                SetActiveTool(EditorToolType.Canvas);
                 QueueRecompose(includeAdorners: true, includePixelEffects: false);
             }
             finally
@@ -2072,7 +2384,7 @@ namespace helvety.screentools.Views
             _inlineTextEditor.LostFocus -= InlineTextEditor_LostFocus;
             OverlayCanvas.Children.Remove(_inlineTextEditor);
             _inlineTextEditor = null;
-            SetActiveTool(EditorToolType.Move);
+            SetActiveTool(EditorToolType.Canvas);
             QueueRecompose(includeAdorners: true, includePixelEffects: false);
             _isCommittingInlineText = false;
         }
@@ -2304,6 +2616,7 @@ namespace helvety.screentools.Views
             UpdateAllSettingValueTexts();
         }
 
+        /// <summary>Loads persisted toolbar defaults when an image is opened (not used for live performance-mode sync).</summary>
         private void ApplyPersistedEditorUiSettings()
         {
             var settings = SettingsService.LoadEditorUiSettings();
@@ -2361,6 +2674,7 @@ namespace helvety.screentools.Views
             UpdateAllSettingValueTexts();
         }
 
+        /// <summary>Persists toolbar defaults without raising <see cref="SettingsService.SettingsChanged"/> (avoids main-window focus steal).</summary>
         private void SaveCurrentEditorUiSettings()
         {
             var arrowShadowEnabled = GetCurrentArrowShadowEnabled();
@@ -2390,7 +2704,7 @@ namespace helvety.screentools.Views
                 _performanceModeEnabled,
                 _gpuEffectsEnabled);
 
-            SettingsService.SaveEditorUiSettings(settings);
+            SettingsService.SaveEditorUiSettings(settings, notifyAppSettingsChanged: false);
         }
 
         private static void SelectComboItemByContent(ComboBox comboBox, string content)

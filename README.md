@@ -18,18 +18,19 @@ The app can be **packaged and deployed** (MSIX or unpackaged). Behavior and defa
 - **General** home page (titled **Helvety Screen Tools**): after each **screenshot** is saved to the configured folder, the coordinator notifies this page so the gallery **reloads** (same as navigating back to home). Other saves (for example from the editor) rely on the folder watcher and debounced rescan like any file change. For **`.png`** files thumbnails use a **scaled decode from disk** (about max width 520px), then a generic file decode, then the **shell thumbnail** provider. A **debounced** `FileSystemWatcher` still runs a full folder rescan so ordering and metadata stay correct. **Listing files** for a refresh runs on a **background thread** before the gallery lock; applying updates to the grid stays **serialized**. Images are grouped into date sections (**Today**, **Yesterday**, **Last Week**, **Older**). Thumbnails attach to the **visible row by file path**. In-flight thumbnail work is **not** cancelled on every refresh (only when leaving the page). The images header sits above the card and reminds you that **left-click** opens the image in the editor and **right-click** copies the image to the clipboard.
 - Thumbnail previews for common image formats (PNG, JPG/JPEG, BMP, GIF, TIFF; WebP when a codec is installed)
 - File metadata shown as European date/time format (`dd.MM.yyyy HH:mm`) plus relative age (`... ago`)
-- Built-in image editor tools (Move, Text, Border, Blur, Highlight, Arrow, Crop; Crop is last in the toolbar)
-- Single-row editor settings strip with horizontal overflow handling; settings switch contextually to the active tool (or selected layer while Move is active)
-- Move tool: toolbar **Move** repositions layers and resize handles; when no layer-specific panel applies, the **Size** card controls viewport zoom (slider and +/-), with **Reset** to fit the image to the editor width (zoom is per session, not saved in settings)
-- Layer list with drag-and-drop reordering (top item is rendered in front)
+- Built-in **PNG** image editor in a **separate window** from the home gallery (one window per file path); tools: **Canvas**, Text, Border, Blur, Highlight, Arrow, Crop (Crop is last in the toolbar)
+- Single-row editor settings strip with horizontal overflow handling; settings switch to the active tool, or to the selected layer's settings while **Canvas** is active. Toolbar defaults (colors, thickness, toggles, etc.) are **persisted quietly** so the main window and gallery are not refreshed on every change (keeps the editor window in focus)
+- **Canvas** tool: select, move, and resize layers (resize handles on the selection). When no layer-specific panel applies, the **Size** card controls viewport zoom (slider, +/-, **Reset** to fit the image to the editor width; zoom is per session, not saved in settings)
+- Layer list with drag-and-drop reordering (top item is rendered in front). **Delete** or **Backspace** removes the selected layer (from the canvas or layer list) or clears an active crop region; while the inline text editor is focused, those keys edit text instead
+- Mouse wheel over the canvas adjusts the selected layer's primary size (text size, arrow/border thickness, blur radius, or highlight dim); **Ctrl**+wheel still zooms the viewport
 - Export section under Layers (bottom-right) with **Save, copy and close** and **Save and close** (or **Save crop...** variants while crop is active); each save writes a new flattened PNG and closes the editor, while the first option also copies the result to clipboard
 - Saved edits are intentionally non-reeditable: reopening a saved image starts from the bitmap result, and new annotations can be added in a fresh edit session
-- Arrow drawing with live preview while dragging
+- Arrow tool: **Tapered** or **Straight** forms with optional border and shadow; live preview follows the drag from start to tip
 - Quick text re-edit via selected-layer editor controls
 - Blur settings include Radius, Corner Radius, Feather, and Invert; Highlight includes Dim, Corner Radius, and Invert (inside/outside targeting)
 - GPU-accelerated blur/highlight effects (Win2D-based) with interaction-first recomposition scheduling
 - Editor performance optimizations: coalesced recomposition, reduced overlay churn, and deferred pixel-effect recomposition during drag/resize
-- Optional **Editor performance mode** toggle under **Settings → General** to prioritize responsiveness during intensive layer editing
+- Optional **Editor performance mode** toggle under **Settings → General** to prioritize responsiveness during intensive layer editing; changes apply to **open editor windows** without stealing focus from the editor
 - Iterative UX polish (overlay guidance, animation, interaction tuning)
 - **Snap-border overlay** (screenshot + Live Draw): shared animated chrome (gradients, dashing, pulse). Global **intensity** (Subtle / Balanced / Bold) is under **Settings → General**. The **image editor** uses separate stroke and effect controls for layers.
 - Selection screenshot quality modes (`Fast`, `Optimized`, `Heavy`) to trade off speed vs text readability enhancement; **default is `Fast`** for responsive saves. **`Heavy`** applies large upscales and filters and can take several seconds on big selections—use it when you explicitly want maximum enhancement.
@@ -109,7 +110,7 @@ Use **Install** above for `dotnet run`, unpackaged **exe** locations, and **MSIX
 2. Build and run the `helvety.screentools` project. The project **defaults to x64** when no platform is set so plain `dotnet build` works; you can still pass `-p:Platform=x86` or `ARM64` explicitly. (**Any CPU** is remapped to x64 because WinUI/MSIX packaging cannot target neutral architecture.) The shipped **version** is defined in `helvety.screentools.csproj` (`ApplicationVersion`, `ApplicationDisplayVersion`, and `Version`, currently aligned with `Package.appxmanifest` / `app.manifest`); bump those together for each release. **About** shows the package version when installed (MSIX) or the assembly version when running unpackaged (`dotnet run` / F5).
 3. Use the navigation pane to switch between **General**, **Settings** (expand for section items), and **About**.
 4. Under **Settings**, choose a section:
-   - **General**: **System tray** (close-to-tray), **Run at sign-in** (when packaged), **Editor performance mode**, and **Snap border** intensity (global for screenshot selection and Live Draw).
+   - **General**: **System tray** (close-to-tray), **Run at sign-in** (when packaged), **Editor performance mode** (applies to open editor windows), and **Snap border** intensity (global for screenshot selection and Live Draw).
    - **Screenshot**: **Save location** (required for screenshot), master toggle, **Listen**-based hotkey editor (changes auto-save), **Screenshot quality**, and **Overlay** instructions.
    - **Live Draw**: master toggle, **Listen**-based hotkey editor (changes auto-save), **Line thickness**, and **Shape shortcuts** (per-tool modifiers). **Live Draw** can be configured without a save folder.
    - **Settings → General** also includes a **Reset all settings** action: all stored preferences revert to defaults (including the save folder, which is set again to the default desktop **Helvety Screen Tools captures** folder). Existing image files on disk are **not** deleted.
@@ -124,8 +125,8 @@ A [GitHub Actions workflow](.github/workflows/release.yml) automates builds and 
 3. Tag and push:
 
 ```bash
-git tag v1.8.0
-git push origin v1.8.0
+git tag v1.9.0
+git push origin v1.9.0
 ```
 
 The workflow builds self-contained portable ZIPs for **x64** and **arm64**, then creates a GitHub Release with auto-generated release notes and the ZIPs attached. No certificate or MSIX signing is needed for the portable distribution.
