@@ -25,12 +25,13 @@ The app can be **packaged and deployed** (MSIX or unpackaged). Behavior and defa
 - Mouse wheel over the canvas adjusts the selected layer's primary size (text size, arrow/border thickness, blur radius, or highlight dim); **Ctrl**+wheel still zooms the viewport
 - Export section under Layers (bottom-right) with **Save, copy and close** and **Save and close** (or **Save crop...** variants while crop is active); each save writes a new flattened PNG and closes the editor, while the first option also copies the result to clipboard
 - Saved edits are intentionally non-reeditable: reopening a saved image starts from the bitmap result, and new annotations can be added in a fresh edit session
-- Arrow tool: **Tapered** or **Straight** forms with optional border and shadow; live preview follows the drag from start to tip
+- Arrow tool: **Tapered** or **Straight** forms with optional border and shadow; while drawing, only the arrow preview on the overlay updates (existing layers are not rebuilt on every pointer move)
 - Quick text re-edit via selected-layer editor controls
 - Blur settings include Radius, Corner Radius, Feather, and Invert; Highlight includes Dim, Corner Radius, and Invert (inside/outside targeting)
-- GPU-accelerated blur/highlight effects (Win2D-based) with interaction-first recomposition scheduling
-- Editor performance optimizations: coalesced recomposition, reduced overlay churn, and deferred pixel-effect recomposition during drag/resize
-- Optional **Editor performance mode** toggle under **Settings → General** to prioritize responsiveness during intensive layer editing; changes apply to **open editor windows** without stealing focus from the editor
+- **Blur** and **Highlight** bake into the base image with **Win2D** when GPU rendering succeeds; on failure the editor **falls back to CPU** effects for that session (you may see a one-time warning toast)
+- While moving or resizing layers, selection handles update on the overlay and full layer recomposes wait until pointer release (blur/highlight regions do not live-preview during the drag)
+- Editor responsiveness: coalesced recomposes, cancellable in-flight GPU work when sliders change quickly, and reused vector visuals on the layer canvas between edits
+- Optional **Editor performance mode** under **Settings → General**: skips shadows and other expensive vector effects during drag, resize, and arrow preview (full quality after release). Applies to **open editor windows** immediately without stealing focus
 - Iterative UX polish (overlay guidance, animation, interaction tuning)
 - **Snap-border overlay** (screenshot + Live Draw): shared animated chrome (gradients, dashing, pulse). Global **intensity** (Subtle / Balanced / Bold) is under **Settings → General**. The **image editor** uses separate stroke and effect controls for layers.
 - Selection screenshot quality modes (`Fast`, `Optimized`, `Heavy`) to trade off speed vs text readability enhancement; **default is `Fast`** for responsive saves. **`Heavy`** applies large upscales and filters and can take several seconds on big selections—use it when you explicitly want maximum enhancement.
@@ -110,7 +111,7 @@ Use **Install** above for `dotnet run`, unpackaged **exe** locations, and **MSIX
 2. Build and run the `helvety.screentools` project. The project **defaults to x64** when no platform is set so plain `dotnet build` works; you can still pass `-p:Platform=x86` or `ARM64` explicitly. (**Any CPU** is remapped to x64 because WinUI/MSIX packaging cannot target neutral architecture.) The shipped **version** is defined in `helvety.screentools.csproj` (`ApplicationVersion`, `ApplicationDisplayVersion`, and `Version`, currently aligned with `Package.appxmanifest` / `app.manifest`); bump those together for each release. **About** shows the package version when installed (MSIX) or the assembly version when running unpackaged (`dotnet run` / F5).
 3. Use the navigation pane to switch between **General**, **Settings** (expand for section items), and **About**.
 4. Under **Settings**, choose a section:
-   - **General**: **System tray** (close-to-tray), **Run at sign-in** (when packaged), **Editor performance mode** (applies to open editor windows), and **Snap border** intensity (global for screenshot selection and Live Draw).
+   - **General**: **System tray** (close-to-tray), **Run at sign-in** (when packaged), **Editor performance mode** (lighter vector effects while dragging; applies to open editor windows), and **Snap border** intensity (global for screenshot selection and Live Draw).
    - **Screenshot**: **Save location** (required for screenshot), master toggle, **Listen**-based hotkey editor (changes auto-save), **Screenshot quality**, and **Overlay** instructions.
    - **Live Draw**: master toggle, **Listen**-based hotkey editor (changes auto-save), **Line thickness**, and **Shape shortcuts** (per-tool modifiers). **Live Draw** can be configured without a save folder.
    - **Settings → General** also includes a **Reset all settings** action: all stored preferences revert to defaults (including the save folder, which is set again to the default desktop **Helvety Screen Tools captures** folder). Existing image files on disk are **not** deleted.
@@ -125,8 +126,8 @@ A [GitHub Actions workflow](.github/workflows/release.yml) automates builds and 
 3. Tag and push:
 
 ```bash
-git tag v1.9.0
-git push origin v1.9.0
+git tag v1.10.0
+git push origin v1.10.0
 ```
 
 The workflow builds self-contained portable ZIPs for **x64** and **arm64**, then creates a GitHub Release with auto-generated release notes and the ZIPs attached. No certificate or MSIX signing is needed for the portable distribution.

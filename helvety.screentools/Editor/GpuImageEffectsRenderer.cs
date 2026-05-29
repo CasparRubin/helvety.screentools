@@ -7,11 +7,15 @@ using System.Linq;
 using System.Numerics;
 using System.Threading;
 using System.Threading.Tasks;
+using Windows.Foundation;
 using Windows.UI;
 using Windows.Graphics.DirectX;
 
 namespace helvety.screentools.Editor
 {
+    /// <summary>
+    /// Win2D compositor for blur and highlight layers. Blurs each region in a padded ROI instead of the full frame when possible.
+    /// </summary>
     internal sealed class GpuImageEffectsRenderer
     {
         private static readonly Color OpaqueMask = Color.FromArgb(255, 255, 255, 255);
@@ -39,9 +43,11 @@ namespace helvety.screentools.Editor
 
             try
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 var renderedPixels = await Task.Run(
-                    () => RenderInternal(sourcePixels, imageWidth, imageHeight, layers, blurInvertMode, highlightDimPercent, highlightInvertMode),
+                    () => RenderInternal(sourcePixels, imageWidth, imageHeight, layers, blurInvertMode, highlightDimPercent, highlightInvertMode, cancellationToken),
                     cancellationToken);
+                cancellationToken.ThrowIfCancellationRequested();
                 if (renderedPixels.Length != destinationPixels.Length)
                 {
                     LastError = "GPU output pixel size mismatch.";
@@ -51,6 +57,10 @@ namespace helvety.screentools.Editor
 
                 Buffer.BlockCopy(renderedPixels, 0, destinationPixels, 0, renderedPixels.Length);
                 return true;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -67,7 +77,8 @@ namespace helvety.screentools.Editor
             IReadOnlyList<EditorLayer> layers,
             bool blurInvertMode,
             int highlightDimPercent,
-            bool highlightInvertMode)
+            bool highlightInvertMode,
+            CancellationToken cancellationToken)
         {
             using var sourceBitmap = CanvasBitmap.CreateFromBytes(
                 _canvasDevice,
@@ -84,6 +95,7 @@ namespace helvety.screentools.Editor
 
                 foreach (var blurLayer in layers.OfType<BlurLayer>().Where(layer => layer.IsVisible))
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     var clampedRegion = ClampRegion(blurLayer.Region, imageWidth, imageHeight);
                     if (clampedRegion.IsEmpty)
                     {
@@ -96,9 +108,22 @@ namespace helvety.screentools.Editor
                         continue;
                     }
 
-                    var blurred = new GaussianBlurEffect
+                    var pad = (int)Math.Ceiling(blurAmount * 2f);
+                    var roi = ExpandRegion(clampedRegion, pad, imageWidth, imageHeight);
+                    if (roi.Width <= 0 || roi.Height <= 0)
+                    {
+                        continue;
+                    }
+
+                    var roiSource = new CropEffect
                     {
                         Source = currentImage,
+                        SourceRectangle = ToRect(roi)
+                    };
+
+                    var blurredRoi = new GaussianBlurEffect
+                    {
+                        Source = roiSource,
                         BlurAmount = blurAmount,
                         BorderMode = EffectBorderMode.Hard,
                         Optimization = EffectOptimization.Speed
@@ -115,13 +140,26 @@ namespace helvety.screentools.Editor
                         featherAmount,
                         tempResources);
 
-                    currentImage = BlendByMask(currentImage, blurred, blurMask);
+                    var roiPlaced = new Transform2DEffect
+                    {
+                        Source = blurredRoi,
+                        TransformMatrix = Matrix3x2.CreateTranslation(roi.X, roi.Y)
+                    };
+
+                    var roiSized = new CropEffect
+                    {
+                        Source = roiPlaced,
+                        SourceRectangle = new Rect(0, 0, imageWidth, imageHeight)
+                    };
+
+                    currentImage = BlendByMask(currentImage, roiSized, blurMask);
                 }
 
                 var dimFactor = 1f - (Math.Clamp(highlightDimPercent, 0, 80) / 100f);
                 var visibleHighlights = layers.OfType<HighlightLayer>().Where(layer => layer.IsVisible).ToArray();
                 if (visibleHighlights.Length > 0 && dimFactor < 1f)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     var dimmed = new ColorMatrixEffect
                     {
                         Source = currentImage,
@@ -157,6 +195,20 @@ namespace helvety.screentools.Editor
                     resource.Dispose();
                 }
             }
+        }
+
+        private static Rect ToRect(EditorRect region)
+        {
+            return new Rect(region.X, region.Y, region.Width, region.Height);
+        }
+
+        private static EditorRect ExpandRegion(EditorRect region, int pad, int imageWidth, int imageHeight)
+        {
+            var x = Math.Max(0, region.X - pad);
+            var y = Math.Max(0, region.Y - pad);
+            var right = Math.Min(imageWidth, region.X + region.Width + pad);
+            var bottom = Math.Min(imageHeight, region.Y + region.Height + pad);
+            return new EditorRect(x, y, Math.Max(0, right - x), Math.Max(0, bottom - y));
         }
 
         private CanvasCommandList CreateInsideHighlightsMask(

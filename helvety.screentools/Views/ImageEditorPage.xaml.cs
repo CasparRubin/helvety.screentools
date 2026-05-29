@@ -33,6 +33,9 @@ namespace helvety.screentools.Views
     /// <summary>
     /// Layer-based PNG editor in a dedicated <see cref="Microsoft.UI.Xaml.Window"/> (see <see cref="Editor.ImageEditorLauncher"/>).
     /// Tools: Canvas (select, move, resize), Text, Border, Blur, Highlight, Arrow, and Crop.
+    /// Pixel layers (blur/highlight) compose through <see cref="Editor.EditorComposePipeline"/> (Win2D GPU with CPU fallback);
+    /// text, border, and arrow layers render as XAML vector visuals with reuse across recomposes.
+    /// Pointer drags defer full recomposes until release; arrow preview updates overlay adorners only.
     /// Delete and Backspace remove the selected layer or crop region (not while inline text editing has focus).
     /// Mouse wheel over the canvas adjusts the selected layer's primary size; Ctrl+wheel zooms the viewport.
     /// Toolbar defaults persist without refreshing the main app window.
@@ -125,12 +128,16 @@ namespace helvety.screentools.Views
         private bool _gpuEffectsEnabled = true;
         private bool _gpuEffectWarningShown;
         private bool _deferPixelRecomposeUntilPointerRelease;
+        private bool _deferVectorRecomposeUntilPointerRelease;
+        private bool _suspendLayerChangeRecompose;
+        private bool _forceVectorFullRebuild;
         private bool _recomposeQueued;
         private bool _includeAdornersForQueuedRecompose;
         private bool _includePixelEffectsForQueuedRecompose;
         private long _lastInteractiveOverlayTicks;
         private readonly Dictionary<Guid, EditorLayer> _layersById = new();
-        private readonly GpuImageEffectsRenderer _gpuImageEffectsRenderer = new();
+        private readonly EditorComposePipeline _composePipeline = new();
+        private readonly VectorCanvasHost _vectorCanvasHost = new();
         private readonly Stopwatch _composeStopwatch = new();
         private int _composeSampleCount;
         private long _composeSampleTotalMs;
@@ -163,6 +170,8 @@ namespace helvety.screentools.Views
                 _document.Layers.CollectionChanged -= Layers_CollectionChanged;
             }
 
+            _vectorCanvasHost.Clear(LayersCanvas);
+
             SettingsService.EditorUiSettingsChanged -= SettingsService_EditorUiSettingsChanged;
             Loaded -= ImageEditorPage_Loaded;
             Unloaded -= ImageEditorPage_Unloaded;
@@ -175,7 +184,7 @@ namespace helvety.screentools.Views
             await LoadImageAsync();
         }
 
-        /// <summary>Syncs runtime flags when performance mode changes from Settings → General or after reset all.</summary>
+        /// <summary>Syncs performance mode and GPU preference when Settings → General changes or after reset all.</summary>
         private void SettingsService_EditorUiSettingsChanged()
         {
             var settings = SettingsService.LoadEditorUiSettings();
@@ -234,7 +243,9 @@ namespace helvety.screentools.Views
                 ApplyPersistedEditorUiSettings();
                 SetActiveTool(EditorToolType.Canvas);
                 UpdateSelectedTextEditorVisibility();
-                await UpdateBaseImageAsync();
+                _vectorCanvasHost.Clear(LayersCanvas);
+                _forceVectorFullRebuild = true;
+                await UpdateBaseImageAsync(_composePipeline.BeginPixelCompose());
                 ApplyFitWidthZoom();
             }
             catch (Exception ex)
@@ -418,40 +429,13 @@ namespace helvety.screentools.Views
         private void Layers_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
         {
             RebuildLayerIndex();
-            QueueRecompose(includeAdorners: true, includePixelEffects: true);
-        }
-
-        private void QueueRecompose(bool includeAdorners = true, bool includePixelEffects = true)
-        {
-            _ = RecomposeAsync(includeAdorners, includePixelEffects);
-        }
-
-        private void QueueOverlayOnlyRebuild(bool includeAdorners)
-        {
-            if (!ShouldRenderInteractiveOverlayFrame())
+            if (_suspendLayerChangeRecompose)
             {
                 return;
             }
 
-            var suppressExpensiveEffects = _performanceModeEnabled && (_isResizingSelection || _dragLayer is not null || _isDraggingSelection);
-            RebuildOverlayAdorners(includeAdorners, suppressExpensiveEffects);
-        }
-
-        private bool ShouldRenderInteractiveOverlayFrame()
-        {
-            var now = Environment.TickCount64;
-            if (now - Interlocked.Read(ref _lastInteractiveOverlayTicks) < InteractiveOverlayThrottleMs)
-            {
-                return false;
-            }
-
-            Interlocked.Exchange(ref _lastInteractiveOverlayTicks, now);
-            return true;
-        }
-
-        private bool LayerAffectsPixels(EditorLayer layer)
-        {
-            return layer is BlurLayer or HighlightLayer;
+            _forceVectorFullRebuild = true;
+            QueueRecompose(includeAdorners: true, includePixelEffects: true);
         }
 
         private async void ToolButton_Click(object sender, RoutedEventArgs e)
@@ -470,28 +454,6 @@ namespace helvety.screentools.Views
 
             SetActiveTool(tool);
             await RecomposeAsync(includeAdorners: true, includePixelEffects: false);
-        }
-
-        private async Task UpdateBaseImageAsync()
-        {
-            if (_workingPixels is null || _imageWidth <= 0 || _imageHeight <= 0)
-            {
-                return;
-            }
-
-            if (_baseBitmap is null || _baseBitmap.PixelWidth != _imageWidth || _baseBitmap.PixelHeight != _imageHeight)
-            {
-                _baseBitmap = new WriteableBitmap(_imageWidth, _imageHeight);
-                BaseImage.Source = _baseBitmap;
-            }
-
-            using (var stream = _baseBitmap.PixelBuffer.AsStream())
-            {
-                stream.Seek(0, SeekOrigin.Begin);
-                await stream.WriteAsync(_workingPixels, 0, _workingPixels.Length);
-            }
-
-            _baseBitmap.Invalidate();
         }
 
         private void SetActiveTool(EditorToolType tool)
@@ -584,11 +546,11 @@ namespace helvety.screentools.Views
 
         private void UpdateToolButtonVisuals()
         {
-            var selectedBrush = new SolidColorBrush(ColorHelper.FromArgb(70, 216, 27, 96));
+            var selectedBrush = EditorXamlResourceCache.ToolSelectedBackground;
             var normalBrush = Application.Current.Resources.TryGetValue("CardBackgroundFillColorDefaultBrush", out var normal)
                 && normal is Brush normalThemeBrush
                 ? normalThemeBrush
-                : new SolidColorBrush(ColorHelper.FromArgb(255, 40, 40, 40));
+                : EditorXamlResourceCache.GetBrush("#FF282828");
 
             var highlightedTool = _activeTool == EditorToolType.Canvas ? _settingsTool : _activeTool;
             CanvasToolButton.Background = highlightedTool == EditorToolType.Canvas ? selectedBrush : normalBrush;
@@ -852,64 +814,77 @@ namespace helvety.screentools.Views
 
         private void OverlayCanvas_PointerMoved(object sender, PointerRoutedEventArgs e)
         {
-            if (_activeTool == EditorToolType.Canvas && _isResizingSelection)
+            var plan = EditorPointerController.PlanPointerMoved(
+                _activeTool,
+                _isResizingSelection,
+                _isDraggingSelection,
+                _isPreviewingArrow,
+                _dragLayer);
+
+            switch (plan.Kind)
             {
-                var currentPoint = e.GetCurrentPoint(OverlayCanvas).Position;
-                ApplyResize(currentPoint);
-                if (_resizeTargetIsCrop || _document is null || !_resizeLayerId.HasValue)
-                {
-                    QueueOverlayOnlyRebuild(includeAdorners: true);
+                case EditorPointerController.PointerMoveKind.ResizeSelection:
+                    {
+                        var currentPoint = e.GetCurrentPoint(OverlayCanvas).Position;
+                        ApplyResize(currentPoint);
+                        if (_resizeTargetIsCrop || _document is null || !_resizeLayerId.HasValue)
+                        {
+                            QueueOverlayOnlyRebuild(includeAdorners: true);
+                            return;
+                        }
+
+                        var resizeLayer = TryGetLayerById(_resizeLayerId.Value);
+                        if (resizeLayer is not null && LayerAffectsPixels(resizeLayer))
+                        {
+                            _deferPixelRecomposeUntilPointerRelease = true;
+                        }
+                        else
+                        {
+                            _deferVectorRecomposeUntilPointerRelease = true;
+                        }
+
+                        QueueOverlayOnlyRebuild(includeAdorners: true);
+                        return;
+                    }
+
+                case EditorPointerController.PointerMoveKind.DragLayer:
+                    {
+                        var currentPoint = e.GetCurrentPoint(OverlayCanvas).Position;
+                        var dx = currentPoint.X - _lastPointerPoint.X;
+                        var dy = currentPoint.Y - _lastPointerPoint.Y;
+                        _dragLayer!.MoveBy(dx, dy, _imageWidth, _imageHeight);
+                        _lastPointerPoint = currentPoint;
+                        if (plan.DeferPixelRecompose)
+                        {
+                            _deferPixelRecomposeUntilPointerRelease = true;
+                        }
+                        else if (plan.DeferVectorRecompose)
+                        {
+                            _deferVectorRecomposeUntilPointerRelease = true;
+                        }
+
+                        QueueOverlayOnlyRebuild(includeAdorners: true);
+                        return;
+                    }
+
+                case EditorPointerController.PointerMoveKind.ArrowPreview:
+                    {
+                        var point = e.GetCurrentPoint(OverlayCanvas).Position;
+                        _arrowPreviewEndPoint = ClampPointToImage(point);
+                        QueueArrowPreviewOnlyRebuild();
+                        return;
+                    }
+
+                case EditorPointerController.PointerMoveKind.RegionSelection:
+                    {
+                        var point = e.GetCurrentPoint(OverlayCanvas).Position;
+                        UpdateSelectionRectangle(point);
+                        return;
+                    }
+
+                default:
                     return;
-                }
-
-                var resizeLayer = TryGetLayerById(_resizeLayerId.Value);
-                if (resizeLayer is not null && LayerAffectsPixels(resizeLayer))
-                {
-                    _deferPixelRecomposeUntilPointerRelease = true;
-                    QueueOverlayOnlyRebuild(includeAdorners: true);
-                }
-                else
-                {
-                    QueueRecompose(includeAdorners: true, includePixelEffects: false);
-                }
-
-                return;
             }
-
-            if (_activeTool == EditorToolType.Canvas && _dragLayer is not null)
-            {
-                var currentPoint = e.GetCurrentPoint(OverlayCanvas).Position;
-                var dx = currentPoint.X - _lastPointerPoint.X;
-                var dy = currentPoint.Y - _lastPointerPoint.Y;
-                _dragLayer.MoveBy(dx, dy, _imageWidth, _imageHeight);
-                _lastPointerPoint = currentPoint;
-                if (LayerAffectsPixels(_dragLayer))
-                {
-                    _deferPixelRecomposeUntilPointerRelease = true;
-                    QueueOverlayOnlyRebuild(includeAdorners: true);
-                }
-                else
-                {
-                    QueueRecompose(includeAdorners: true, includePixelEffects: false);
-                }
-
-                return;
-            }
-
-            if (!_isDraggingSelection)
-            {
-                return;
-            }
-
-            var point = e.GetCurrentPoint(OverlayCanvas).Position;
-            if (_activeTool == EditorToolType.Arrow && _isPreviewingArrow)
-            {
-                _arrowPreviewEndPoint = ClampPointToImage(point);
-                RebuildOverlayVisuals(includeAdorners: true);
-                return;
-            }
-
-            UpdateSelectionRectangle(point);
         }
 
         private async void OverlayCanvas_PointerReleased(object sender, PointerRoutedEventArgs e)
@@ -927,6 +902,11 @@ namespace helvety.screentools.Views
                     _deferPixelRecomposeUntilPointerRelease = false;
                     await RecomposeAsync(includeAdorners: true, includePixelEffects: true);
                 }
+                else if (_deferVectorRecomposeUntilPointerRelease)
+                {
+                    _deferVectorRecomposeUntilPointerRelease = false;
+                    await RecomposeAsync(includeAdorners: true, includePixelEffects: false);
+                }
                 else
                 {
                     RebuildOverlayVisuals(includeAdorners: true);
@@ -942,6 +922,11 @@ namespace helvety.screentools.Views
                     _deferPixelRecomposeUntilPointerRelease = false;
                     await RecomposeAsync(includeAdorners: true, includePixelEffects: true);
                 }
+                else if (_deferVectorRecomposeUntilPointerRelease)
+                {
+                    _deferVectorRecomposeUntilPointerRelease = false;
+                    await RecomposeAsync(includeAdorners: true, includePixelEffects: false);
+                }
 
                 _dragLayer = null;
                 return;
@@ -953,7 +938,6 @@ namespace helvety.screentools.Views
                 _isDraggingSelection = false;
                 _isPreviewingArrow = false;
                 RemoveSelectionRectangle();
-                RebuildOverlayVisuals(includeAdorners: true);
                 if (AddArrowLayer(_dragStartPoint, endPoint))
                 {
                     await FinalizeRegionPlacementAsync(clearCropSelection: true);
@@ -977,6 +961,11 @@ namespace helvety.screentools.Views
                 _deferPixelRecomposeUntilPointerRelease = false;
                 await RecomposeAsync(includeAdorners: true, includePixelEffects: true);
             }
+            else if (_deferVectorRecomposeUntilPointerRelease)
+            {
+                _deferVectorRecomposeUntilPointerRelease = false;
+                await RecomposeAsync(includeAdorners: true, includePixelEffects: false);
+            }
 
             _dragLayer = null;
         }
@@ -990,7 +979,7 @@ namespace helvety.screentools.Views
                 _isPreviewingArrow = true;
                 _arrowPreviewEndPoint = point;
                 RemoveSelectionRectangle();
-                RebuildOverlayVisuals(includeAdorners: true);
+                RebuildArrowPreviewOnly(includeAdorners: true);
                 return;
             }
 
@@ -1120,6 +1109,27 @@ namespace helvety.screentools.Views
             _inlineTextEditor.SelectAll();
         }
 
+        private void InsertNewLayer(EditorLayer layer)
+        {
+            if (_document is null)
+            {
+                return;
+            }
+
+            _suspendLayerChangeRecompose = true;
+            try
+            {
+                _document.Layers.Insert(0, layer);
+                _forceVectorFullRebuild = true;
+            }
+            finally
+            {
+                _suspendLayerChangeRecompose = false;
+            }
+
+            SelectLayer(layer);
+        }
+
         private void AddBorderLayer(EditorRect region)
         {
             if (_document is null)
@@ -1129,8 +1139,7 @@ namespace helvety.screentools.Views
 
             var layer = new BorderLayer(region, 1, DefaultPrimaryColor);
             ApplyBorderStyleFromUi(layer);
-            _document.Layers.Insert(0, layer);
-            SelectLayer(layer);
+            InsertNewLayer(layer);
         }
 
         private void AddBlurLayer(EditorRect region)
@@ -1146,8 +1155,7 @@ namespace helvety.screentools.Views
                 Feather = Clamp((int)Math.Round(BlurFeatherSlider.Value), 0, 40),
                 CornerRadius = _regionCornerRadius
             };
-            _document.Layers.Insert(0, layer);
-            SelectLayer(layer);
+            InsertNewLayer(layer);
         }
 
         private bool AddArrowLayer(Point start, Point end)
@@ -1176,8 +1184,7 @@ namespace helvety.screentools.Views
                 DefaultPrimaryColor,
                 ArrowFormStyle.Tapered);
             ApplyArrowStyleFromUi(layer);
-            _document.Layers.Insert(0, layer);
-            SelectLayer(layer);
+            InsertNewLayer(layer);
             return true;
         }
 
@@ -1192,8 +1199,7 @@ namespace helvety.screentools.Views
             {
                 CornerRadius = _regionCornerRadius
             };
-            _document.Layers.Insert(0, layer);
-            SelectLayer(layer);
+            InsertNewLayer(layer);
         }
 
         private Point ClampPointToImage(Point point)
@@ -1444,230 +1450,6 @@ namespace helvety.screentools.Views
         private async void LayersListView_DragItemsCompleted(ListViewBase sender, DragItemsCompletedEventArgs args)
         {
             await RecomposeAsync(includeAdorners: true, includePixelEffects: true);
-        }
-
-        private async Task RecomposeAsync(bool includeAdorners = true, bool includePixelEffects = true)
-        {
-            if (_document is null || _originalPixels is null)
-            {
-                return;
-            }
-
-            if (_isBusy)
-            {
-                _recomposeQueued = true;
-                _includeAdornersForQueuedRecompose |= includeAdorners;
-                _includePixelEffectsForQueuedRecompose |= includePixelEffects;
-                return;
-            }
-
-            _isBusy = true;
-            try
-            {
-                var runIncludeAdorners = includeAdorners;
-                var runIncludePixelEffects = includePixelEffects;
-                do
-                {
-                    _recomposeQueued = false;
-                    _composeStopwatch.Restart();
-                    if (runIncludePixelEffects)
-                    {
-                        EnsureWorkingPixelsBuffer();
-                        var gpuRendered = false;
-                        if (_gpuEffectsEnabled)
-                        {
-                            gpuRendered = await _gpuImageEffectsRenderer.TryRenderAsync(
-                                _originalPixels!,
-                                _imageWidth,
-                                _imageHeight,
-                                _document.Layers,
-                                _blurInvertMode,
-                                _highlightDimPercent,
-                                _highlightInvertMode,
-                                _workingPixels!);
-
-                            if (!gpuRendered)
-                            {
-                                _gpuEffectsEnabled = false;
-                                if (!_gpuEffectWarningShown)
-                                {
-                                    _gpuEffectWarningShown = true;
-                                    var error = string.IsNullOrWhiteSpace(_gpuImageEffectsRenderer.LastError)
-                                        ? "unknown error"
-                                        : _gpuImageEffectsRenderer.LastError;
-                                    InAppToastService.Show($"GPU rendering failed ({error}). GPU effects are disabled for this editing session.", InAppToastSeverity.Warning);
-                                }
-                            }
-                        }
-
-                        if (!gpuRendered)
-                        {
-                            EnsureWorkingPixelsBuffer();
-                        }
-
-                        await UpdateBaseImageAsync();
-                    }
-                    else
-                    {
-                        if (_workingPixels is null)
-                        {
-                            EnsureWorkingPixelsBuffer();
-                            await UpdateBaseImageAsync();
-                        }
-                    }
-
-                    RebuildOverlayVisuals(runIncludeAdorners);
-                    _composeStopwatch.Stop();
-                    _composeSampleCount++;
-                    _composeSampleTotalMs += _composeStopwatch.ElapsedMilliseconds;
-                    if (_composeSampleCount % 20 == 0)
-                    {
-                        var avgComposeMs = _composeSampleTotalMs / Math.Max(1, _composeSampleCount);
-                        Debug.WriteLine($"[ImageEditor] avg recompose {avgComposeMs}ms over {_composeSampleCount} runs");
-                    }
-
-                    runIncludeAdorners = _includeAdornersForQueuedRecompose;
-                    runIncludePixelEffects = _includePixelEffectsForQueuedRecompose;
-                    _includeAdornersForQueuedRecompose = false;
-                    _includePixelEffectsForQueuedRecompose = false;
-                }
-                while (_recomposeQueued);
-            }
-            finally
-            {
-                _isBusy = false;
-            }
-        }
-
-        private void EnsureWorkingPixelsBuffer()
-        {
-            if (_originalPixels is null)
-            {
-                return;
-            }
-
-            if (_workingPixels is null || _workingPixels.Length != _originalPixels.Length)
-            {
-                _workingPixels = new byte[_originalPixels.Length];
-            }
-
-            System.Buffer.BlockCopy(_originalPixels, 0, _workingPixels, 0, _originalPixels.Length);
-        }
-
-        private void RebuildOverlayVisuals(bool includeAdorners)
-        {
-            if (_document is null)
-            {
-                return;
-            }
-
-            var suppressExpensiveEffects = _performanceModeEnabled && (_isResizingSelection || _dragLayer is not null || _isDraggingSelection);
-            EditorVectorOverlayRenderer.DrawVisibleVectorLayers(_document.Layers, LayersCanvas, suppressExpensiveEffects);
-
-            RebuildOverlayAdorners(includeAdorners, suppressExpensiveEffects);
-        }
-
-        private void RebuildOverlayAdorners(bool includeAdorners, bool suppressExpensiveEffects)
-        {
-            OverlayCanvas.Children.Clear();
-            DrawArrowPreview(suppressExpensiveEffects);
-
-            if (includeAdorners && _selectedLayerId.HasValue)
-            {
-                var selected = TryGetLayerById(_selectedLayerId.Value);
-                if (selected is not null && !selected.IsVisible)
-                {
-                    selected = null;
-                }
-                if (selected is not null)
-                {
-                    var bounds = selected.GetBounds();
-                    var selectedCornerRadius = GetEffectiveCornerRadius(bounds, GetLayerCornerRadius(selected));
-                    var selectedRect = new Rectangle
-                    {
-                        Width = bounds.Width,
-                        Height = bounds.Height,
-                        Stroke = new SolidColorBrush(ParseColor(DefaultPrimaryColor)),
-                        StrokeThickness = 2,
-                        StrokeDashArray = new DoubleCollection { 4, 2 },
-                        Fill = new SolidColorBrush(ColorHelper.FromArgb(35, 216, 27, 96)),
-                        RadiusX = selectedCornerRadius,
-                        RadiusY = selectedCornerRadius
-                    };
-                    Canvas.SetLeft(selectedRect, bounds.X);
-                    Canvas.SetTop(selectedRect, bounds.Y);
-                    OverlayCanvas.Children.Add(selectedRect);
-
-                    if (selected is BorderLayer or BlurLayer or TextLayer or HighlightLayer)
-                    {
-                        DrawResizeHandles(bounds);
-                    }
-                    else if (selected is ArrowLayer arrowLayer)
-                    {
-                        DrawArrowEndpointHandles(arrowLayer);
-                    }
-                }
-            }
-
-            if (includeAdorners && _pendingCropRect.HasValue && !_pendingCropRect.Value.IsEmpty)
-            {
-                var crop = _pendingCropRect.Value;
-                var cropCornerRadius = GetEffectiveCornerRadius(crop, _regionCornerRadius);
-                var cropRect = new Rectangle
-                {
-                    Width = crop.Width,
-                    Height = crop.Height,
-                    Stroke = _isCropSelected
-                        ? new SolidColorBrush(ParseColor(DefaultPrimaryColor))
-                        : new SolidColorBrush(ColorHelper.FromArgb(220, 216, 27, 96)),
-                    Fill = new SolidColorBrush(ColorHelper.FromArgb(48, 216, 27, 96)),
-                    StrokeThickness = _isCropSelected ? 2 : 1.5,
-                    StrokeDashArray = new DoubleCollection { 4, 3 },
-                    RadiusX = cropCornerRadius,
-                    RadiusY = cropCornerRadius
-                };
-                Canvas.SetLeft(cropRect, crop.X);
-                Canvas.SetTop(cropRect, crop.Y);
-                OverlayCanvas.Children.Add(cropRect);
-
-                if (_isCropSelected)
-                {
-                    DrawResizeHandles(crop);
-                }
-            }
-
-            if (includeAdorners && _selectionRectangle is not null && !OverlayCanvas.Children.Contains(_selectionRectangle))
-            {
-                OverlayCanvas.Children.Add(_selectionRectangle);
-            }
-
-            if (_inlineTextEditor is not null)
-            {
-                OverlayCanvas.Children.Add(_inlineTextEditor);
-            }
-        }
-
-        private void DrawArrowPreview(bool suppressExpensiveEffects)
-        {
-            if (!_isPreviewingArrow || _activeTool != EditorToolType.Arrow)
-            {
-                return;
-            }
-
-            var previewLayer = new ArrowLayer(
-                _dragStartPoint.X,
-                _dragStartPoint.Y,
-                _arrowPreviewEndPoint.X,
-                _arrowPreviewEndPoint.Y,
-                1,
-                DefaultPrimaryColor,
-                ArrowFormStyle.Tapered);
-            ApplyArrowStyleFromUi(previewLayer);
-
-            EditorVectorOverlayRenderer.DrawVectorLayersBottomToTop(
-                new[] { previewLayer },
-                OverlayCanvas,
-                suppressExpensiveEffects);
         }
 
         private async void SaveCopyAndCloseButton_Click(object sender, RoutedEventArgs e)
@@ -2361,8 +2143,7 @@ namespace helvety.screentools.Views
                     _inlineTextWrapWidth);
                 ApplyTextStyleFromUi(layer);
 
-                _document.Layers.Insert(0, layer);
-                SelectLayer(layer);
+                InsertNewLayer(layer);
                 SetActiveTool(EditorToolType.Canvas);
                 QueueRecompose(includeAdorners: true, includePixelEffects: false);
             }
@@ -2616,7 +2397,10 @@ namespace helvety.screentools.Views
             UpdateAllSettingValueTexts();
         }
 
-        /// <summary>Loads persisted toolbar defaults when an image is opened (not used for live performance-mode sync).</summary>
+        /// <summary>
+        /// Loads persisted toolbar defaults (including performance mode and GPU preference) when an image opens.
+        /// Live updates from Settings → General use <see cref="SettingsService_EditorUiSettingsChanged"/>.
+        /// </summary>
         private void ApplyPersistedEditorUiSettings()
         {
             var settings = SettingsService.LoadEditorUiSettings();

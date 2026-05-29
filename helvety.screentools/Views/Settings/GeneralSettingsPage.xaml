@@ -62,7 +62,7 @@
             <StackPanel Spacing="{StaticResource AppSpacingStack}">
                 <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Image editor" />
                 <tk:SettingsCard
-                    Description="Reduces expensive effects while dragging or resizing layers for smoother editing. Applies to open editor windows immediately. Disable only if you need full preview during layer moves and resizes."
+                    Description="While dragging, resizing, or drawing an arrow, skips shadows and other expensive vector effects for smoother editing (blur and highlight still refresh after you release the pointer). Applies to open editor windows immediately."
                     Header="Editor performance mode">
                     <tk:SettingsCard.HeaderIcon>
                         <FontIcon Glyph="&#xE9F5;" />

@@ -399,7 +399,7 @@ namespace helvety.screentools
             WriteSetting(LiveDrawSparkleEnabledKey, enabled);
 
         /// <summary>
-        /// Persists editor tool UI defaults (toolbar and <see cref="EditorUiSettings.PerformanceModeEnabled"/>).
+        /// Persists editor tool UI defaults (toolbar), including <see cref="EditorUiSettings.PerformanceModeEnabled"/> and <see cref="EditorUiSettings.GpuEffectsEnabled"/>.
         /// </summary>
         /// <param name="notifyAppSettingsChanged">
         /// When <see langword="true"/> (default), raises <see cref="EditorUiSettingsChanged"/> and <see cref="SettingsChanged"/>

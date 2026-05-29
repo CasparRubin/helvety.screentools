@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using Microsoft.UI;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Shapes;
@@ -11,79 +13,82 @@ namespace helvety.screentools.Editor
     /// <summary>Draws image-editor arrow layers (tapered, straight, or line-only) on a XAML <see cref="Canvas"/>.</summary>
     internal static class ArrowRendering
     {
-        internal static void DrawArrowLayer(ArrowLayer arrowLayer, bool suppressExpensiveEffects, Canvas targetCanvas)
+        internal static IReadOnlyList<UIElement> CreateArrowElements(ArrowLayer arrowLayer, bool suppressExpensiveEffects)
         {
+            var elements = new List<UIElement>();
             var baseThickness = Math.Max(1, arrowLayer.Thickness);
             if (!suppressExpensiveEffects &&
                 arrowLayer.FormStyle != ArrowFormStyle.Tapered &&
                 arrowLayer.HasShadow)
             {
-                DrawFeatheredArrowShadow(arrowLayer, baseThickness, targetCanvas);
+                elements.AddRange(CreateFeatheredArrowShadowElements(arrowLayer, baseThickness));
             }
 
             if (!suppressExpensiveEffects && arrowLayer.HasBorder)
             {
                 var borderThickness = Clamp(arrowLayer.BorderThickness, 1, 8);
                 var isTapered = arrowLayer.FormStyle == ArrowFormStyle.Tapered;
-                DrawArrowPrimitive(
+                elements.AddRange(CreateArrowPrimitiveElements(
                     arrowLayer,
-                    ParseColor(arrowLayer.BorderColorHex),
+                    EditorXamlResourceCache.ParseColor(arrowLayer.BorderColorHex),
                     isTapered ? baseThickness : baseThickness + borderThickness,
                     isTapered ? borderThickness : 0,
                     0,
                     0,
-                    useUniformSegmentAlpha: isTapered,
-                    targetCanvas);
+                    useUniformSegmentAlpha: isTapered));
             }
 
-            DrawArrowPrimitive(
+            elements.AddRange(CreateArrowPrimitiveElements(
                 arrowLayer,
-                ParseColor(arrowLayer.ColorHex),
+                EditorXamlResourceCache.ParseColor(arrowLayer.ColorHex),
                 baseThickness,
                 0,
                 0,
                 0,
-                useUniformSegmentAlpha: false,
-                targetCanvas);
+                useUniformSegmentAlpha: false));
+
+            return elements;
         }
 
-        private static void DrawFeatheredArrowShadow(ArrowLayer arrowLayer, double baseThickness, Canvas targetCanvas)
+        internal static void DrawArrowLayer(ArrowLayer arrowLayer, bool suppressExpensiveEffects, Canvas targetCanvas)
         {
-            var shadowColor = ParseColor(arrowLayer.ShadowColorHex);
+            foreach (var element in CreateArrowElements(arrowLayer, suppressExpensiveEffects))
+            {
+                targetCanvas.Children.Add(element);
+            }
+        }
+
+        private static IEnumerable<UIElement> CreateFeatheredArrowShadowElements(ArrowLayer arrowLayer, double baseThickness)
+        {
+            var shadowColor = EditorXamlResourceCache.ParseColor(arrowLayer.ShadowColorHex);
             var shadowOffset = Math.Max(1, arrowLayer.ShadowOffset);
             var shadowSteps = new (int delta, double alphaScale, double thicknessScale)[] { (0, 1.0, 1.0), (1, 0.58, 1.22), (2, 0.34, 1.48) };
             foreach (var step in shadowSteps)
             {
                 var offset = shadowOffset + step.delta;
-                DrawArrowPrimitive(
+                foreach (var element in CreateArrowPrimitiveElements(
                     arrowLayer,
                     ScaleColorAlpha(shadowColor, step.alphaScale),
                     Math.Max(1, baseThickness * step.thicknessScale),
                     0,
                     offset,
                     offset,
-                    useUniformSegmentAlpha: false,
-                    targetCanvas);
+                    useUniformSegmentAlpha: false))
+                {
+                    yield return element;
+                }
             }
         }
 
-        private static Color ScaleColorAlpha(Color color, double factor)
-        {
-            var alpha = (byte)Math.Clamp((int)Math.Round(color.A * factor), 0, 255);
-            return ColorHelper.FromArgb(alpha, color.R, color.G, color.B);
-        }
-
-        private static void DrawArrowPrimitive(
+        private static IEnumerable<UIElement> CreateArrowPrimitiveElements(
             ArrowLayer arrowLayer,
             Color color,
             double thickness,
             double widthExpansion,
             double offsetX,
             double offsetY,
-            bool useUniformSegmentAlpha,
-            Canvas targetCanvas)
+            bool useUniformSegmentAlpha)
         {
-            var strokeBrush = new SolidColorBrush(color);
             var startX = arrowLayer.StartX + offsetX;
             var startY = arrowLayer.StartY + offsetY;
             var tipX = arrowLayer.EndX + offsetX;
@@ -94,23 +99,23 @@ namespace helvety.screentools.Editor
             var length = Math.Sqrt((dx * dx) + (dy * dy));
             if (length < 0.001)
             {
-                return;
+                yield break;
             }
 
             if (arrowLayer.FormStyle == ArrowFormStyle.LineOnly)
             {
-                targetCanvas.Children.Add(new Line
+                yield return new Line
                 {
                     X1 = startX,
                     Y1 = startY,
                     X2 = tipX,
                     Y2 = tipY,
-                    Stroke = strokeBrush,
+                    Stroke = EditorXamlResourceCache.GetBrush(color),
                     StrokeThickness = thickness,
                     StrokeStartLineCap = PenLineCap.Round,
                     StrokeEndLineCap = PenLineCap.Round
-                });
-                return;
+                };
+                yield break;
             }
 
             var unitX = dx / length;
@@ -127,75 +132,38 @@ namespace helvety.screentools.Editor
 
             var baseX = tipX - (unitX * headLength);
             var baseY = tipY - (unitY * headLength);
-            var leftX = baseX + (normalX * (headWidth / 2d));
-            var leftY = baseY + (normalY * (headWidth / 2d));
-            var rightX = baseX - (normalX * (headWidth / 2d));
-            var rightY = baseY - (normalY * (headWidth / 2d));
 
             if (isTapered)
             {
-                var tailHalfWidth = Math.Max(0.2, thickness * 0.12) + widthExpansion;
-                var nearHeadHalfWidth = Math.Max(tailHalfWidth + 1.4, Math.Min((headWidth / 2d) - 0.9, thickness * 1.95)) + widthExpansion;
-                var shaftDx = baseX - startX;
-                var shaftDy = baseY - startY;
-                var shaftLength = Math.Sqrt((shaftDx * shaftDx) + (shaftDy * shaftDy));
-                var segmentCount = Math.Max(12, Math.Min(24, (int)Math.Round(shaftLength / 10d)));
-                for (var i = 0; i < segmentCount; i++)
+                var shaftPath = CreateTaperedShaftPath(
+                    startX,
+                    startY,
+                    baseX,
+                    baseY,
+                    normalX,
+                    normalY,
+                    thickness,
+                    widthExpansion,
+                    color,
+                    useUniformSegmentAlpha);
+                if (shaftPath is not null)
                 {
-                    var t0 = i / (double)segmentCount;
-                    var t1 = (i + 1) / (double)segmentCount;
-                    var easedT0 = Math.Pow(t0, 1.15);
-                    var easedT1 = Math.Pow(t1, 1.15);
-                    var width0 = tailHalfWidth + ((nearHeadHalfWidth - tailHalfWidth) * easedT0);
-                    var width1 = tailHalfWidth + ((nearHeadHalfWidth - tailHalfWidth) * easedT1);
-
-                    var x0 = startX + (shaftDx * t0);
-                    var y0 = startY + (shaftDy * t0);
-                    var x1 = startX + (shaftDx * t1);
-                    var y1 = startY + (shaftDy * t1);
-
-                    byte segmentAlpha;
-                    if (useUniformSegmentAlpha)
-                    {
-                        segmentAlpha = color.A;
-                    }
-                    else
-                    {
-                        var alphaT = Math.Pow((t0 + t1) / 2d, 1.45);
-                        segmentAlpha = (byte)Math.Clamp((int)Math.Round(color.A * alphaT), 0, color.A);
-                    }
-
-                    if (segmentAlpha == 0)
-                    {
-                        continue;
-                    }
-
-                    targetCanvas.Children.Add(new Polygon
-                    {
-                        Fill = new SolidColorBrush(WithAlpha(color, segmentAlpha)),
-                        Points = new PointCollection
-                        {
-                            new Point(x0 + (normalX * width0), y0 + (normalY * width0)),
-                            new Point(x1 + (normalX * width1), y1 + (normalY * width1)),
-                            new Point(x1 - (normalX * width1), y1 - (normalY * width1)),
-                            new Point(x0 - (normalX * width0), y0 - (normalY * width0))
-                        }
-                    });
+                    yield return shaftPath;
                 }
             }
             else
             {
-                targetCanvas.Children.Add(new Line
+                yield return new Line
                 {
                     X1 = startX,
                     Y1 = startY,
                     X2 = baseX,
                     Y2 = baseY,
-                    Stroke = strokeBrush,
+                    Stroke = EditorXamlResourceCache.GetBrush(color),
                     StrokeThickness = thickness,
                     StrokeStartLineCap = PenLineCap.Round,
                     StrokeEndLineCap = PenLineCap.Round
-                });
+                };
             }
 
             var headHalfWidth = (headWidth / 2d) + widthExpansion;
@@ -204,56 +172,92 @@ namespace helvety.screentools.Editor
             var headRightX = baseX - (normalX * headHalfWidth);
             var headRightY = baseY - (normalY * headHalfWidth);
 
-            targetCanvas.Children.Add(new Polygon
+            yield return new Polygon
             {
-                Fill = strokeBrush,
+                Fill = EditorXamlResourceCache.GetBrush(color),
                 Points = new PointCollection
                 {
                     new Point(tipX, tipY),
                     new Point(headLeftX, headLeftY),
                     new Point(headRightX, headRightY)
                 }
-            });
+            };
         }
 
-        private static Color WithAlpha(Color color, byte alpha)
+        private static Path? CreateTaperedShaftPath(
+            double startX,
+            double startY,
+            double baseX,
+            double baseY,
+            double normalX,
+            double normalY,
+            double thickness,
+            double widthExpansion,
+            Color color,
+            bool useUniformSegmentAlpha)
         {
+            var shaftDx = baseX - startX;
+            var shaftDy = baseY - startY;
+            var shaftLength = Math.Sqrt((shaftDx * shaftDx) + (shaftDy * shaftDy));
+            if (shaftLength < 0.001)
+            {
+                return null;
+            }
+
+            var tailHalfWidth = Math.Max(0.2, thickness * 0.12) + widthExpansion;
+            var headWidth = Math.Max(14.0, thickness * 5.2);
+            var nearHeadHalfWidth = Math.Max(tailHalfWidth + 1.4, Math.Min((headWidth / 2d) - 0.9, thickness * 1.95)) + widthExpansion;
+            var segmentCount = Math.Max(8, Math.Min(16, (int)Math.Round(shaftLength / 12d)));
+
+            var geometry = new PathGeometry();
+            var figure = new PathFigure { IsClosed = true };
+            var topPoints = new List<Point>(segmentCount + 1);
+            var bottomPoints = new List<Point>(segmentCount + 1);
+
+            for (var i = 0; i <= segmentCount; i++)
+            {
+                var t = i / (double)segmentCount;
+                var easedT = Math.Pow(t, 1.15);
+                var halfWidth = tailHalfWidth + ((nearHeadHalfWidth - tailHalfWidth) * easedT);
+                var x = startX + (shaftDx * t);
+                var y = startY + (shaftDy * t);
+                topPoints.Add(new Point(x + (normalX * halfWidth), y + (normalY * halfWidth)));
+                bottomPoints.Add(new Point(x - (normalX * halfWidth), y - (normalY * halfWidth)));
+            }
+
+            figure.StartPoint = topPoints[0];
+            for (var i = 1; i < topPoints.Count; i++)
+            {
+                figure.Segments.Add(new LineSegment { Point = topPoints[i] });
+            }
+
+            for (var i = bottomPoints.Count - 1; i >= 0; i--)
+            {
+                figure.Segments.Add(new LineSegment { Point = bottomPoints[i] });
+            }
+
+            geometry.Figures.Add(figure);
+
+            var fillColor = useUniformSegmentAlpha
+                ? color
+                : ScaleColorAlpha(color, Math.Clamp(color.A / 255d, 0.35, 1.0));
+
+            return new Path
+            {
+                Data = geometry,
+                Fill = EditorXamlResourceCache.GetBrush(fillColor)
+            };
+        }
+
+        private static Color ScaleColorAlpha(Color color, double factor)
+        {
+            var alpha = (byte)Math.Clamp((int)Math.Round(color.A * factor), 0, 255);
             return ColorHelper.FromArgb(alpha, color.R, color.G, color.B);
         }
 
         private static int Clamp(int value, int min, int max)
         {
             return Math.Max(min, Math.Min(max, value));
-        }
-
-        private static Color ParseColor(string colorHex)
-        {
-            if (string.IsNullOrWhiteSpace(colorHex))
-            {
-                return Colors.White;
-            }
-
-            var value = colorHex.Trim().TrimStart('#');
-            if (value.Length == 6)
-            {
-                var rgb = Convert.ToUInt32(value, 16);
-                var r = (byte)((rgb & 0xFF0000) >> 16);
-                var g = (byte)((rgb & 0x00FF00) >> 8);
-                var b = (byte)(rgb & 0x0000FF);
-                return ColorHelper.FromArgb(255, r, g, b);
-            }
-
-            if (value.Length == 8)
-            {
-                var argb = Convert.ToUInt32(value, 16);
-                var a = (byte)((argb & 0xFF000000) >> 24);
-                var r = (byte)((argb & 0x00FF0000) >> 16);
-                var g = (byte)((argb & 0x0000FF00) >> 8);
-                var b = (byte)(argb & 0x000000FF);
-                return ColorHelper.FromArgb(a, r, g, b);
-            }
-
-            return Colors.White;
         }
     }
 }
