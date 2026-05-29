@@ -427,7 +427,7 @@ namespace helvety.screentools
         }
 
         /// <summary>
-        /// Removes all managed settings keys and reapplies defaults (including save folder to the default desktop screenshots folder, snap-border intensity, screenshot, Live Draw, and editor state).
+        /// Removes all managed settings keys and reapplies defaults (including save folder to the default desktop Helvety Screen Tools captures folder, snap-border intensity, screenshot, Live Draw, and editor state).
         /// </summary>
         internal static void ResetAllSettingsToDefaults()
         {

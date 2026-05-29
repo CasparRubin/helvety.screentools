@@ -9,7 +9,7 @@ The app can be **packaged and deployed** (MSIX or unpackaged). Behavior and defa
 ## Current Focus
 
 - **Two independent global hotkeys**: screenshot (default `Shift+S+S+S`) and Live Draw (default `Shift+D+D+D`). They must use different sequences; the app blocks applying duplicates in Settings.
-- **Settings layout**: the main **NavigationView** has a single left rail. **Settings** is an expandable group (PowerToys-style) with **General**, **Screenshot**, and **Live Draw**. **General** covers close-to-tray, **Run at sign-in** (Windows **Startup** apps; packaged MSIX only—hidden when running unpackaged), editor performance, global **snap-border intensity** (Subtle / Balanced / Bold; **default Bold**) for both screenshot and Live Draw, and a **Reset all settings** action (does not change Windows startup registration). **Screenshot** includes save folder, master **On/Off**, hotkey editor, screenshot quality, and overlay instructions. **Live Draw** includes a master **On/Off** toggle (shortcuts stay stored when off), global hotkey editor, **Line thickness**, and **Shape shortcuts** (per-tool modifiers plus fixed free draw and sparkle).
+- **Settings layout**: the main **NavigationView** has a single left rail. **Settings** is an expandable group (PowerToys-style) with **General**, **Screenshot**, and **Live Draw**. **General** covers close-to-tray, **Run at sign-in** (labeled **Start with Windows** in the app; Windows **Startup** apps; packaged MSIX only—hidden when running unpackaged), editor performance, global **snap-border intensity** (Subtle / Balanced / Bold; **default Bold**) for both screenshot and Live Draw, and a **Reset all settings** action (restores every stored preference to defaults, including **Run at sign-in**; packaged builds may re-request startup enablement; does not delete image files on disk). **Screenshot** includes save folder, master **On/Off**, hotkey editor, screenshot quality, and overlay instructions. **Live Draw** includes a master **On/Off** toggle (shortcuts stay stored when off), global hotkey editor, **Line thickness**, and **Shape shortcuts** (per-tool modifiers plus fixed free draw and sparkle).
 - **Screenshot** (global hotkey): overlay with window snapping (highlighted border). **Esc** cancels and closes the overlay. **Click** (without dragging) commits the snapped window under the cursor, or the current monitor under the cursor if nothing snaps; **drag** selects a custom rectangle. Left-click saves, copies to clipboard, and exits; right-click saves (no clipboard copy) and stays in the same screenshot session.
 - **Live Draw**: global hotkey → fullscreen **Win32 `WS_EX_NOREDIRECTIONBITMAP` host** with a **DesktopWindowXamlSource** island (vector markup only; no desktop BitBlt). **Esc** ends the session. **Settings → Live Draw → Line thickness** controls the stroke width for rectangles/ellipses/freehand arrows and straight-line ink. **Settings → Live Draw → Shape shortcuts** assigns **Shift**, **Ctrl**, **Alt**, **Win**, or **None** (unbound) to **Rectangle**, **Arrow**, and **Straight line** (left mouse; each non-None modifier must be unique) and to **Circle** and **Ellipse** (right drag; must differ unless one is **None**). Left drag with **no** matching shape modifier is **free draw**; right click and hold with **no** circle/ellipse modifier is the **sparkle** animation (fixed). **Rectangles, ellipses, circles, arrows, straight lines, freehand, and sparkle** use the same snap-border chrome as screenshot selection (gradients, dashing, pulse). **Does not require a save folder**; saving screenshots from screenshot mode still requires a writable save location.
 - **Navigation**: left **NavigationView** with **General** (home), an expandable **Settings** group (**General**, **Screenshot**, **Live Draw**), and **About**. **About** shows a short product summary, the app **Version** (package version when installed; assembly version when running unpackaged), and links to [helvety.com](https://helvety.com/) and the [GitHub repository](https://github.com/CasparRubin/helvety.screentools).
@@ -37,11 +37,12 @@ The app can be **packaged and deployed** (MSIX or unpackaged). Behavior and defa
 
 ## Tech Stack
 
-- .NET 8
-- WinUI 3 (Windows App SDK)
+- .NET 8 (`net8.0-windows10.0.19041.0`)
+- WinUI 3 via **Windows App SDK 2.x** (see `Microsoft.WindowsAppSDK` version in `helvety.screentools.csproj`)
 - Native Win32 interop (global hotkeys, window hit-testing, GDI freeze-frame for selection overlay, `WS_EX_NOREDIRECTIONBITMAP` host for Live Draw)
 - Self-contained Windows App SDK runtime (unpackaged `dotnet run` / F5 without a separate machine-wide Windows App Runtime install)
-- `H.NotifyIcon.WinUI` for notification area tray integration
+- `H.NotifyIcon.WinUI` 2.3.x for notification area tray integration (2.4.x requires .NET 10)
+- `Microsoft.Graphics.Win2D` and **CommunityToolkit.WinUI** settings controls
 
 ## Install
 
@@ -122,8 +123,8 @@ A [GitHub Actions workflow](.github/workflows/release.yml) automates builds and 
 3. Tag and push:
 
 ```bash
-git tag v1.5.0
-git push origin v1.5.0
+git tag v1.6.0
+git push origin v1.6.0
 ```
 
 The workflow builds self-contained portable ZIPs for **x64** and **arm64**, then creates a GitHub Release with auto-generated release notes and the ZIPs attached. No certificate or MSIX signing is needed for the portable distribution.

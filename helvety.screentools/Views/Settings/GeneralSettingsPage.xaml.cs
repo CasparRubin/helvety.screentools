@@ -225,7 +225,7 @@ namespace helvety.screentools.Views.Settings
             {
                 XamlRoot = XamlRoot,
                 Title = "Reset all settings to defaults?",
-                Content = "This clears all saved app settings and restores defaults (including Start with Windows and global hotkey listeners). Files on disk (screenshots and exports) are not deleted.",
+                Content = "This clears all saved app settings and restores defaults (including Start with Windows, global hotkey listeners, and the save folder to Helvety Screen Tools captures on your desktop). Files on disk (screenshots and exports) are not deleted.",
                 PrimaryButtonText = "Reset",
                 CloseButtonText = "Cancel",
                 DefaultButton = ContentDialogButton.Close
