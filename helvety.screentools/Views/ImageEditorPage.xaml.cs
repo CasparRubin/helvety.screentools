@@ -3009,14 +3009,6 @@ namespace helvety.screentools.Views
                 : fontFamily;
         }
 
-        private static void ApplyTextStyleToBlock(TextBlock textBlock, TextLayer textLayer)
-        {
-            textBlock.FontWeight = textLayer.IsBold ? FontWeights.Bold : FontWeights.Normal;
-            textBlock.FontStyle = textLayer.IsItalic ? UiFontStyle.Italic : UiFontStyle.Normal;
-            textBlock.LineStackingStrategy = LineStackingStrategy.MaxHeight;
-            textBlock.TextLineBounds = TextLineBounds.Full;
-        }
-
         private static void ApplyTextStyleToEditor(TextBox textBox, bool isBold, bool isItalic)
         {
             textBox.FontWeight = isBold ? FontWeights.Bold : FontWeights.Normal;

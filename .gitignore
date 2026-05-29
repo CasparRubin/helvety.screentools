@@ -22,3 +22,6 @@ helvety-screentools-*.zip
 
 # Build logs
 *.log
+
+# Dev MSIX signing keys (generate locally; see README)
+*.pfx

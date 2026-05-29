@@ -19,9 +19,20 @@
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
     <Nullable>enable</Nullable>
     <!-- MSIX / About: bump for each release (must increase for in-place upgrades). -->
-    <ApplicationDisplayVersion>1.11.0.0</ApplicationDisplayVersion>
-    <ApplicationVersion>1.11.0.0</ApplicationVersion>
-    <Version>1.11.0.0</Version>
+    <ApplicationDisplayVersion>2.0.0.0</ApplicationDisplayVersion>
+    <ApplicationVersion>2.0.0.0</ApplicationVersion>
+    <Version>2.0.0.0</Version>
+    <Company>Helvety</Company>
+    <Product>Helvety Screen Tools</Product>
+    <!-- MSIX signing: subject CN=Helvety must match Package.appxmanifest Identity Publisher -->
+    <PackageCertificateKeyFile>$(MSBuildProjectDirectory)\helvety.screentools_TemporaryKey.pfx</PackageCertificateKeyFile>
+    <PackageCertificatePassword>helvety-dev</PackageCertificatePassword>
+  </PropertyGroup>
+
+  <!-- Signing is opt-in so plain dotnet build stays warning-free. Use -p:SignMsix=true for MSIX publish. -->
+  <PropertyGroup>
+    <AppxPackageSigningEnabled>false</AppxPackageSigningEnabled>
+    <AppxPackageSigningEnabled Condition="'$(SignMsix)' == 'true'">true</AppxPackageSigningEnabled>
   </PropertyGroup>
 
   <ItemGroup>
@@ -71,6 +82,10 @@
   </PropertyGroup>
 
   <!-- Publish Properties -->
+  <PropertyGroup Condition="'$(Configuration)' != 'Debug'">
+    <!-- Trim analyzer noise from Windows SDK reference assemblies (IL2104). -->
+    <NoWarn>$(NoWarn);IL2104</NoWarn>
+  </PropertyGroup>
   <PropertyGroup>
     <PublishReadyToRun Condition="'$(Configuration)' == 'Debug'">False</PublishReadyToRun>
     <PublishReadyToRun Condition="'$(Configuration)' != 'Debug'">True</PublishReadyToRun>
