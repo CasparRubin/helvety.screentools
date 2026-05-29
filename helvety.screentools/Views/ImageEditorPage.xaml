@@ -53,7 +53,7 @@
                             Style="{StaticResource ToolSettingsItemsControlStyle}">
                             <Border Style="{StaticResource ToolSettingItemBorderStyle}">
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Style="{StaticResource AppToolSettingCardTitleTextStyle}" Text="Move" />
+                                    <TextBlock Style="{StaticResource AppToolSettingCardTitleTextStyle}" Text="Size" />
                                     <StackPanel
                                         Orientation="Horizontal"
                                         Spacing="{StaticResource AppSpacingStack}"
@@ -88,6 +88,13 @@
                                             MinWidth="56"
                                             VerticalAlignment="Center"
                                             Text="100%" />
+                                        <Button
+                                            x:Name="MoveZoomResetButton"
+                                            Height="34"
+                                            VerticalAlignment="Center"
+                                            Click="MoveZoomResetButton_Click"
+                                            Content="Reset"
+                                            ToolTipService.ToolTip="Fit image to viewport width" />
                                     </StackPanel>
                                 </StackPanel>
                             </Border>

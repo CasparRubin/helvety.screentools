@@ -99,6 +99,7 @@ namespace helvety.screentools.Views
         private bool _isApplyingFitWidthZoom;
         private bool _isSyncingMoveZoomControls;
         private bool _hasAppliedInitialFitWidth;
+        /// <summary>When true, viewport resize no longer auto-applies fit-width zoom until <see cref="MoveZoomResetButton_Click"/> or a new image is opened.</summary>
         private bool _userAdjustedZoom;
         private double _lastAppliedFitWidthZoom = 1d;
         private bool _isCropSelected;
@@ -249,11 +250,13 @@ namespace helvety.screentools.Views
             }
         }
 
-        private void ApplyFitWidthZoom()
+        /// <summary>Zoom factor that fits <see cref="_imageWidth"/> to the scroll viewer viewport width, clamped to allowed range.</summary>
+        private bool TryGetFitWidthZoom(out double fitZoom)
         {
+            fitZoom = 1d;
             if (_imageWidth <= 0)
             {
-                return;
+                return false;
             }
 
             var viewportWidth = EditorScrollViewer.ViewportWidth;
@@ -264,12 +267,22 @@ namespace helvety.screentools.Views
 
             if (viewportWidth <= 0)
             {
-                return;
+                return false;
             }
 
             var targetZoom = viewportWidth / _imageWidth;
             var (minZoom, maxZoom) = GetEffectiveZoomRange();
-            var clampedZoom = Math.Clamp(targetZoom, minZoom, maxZoom);
+            fitZoom = Math.Clamp(targetZoom, minZoom, maxZoom);
+            return true;
+        }
+
+        /// <summary>Sets scroll viewer zoom so the image spans the viewport width; updates Move tool Size controls.</summary>
+        private void ApplyFitWidthZoom()
+        {
+            if (!TryGetFitWidthZoom(out var clampedZoom))
+            {
+                return;
+            }
 
             _isApplyingFitWidthZoom = true;
             try
@@ -324,6 +337,10 @@ namespace helvety.screentools.Views
                 }
 
                 MoveZoomValueText.Text = $"{Math.Round(currentZoom * 100d):0}%";
+
+                var isAtFitWidth = TryGetFitWidthZoom(out var fitZoom)
+                    && Math.Abs(currentZoom - fitZoom) <= 0.01d;
+                MoveZoomResetButton.IsEnabled = _userAdjustedZoom || !isAtFitWidth;
             }
             finally
             {
@@ -361,6 +378,12 @@ namespace helvety.screentools.Views
         {
             var currentZoom = EditorScrollViewer.ZoomFactor > 0 ? (double)EditorScrollViewer.ZoomFactor : 1d;
             ApplyEditorZoom(currentZoom + MoveZoomButtonStep, markAsUserAdjusted: true);
+        }
+
+        private void MoveZoomResetButton_Click(object sender, RoutedEventArgs e)
+        {
+            _userAdjustedZoom = false;
+            ApplyFitWidthZoom();
         }
 
         private void MoveZoomSlider_ValueChanged(object sender, RangeBaseValueChangedEventArgs e)

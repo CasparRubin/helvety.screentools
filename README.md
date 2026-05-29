@@ -20,6 +20,7 @@ The app can be **packaged and deployed** (MSIX or unpackaged). Behavior and defa
 - File metadata shown as European date/time format (`dd.MM.yyyy HH:mm`) plus relative age (`... ago`)
 - Built-in image editor tools (Move, Text, Border, Blur, Highlight, Arrow, Crop; Crop is last in the toolbar)
 - Single-row editor settings strip with horizontal overflow handling; settings switch contextually to the active tool (or selected layer while Move is active)
+- Move tool: toolbar **Move** repositions layers and resize handles; when no layer-specific panel applies, the **Size** card controls viewport zoom (slider and +/-), with **Reset** to fit the image to the editor width (zoom is per session, not saved in settings)
 - Layer list with drag-and-drop reordering (top item is rendered in front)
 - Export section under Layers (bottom-right) with **Save, copy and close** and **Save and close** (or **Save crop...** variants while crop is active); each save writes a new flattened PNG and closes the editor, while the first option also copies the result to clipboard
 - Saved edits are intentionally non-reeditable: reopening a saved image starts from the bitmap result, and new annotations can be added in a fresh edit session

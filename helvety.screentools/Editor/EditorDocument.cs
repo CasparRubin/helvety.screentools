@@ -5,6 +5,7 @@ namespace helvety.screentools.Editor
 {
     internal enum EditorToolType
     {
+        /// <summary>Reposition layers; settings strip shows viewport zoom (<c>Size</c> card) or the selected layer's tool when applicable.</summary>
         Move = 0,
         Text = 1,
         Border = 2,

@@ -98,7 +98,7 @@
             <StackPanel Spacing="{StaticResource AppSpacingStack}">
                 <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Danger zone" />
                 <tk:SettingsCard
-                    Description="Restores all preferences to defaults (including hotkeys, global hotkey listeners, editor settings, snap-border intensity, Live Draw, screenshot quality, Start with Windows, and save folder to the default desktop Helvety Screen Tools captures folder). Does not delete image files already on disk."
+                    Description="Restores all preferences to defaults (including hotkeys, global hotkey listeners, editor tool UI defaults, snap-border intensity, Live Draw, screenshot quality, Start with Windows, and save folder to the default desktop Helvety Screen Tools captures folder). Does not delete image files already on disk. Viewport zoom in the editor is per session and is not stored in settings."
                     Header="Reset all settings">
                     <tk:SettingsCard.HeaderIcon>
                         <FontIcon Glyph="&#xE74D;" />
