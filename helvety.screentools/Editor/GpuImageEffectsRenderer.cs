@@ -140,19 +140,17 @@ namespace helvety.screentools.Editor
                         featherAmount,
                         tempResources);
 
-                    var roiPlaced = new Transform2DEffect
+                    // Place the blurred ROI on a full-frame surface. Transform2DEffect + CropEffect does not
+                    // reliably map ROI pixels back into image space for AlphaMaskEffect blending.
+                    var blurredPlacement = new CanvasRenderTarget(_canvasDevice, imageWidth, imageHeight, 96);
+                    tempResources.Add(blurredPlacement);
+                    using (var placementSession = blurredPlacement.CreateDrawingSession())
                     {
-                        Source = blurredRoi,
-                        TransformMatrix = Matrix3x2.CreateTranslation(roi.X, roi.Y)
-                    };
+                        placementSession.Clear(TransparentMask);
+                        placementSession.DrawImage(blurredRoi, roi.X, roi.Y);
+                    }
 
-                    var roiSized = new CropEffect
-                    {
-                        Source = roiPlaced,
-                        SourceRectangle = new Rect(0, 0, imageWidth, imageHeight)
-                    };
-
-                    currentImage = BlendByMask(currentImage, roiSized, blurMask);
+                    currentImage = BlendByMask(currentImage, blurredPlacement, blurMask);
                 }
 
                 var dimFactor = 1f - (Math.Clamp(highlightDimPercent, 0, 80) / 100f);

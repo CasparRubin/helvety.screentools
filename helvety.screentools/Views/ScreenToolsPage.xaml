@@ -77,7 +77,7 @@
                 </Grid>
                 <TextBlock
                     Style="{StaticResource AppContentCaptionTextStyle}"
-                    Text="Left-click opens the PNG editor. Right-click copies the image to the clipboard. In the editor, Delete or Backspace removes the selected layer; mouse wheel adjusts its size when selected."
+                    Text="Left-click opens the PNG editor. Right-click copies the image to the clipboard. In the editor: Delete or Backspace removes the selected layer; mouse wheel adjusts its size; Ctrl+wheel zooms; Text tool: click or drag to place, then resize or move the frame before finishing."
                     TextWrapping="WrapWholeWords" />
             </StackPanel>
 

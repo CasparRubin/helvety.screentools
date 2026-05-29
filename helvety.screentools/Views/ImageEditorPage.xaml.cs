@@ -33,9 +33,11 @@ namespace helvety.screentools.Views
     /// <summary>
     /// Layer-based PNG editor in a dedicated <see cref="Microsoft.UI.Xaml.Window"/> (see <see cref="Editor.ImageEditorLauncher"/>).
     /// Tools: Canvas (select, move, resize), Text, Border, Blur, Highlight, Arrow, and Crop.
-    /// Pixel layers (blur/highlight) compose through <see cref="Editor.EditorComposePipeline"/> (Win2D GPU with CPU fallback);
-    /// text, border, and arrow layers render as XAML vector visuals with reuse across recomposes.
-    /// Pointer drags defer full recomposes until release; arrow preview updates overlay adorners only.
+    /// Pixel layers (blur/highlight) compose through <see cref="Editor.EditorComposePipeline"/> (Win2D GPU per-region ROI with CPU fallback);
+    /// text, border, and arrow layers render as XAML vector visuals reused via <see cref="Editor.VectorCanvasHost"/>.
+    /// Text: click or drag to place; the placement frame can be moved (border band) and resized (handles, including edge strips) while editing; double-click re-edits an existing text layer.
+    /// Pointer drags defer full recomposes until release (blur/highlight do not live-preview during drag); arrow preview updates overlay adorners only.
+    /// Optional performance mode skips expensive vector effects during drag, resize, and arrow preview.
     /// Delete and Backspace remove the selected layer or crop region (not while inline text editing has focus).
     /// Mouse wheel over the canvas adjusts the selected layer's primary size; Ctrl+wheel zooms the viewport.
     /// Toolbar defaults persist without refreshing the main app window.
@@ -47,11 +49,17 @@ namespace helvety.screentools.Views
         private const string DefaultBorderColor = "#FFFFFFFF";
         private const string DefaultSharedShadowColor = "#66000000";
         private const int DefaultSharedShadowOffset = 2;
-        private const string BlurOverlayColor = "#66A0A0A0";
+        private const string RegionSelectionPreviewFillColor = "#66A0A0A0";
         private const int ResizeHandleSize = 12;
         private const int MinResizableRegionSize = 8;
         private const int MinTextRegionWidth = 80;
         private const int MinTextRegionHeight = 40;
+        private const int DefaultTextWrapWidth = 380;
+        private const int DefaultTextRegionHeight = 100;
+        private const int TextClickDragThresholdPx = 8;
+        private const int TextLayerDoubleClickMs = 500;
+        private const double TextLayerDoubleClickDistancePx = 16;
+        private const int InlineTextChromePadding = 10;
         private const int MaxHighlightDimPercent = 80;
         private const int DefaultRegionCornerRadius = 8;
         private const int MaxRegionCornerRadius = 24;
@@ -101,7 +109,15 @@ namespace helvety.screentools.Views
         private TextBox? _inlineTextEditor;
         private Guid? _editingTextLayerId;
         private Point _inlineTextPoint;
-        private int _inlineTextWrapWidth = 260;
+        private int _inlineTextWrapWidth = DefaultTextWrapWidth;
+        private EditorRect? _inlineTextRegion;
+        private bool _isDraggingInlineTextRegion;
+        private Point _inlineTextRegionDragStart;
+        private EditorRect _inlineTextRegionAtDragStart;
+        private bool _resizeInlineTextRegion;
+        private Guid? _pendingTextLayerDoubleClickId;
+        private Point _pendingTextLayerDoubleClickPoint;
+        private long _pendingTextLayerDoubleClickTicks;
         private bool _isCommittingInlineText;
         private bool _isApplyingFitWidthZoom;
         private bool _isSyncingCanvasZoomControls;
@@ -546,20 +562,27 @@ namespace helvety.screentools.Views
 
         private void UpdateToolButtonVisuals()
         {
-            var selectedBrush = EditorXamlResourceCache.ToolSelectedBackground;
-            var normalBrush = Application.Current.Resources.TryGetValue("CardBackgroundFillColorDefaultBrush", out var normal)
+            var highlightedTool = _activeTool == EditorToolType.Canvas ? _settingsTool : _activeTool;
+            CanvasToolButton.Background = CreateToolButtonBackground(highlightedTool == EditorToolType.Canvas);
+            TextToolButton.Background = CreateToolButtonBackground(highlightedTool == EditorToolType.Text);
+            BorderToolButton.Background = CreateToolButtonBackground(highlightedTool == EditorToolType.Border);
+            BlurToolButton.Background = CreateToolButtonBackground(highlightedTool == EditorToolType.Blur);
+            HighlightToolButton.Background = CreateToolButtonBackground(highlightedTool == EditorToolType.Highlight);
+            ArrowToolButton.Background = CreateToolButtonBackground(highlightedTool == EditorToolType.Arrow);
+            CropToolButton.Background = CreateToolButtonBackground(highlightedTool == EditorToolType.Crop);
+        }
+
+        private static Brush CreateToolButtonBackground(bool isSelected)
+        {
+            if (isSelected)
+            {
+                return EditorXamlResourceCache.ToolSelectedBackground;
+            }
+
+            return Application.Current.Resources.TryGetValue("CardBackgroundFillColorDefaultBrush", out var normal)
                 && normal is Brush normalThemeBrush
                 ? normalThemeBrush
                 : EditorXamlResourceCache.GetBrush("#FF282828");
-
-            var highlightedTool = _activeTool == EditorToolType.Canvas ? _settingsTool : _activeTool;
-            CanvasToolButton.Background = highlightedTool == EditorToolType.Canvas ? selectedBrush : normalBrush;
-            TextToolButton.Background = highlightedTool == EditorToolType.Text ? selectedBrush : normalBrush;
-            BorderToolButton.Background = highlightedTool == EditorToolType.Border ? selectedBrush : normalBrush;
-            BlurToolButton.Background = highlightedTool == EditorToolType.Blur ? selectedBrush : normalBrush;
-            HighlightToolButton.Background = highlightedTool == EditorToolType.Highlight ? selectedBrush : normalBrush;
-            ArrowToolButton.Background = highlightedTool == EditorToolType.Arrow ? selectedBrush : normalBrush;
-            CropToolButton.Background = highlightedTool == EditorToolType.Crop ? selectedBrush : normalBrush;
         }
 
         private void OverlayCanvas_PointerPressed(object sender, PointerRoutedEventArgs e)
@@ -577,26 +600,53 @@ namespace helvety.screentools.Views
 
             if (_inlineTextEditor is not null)
             {
+                if (TryBeginInlineTextRegionResize(point, e))
+                {
+                    return;
+                }
+
+                if (TryBeginInlineTextRegionMove(point, e))
+                {
+                    return;
+                }
+
                 if (IsPointOutsideInlineEditor(point))
                 {
                     CommitInlineTextEditor();
                 }
-                else
-                {
-                    return;
-                }
+
+                return;
             }
 
             OverlayCanvas.Focus(FocusState.Pointer);
 
             if (_activeTool == EditorToolType.Text)
             {
+                if (TryHandleTextLayerDoubleClick(point))
+                {
+                    return;
+                }
+
+                if (TryGetTopmostTextLayerAt(point, out _))
+                {
+                    SelectTopMostLayerAt(point);
+                    QueueOverlayOnlyRebuild(includeAdorners: true);
+                    return;
+                }
+
+                ClearTextLayerDoubleClickState();
                 BeginSelectionDrag(point);
                 return;
             }
 
             if (_activeTool == EditorToolType.Canvas)
             {
+                if (TryHandleTextLayerDoubleClick(point))
+                {
+                    _dragLayer = null;
+                    return;
+                }
+
                 if (TryBeginResize(point, e))
                 {
                     return;
@@ -622,6 +672,11 @@ namespace helvety.screentools.Views
 
         private void OverlayCanvas_DoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
         {
+            EditorSurfaceGrid_DoubleTapped(sender, e);
+        }
+
+        private void EditorSurfaceGrid_DoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
+        {
             if (_document is null || _inlineTextEditor is not null)
             {
                 return;
@@ -633,18 +688,10 @@ namespace helvety.screentools.Views
                 return;
             }
 
-            if (!SelectTopMostLayerAt(point))
+            if (TryBeginInlineTextEditAt(point))
             {
-                return;
+                e.Handled = true;
             }
-
-            if (!TryGetSelectedLayer(out var layer) || layer is not TextLayer textLayer)
-            {
-                return;
-            }
-
-            BeginInlineTextEntryForLayer(textLayer);
-            e.Handled = true;
         }
 
         private void OverlayCanvas_PointerWheelChanged(object sender, PointerRoutedEventArgs e)
@@ -814,6 +861,22 @@ namespace helvety.screentools.Views
 
         private void OverlayCanvas_PointerMoved(object sender, PointerRoutedEventArgs e)
         {
+            if (_isDraggingInlineTextRegion && _inlineTextRegion.HasValue)
+            {
+                var currentPoint = e.GetCurrentPoint(OverlayCanvas).Position;
+                var dx = currentPoint.X - _inlineTextRegionDragStart.X;
+                var dy = currentPoint.Y - _inlineTextRegionDragStart.Y;
+                var moved = _inlineTextRegionAtDragStart with
+                {
+                    X = Clamp((int)Math.Round(_inlineTextRegionAtDragStart.X + dx), 0, Math.Max(0, _imageWidth - _inlineTextRegionAtDragStart.Width)),
+                    Y = Clamp((int)Math.Round(_inlineTextRegionAtDragStart.Y + dy), 0, Math.Max(0, _imageHeight - _inlineTextRegionAtDragStart.Height))
+                };
+                _inlineTextRegion = moved;
+                SyncInlineTextEditorLayout();
+                RefreshInlineTextOverlayChrome();
+                return;
+            }
+
             var plan = EditorPointerController.PlanPointerMoved(
                 _activeTool,
                 _isResizingSelection,
@@ -826,6 +889,13 @@ namespace helvety.screentools.Views
                 case EditorPointerController.PointerMoveKind.ResizeSelection:
                     {
                         var currentPoint = e.GetCurrentPoint(OverlayCanvas).Position;
+                        if (_resizeInlineTextRegion)
+                        {
+                            ApplyInlineTextRegionResize(currentPoint);
+                            RefreshInlineTextOverlayChrome();
+                            return;
+                        }
+
                         ApplyResize(currentPoint);
                         if (_resizeTargetIsCrop || _document is null || !_resizeLayerId.HasValue)
                         {
@@ -889,6 +959,14 @@ namespace helvety.screentools.Views
 
         private async void OverlayCanvas_PointerReleased(object sender, PointerRoutedEventArgs e)
         {
+            if (_isDraggingInlineTextRegion)
+            {
+                _isDraggingInlineTextRegion = false;
+                OverlayCanvas.ReleasePointerCaptures();
+                RefreshInlineTextOverlayChrome();
+                return;
+            }
+
             if (_isResizingSelection)
             {
                 _isResizingSelection = false;
@@ -896,7 +974,14 @@ namespace helvety.screentools.Views
                 _resizeLayerId = null;
                 _resizeTargetIsCrop = false;
                 _resizeStartTextFontSize = 0;
+                var wasInlineTextResize = _resizeInlineTextRegion;
+                _resizeInlineTextRegion = false;
                 OverlayCanvas.ReleasePointerCaptures();
+                if (wasInlineTextResize)
+                {
+                    RefreshInlineTextOverlayChrome();
+                    return;
+                }
                 if (_deferPixelRecomposeUntilPointerRelease)
                 {
                     _deferPixelRecomposeUntilPointerRelease = false;
@@ -972,6 +1057,7 @@ namespace helvety.screentools.Views
 
         private void BeginSelectionDrag(Point point)
         {
+            ClearTextLayerDoubleClickState();
             _isDraggingSelection = true;
             _dragStartPoint = point;
             if (_activeTool == EditorToolType.Arrow)
@@ -994,7 +1080,28 @@ namespace helvety.screentools.Views
             _isPreviewingArrow = false;
             var region = BuildRegion(_dragStartPoint, endPoint);
             RemoveSelectionRectangle();
+            if (_activeTool == EditorToolType.Text)
+            {
+                if (region.Width < TextClickDragThresholdPx && region.Height < TextClickDragThresholdPx)
+                {
+                    return BuildDefaultTextRegionAt(_dragStartPoint);
+                }
+
+                return region;
+            }
+
             return region.IsEmpty ? null : region;
+        }
+
+        private EditorRect BuildDefaultTextRegionAt(Point point)
+        {
+            var width = Math.Min(DefaultTextWrapWidth, Math.Max(MinTextRegionWidth, _imageWidth));
+            var height = Math.Min(DefaultTextRegionHeight, Math.Max(MinTextRegionHeight, _imageHeight));
+            var left = Clamp((int)Math.Floor(point.X), 0, Math.Max(0, _imageWidth - width));
+            var top = Clamp((int)Math.Floor(point.Y), 0, Math.Max(0, _imageHeight - height));
+            width = Math.Min(width, _imageWidth - left);
+            height = Math.Min(height, _imageHeight - top);
+            return new EditorRect(left, top, Math.Max(MinTextRegionWidth, width), Math.Max(MinTextRegionHeight, height));
         }
 
         private async Task HandleCompletedRegionSelectionAsync(EditorRect region, Point endPoint)
@@ -1049,19 +1156,13 @@ namespace helvety.screentools.Views
                 return;
             }
 
-            var left = Clamp(region.X, 0, _imageWidth);
-            var top = Clamp(region.Y, 0, _imageHeight);
-            var wrapWidth = Clamp(region.Width, MinTextRegionWidth, Math.Max(MinTextRegionWidth, _imageWidth - left));
-            var editorHeight = Clamp(region.Height, MinTextRegionHeight, Math.Max(MinTextRegionHeight, _imageHeight - top));
+            ClearTextLayerDoubleClickState();
             _editingTextLayerId = null;
-            _inlineTextPoint = new Point(left, top);
-            _inlineTextWrapWidth = wrapWidth;
+            _inlineTextRegion = ClampRegion(region, _imageWidth, _imageHeight);
             _inlineTextEditor = new TextBox
             {
-                Width = wrapWidth,
                 MinHeight = MinTextRegionHeight,
-                Height = editorHeight,
-                PlaceholderText = "Type text and click outside to finish",
+                PlaceholderText = "Type here — drag handles or border to move/resize",
                 FontSize = Clamp((int)Math.Round(TextSizeNumberBox.Value), 8, 180),
                 FontFamily = new FontFamily(GetSelectedFont()),
                 AcceptsReturn = true,
@@ -1070,9 +1171,9 @@ namespace helvety.screentools.Views
             ApplyTextStyleToEditor(_inlineTextEditor, TextBoldToggle.IsOn, TextItalicToggle.IsOn);
             _inlineTextEditor.KeyDown += InlineTextEditor_KeyDown;
             _inlineTextEditor.LostFocus += InlineTextEditor_LostFocus;
-            Canvas.SetLeft(_inlineTextEditor, left);
-            Canvas.SetTop(_inlineTextEditor, top);
             OverlayCanvas.Children.Add(_inlineTextEditor);
+            SyncInlineTextEditorLayout();
+            RefreshInlineTextOverlayChrome();
             _inlineTextEditor.Focus(FocusState.Programmatic);
         }
 
@@ -1083,16 +1184,18 @@ namespace helvety.screentools.Views
                 return;
             }
 
+            ClearTextLayerDoubleClickState();
+            SelectLayer(textLayer);
             _editingTextLayerId = textLayer.Id;
-            _inlineTextPoint = new Point(textLayer.X, textLayer.Y);
-            _inlineTextWrapWidth = Math.Max(MinTextRegionWidth, textLayer.WrapWidth);
             var bounds = textLayer.GetBounds();
-            var editorHeight = Math.Max(MinTextRegionHeight, bounds.Height + 12);
+            _inlineTextRegion = new EditorRect(
+                bounds.X,
+                bounds.Y,
+                Math.Max(MinTextRegionWidth, bounds.Width),
+                Math.Max(MinTextRegionHeight, bounds.Height + 12));
             _inlineTextEditor = new TextBox
             {
-                Width = _inlineTextWrapWidth,
                 MinHeight = MinTextRegionHeight,
-                Height = editorHeight,
                 FontSize = textLayer.FontSize,
                 FontFamily = new FontFamily(GetFontName(textLayer.FontFamily)),
                 Text = textLayer.Text,
@@ -1102,9 +1205,9 @@ namespace helvety.screentools.Views
             ApplyTextStyleToEditor(_inlineTextEditor, textLayer.IsBold, textLayer.IsItalic);
             _inlineTextEditor.KeyDown += InlineTextEditor_KeyDown;
             _inlineTextEditor.LostFocus += InlineTextEditor_LostFocus;
-            Canvas.SetLeft(_inlineTextEditor, _inlineTextPoint.X);
-            Canvas.SetTop(_inlineTextEditor, _inlineTextPoint.Y);
             OverlayCanvas.Children.Add(_inlineTextEditor);
+            SyncInlineTextEditorLayout();
+            RefreshInlineTextOverlayChrome();
             _inlineTextEditor.Focus(FocusState.Programmatic);
             _inlineTextEditor.SelectAll();
         }
@@ -1623,7 +1726,7 @@ namespace helvety.screentools.Views
             _selectionRectangle = new Rectangle
             {
                 Stroke = new SolidColorBrush(ParseColor(DefaultPrimaryColor)),
-                Fill = new SolidColorBrush(ParseColor(BlurOverlayColor)),
+                Fill = new SolidColorBrush(ParseColor(RegionSelectionPreviewFillColor)),
                 StrokeThickness = 2,
                 StrokeDashArray = new DoubleCollection { 4, 4 },
                 RadiusX = _regionCornerRadius,
@@ -1931,14 +2034,54 @@ namespace helvety.screentools.Views
 
         private ResizeHandle GetResizeHandleAt(Point point, EditorRect bounds)
         {
-            foreach (var (handle, centerX, centerY) in EnumerateHandleCenters(bounds))
+            var left = bounds.X;
+            var top = bounds.Y;
+            var right = bounds.X + bounds.Width;
+            var bottom = bounds.Y + bounds.Height;
+            var half = ResizeHandleSize / 2d;
+            var edgeThickness = ResizeHandleSize;
+            var cornerInset = ResizeHandleSize * 1.5d;
+            var innerBarWidth = Math.Max(0, bounds.Width - (cornerInset * 2));
+            var innerBarHeight = Math.Max(0, bounds.Height - (cornerInset * 2));
+
+            if (new Rect(left - half, top - half, edgeThickness, edgeThickness).Contains(point))
             {
-                var half = ResizeHandleSize / 2d;
-                var rect = new Rect(centerX - half, centerY - half, ResizeHandleSize, ResizeHandleSize);
-                if (rect.Contains(point))
-                {
-                    return handle;
-                }
+                return ResizeHandle.NorthWest;
+            }
+
+            if (new Rect(right - half, top - half, edgeThickness, edgeThickness).Contains(point))
+            {
+                return ResizeHandle.NorthEast;
+            }
+
+            if (new Rect(left - half, bottom - half, edgeThickness, edgeThickness).Contains(point))
+            {
+                return ResizeHandle.SouthWest;
+            }
+
+            if (new Rect(right - half, bottom - half, edgeThickness, edgeThickness).Contains(point))
+            {
+                return ResizeHandle.SouthEast;
+            }
+
+            if (new Rect(left + cornerInset, top - half, innerBarWidth, edgeThickness).Contains(point))
+            {
+                return ResizeHandle.North;
+            }
+
+            if (new Rect(left + cornerInset, bottom - half, innerBarWidth, edgeThickness).Contains(point))
+            {
+                return ResizeHandle.South;
+            }
+
+            if (new Rect(left - half, top + cornerInset, edgeThickness, innerBarHeight).Contains(point))
+            {
+                return ResizeHandle.West;
+            }
+
+            if (new Rect(right - half, top + cornerInset, edgeThickness, innerBarHeight).Contains(point))
+            {
+                return ResizeHandle.East;
             }
 
             return ResizeHandle.None;
@@ -1997,6 +2140,72 @@ namespace helvety.screentools.Views
             var height = (int)Math.Ceiling(Math.Abs(end.Y - start.Y));
             var region = new EditorRect(x, y, width, height);
             return ClampRegion(region, _imageWidth, _imageHeight);
+        }
+
+        private void ClearTextLayerDoubleClickState()
+        {
+            _pendingTextLayerDoubleClickId = null;
+            _pendingTextLayerDoubleClickTicks = 0;
+        }
+
+        private bool TryGetTopmostTextLayerAt(Point point, out TextLayer? textLayer)
+        {
+            textLayer = null;
+            if (_document is null)
+            {
+                return false;
+            }
+
+            var hit = _document.Layers
+                .Where(layer => layer.IsVisible && layer is TextLayer)
+                .Cast<TextLayer>()
+                .FirstOrDefault(layer => layer.ContainsPoint(point.X, point.Y));
+            if (hit is null)
+            {
+                return false;
+            }
+
+            textLayer = hit;
+            return true;
+        }
+
+        private bool TryBeginInlineTextEditAt(Point point)
+        {
+            if (_document is null || _inlineTextEditor is not null)
+            {
+                return false;
+            }
+
+            if (!TryGetTopmostTextLayerAt(point, out var textLayer) || textLayer is null)
+            {
+                return false;
+            }
+
+            BeginInlineTextEntryForLayer(textLayer);
+            return true;
+        }
+
+        private bool TryHandleTextLayerDoubleClick(Point point)
+        {
+            if (!TryGetTopmostTextLayerAt(point, out var textLayer) || textLayer is null)
+            {
+                ClearTextLayerDoubleClickState();
+                return false;
+            }
+
+            var now = Environment.TickCount64;
+            if (_pendingTextLayerDoubleClickId == textLayer.Id &&
+                now - _pendingTextLayerDoubleClickTicks <= TextLayerDoubleClickMs &&
+                Distance(point, _pendingTextLayerDoubleClickPoint) <= TextLayerDoubleClickDistancePx)
+            {
+                return TryBeginInlineTextEditAt(point);
+            }
+
+            SelectTopMostLayerAt(point);
+            _pendingTextLayerDoubleClickId = textLayer.Id;
+            _pendingTextLayerDoubleClickPoint = point;
+            _pendingTextLayerDoubleClickTicks = now;
+            return false;
         }
 
         private bool SelectTopMostLayerAt(Point point)
@@ -2108,6 +2317,7 @@ namespace helvety.screentools.Views
                 _inlineTextEditor.LostFocus -= InlineTextEditor_LostFocus;
                 OverlayCanvas.Children.Remove(_inlineTextEditor);
                 _inlineTextEditor = null;
+                _inlineTextRegion = null;
 
                 if (editingLayerId.HasValue)
                 {
@@ -2134,13 +2344,18 @@ namespace helvety.screentools.Views
                     return;
                 }
 
+                var placement = _inlineTextRegion ?? new EditorRect(
+                    (int)Math.Round(_inlineTextPoint.X),
+                    (int)Math.Round(_inlineTextPoint.Y),
+                    _inlineTextWrapWidth,
+                    MinTextRegionHeight);
                 var layer = new TextLayer(
                     text,
-                    _inlineTextPoint.X,
-                    _inlineTextPoint.Y,
-                    8,
+                    placement.X + InlineTextChromePadding,
+                    placement.Y + InlineTextChromePadding,
+                    Clamp((int)Math.Round(TextSizeNumberBox.Value), 8, 180),
                     DefaultTextColor,
-                    _inlineTextWrapWidth);
+                    Math.Max(MinTextRegionWidth, placement.Width - (InlineTextChromePadding * 2)));
                 ApplyTextStyleFromUi(layer);
 
                 InsertNewLayer(layer);
@@ -2165,6 +2380,7 @@ namespace helvety.screentools.Views
             _inlineTextEditor.LostFocus -= InlineTextEditor_LostFocus;
             OverlayCanvas.Children.Remove(_inlineTextEditor);
             _inlineTextEditor = null;
+            _inlineTextRegion = null;
             SetActiveTool(EditorToolType.Canvas);
             QueueRecompose(includeAdorners: true, includePixelEffects: false);
             _isCommittingInlineText = false;
@@ -2172,6 +2388,11 @@ namespace helvety.screentools.Views
 
         private void InlineTextEditor_LostFocus(object sender, RoutedEventArgs e)
         {
+            if (_isResizingSelection || _isDraggingInlineTextRegion)
+            {
+                return;
+            }
+
             CommitInlineTextEditor();
         }
 
@@ -2802,11 +3023,170 @@ namespace helvety.screentools.Views
             textBox.FontStyle = isItalic ? UiFontStyle.Italic : UiFontStyle.Normal;
         }
 
+        private void SyncInlineTextEditorLayout()
+        {
+            if (_inlineTextEditor is null || !_inlineTextRegion.HasValue)
+            {
+                return;
+            }
+
+            var region = _inlineTextRegion.Value;
+            var innerWidth = Math.Max(MinTextRegionWidth, region.Width - (InlineTextChromePadding * 2));
+            var innerHeight = Math.Max(MinTextRegionHeight, region.Height - (InlineTextChromePadding * 2));
+            _inlineTextPoint = new Point(region.X + InlineTextChromePadding, region.Y + InlineTextChromePadding);
+            _inlineTextWrapWidth = innerWidth;
+            _inlineTextEditor.Width = innerWidth;
+            _inlineTextEditor.Height = innerHeight;
+            Canvas.SetLeft(_inlineTextEditor, _inlineTextPoint.X);
+            Canvas.SetTop(_inlineTextEditor, _inlineTextPoint.Y);
+        }
+
+        private bool TryBeginInlineTextRegionResize(Point point, PointerRoutedEventArgs e)
+        {
+            if (_inlineTextEditor is null || !_inlineTextRegion.HasValue)
+            {
+                return false;
+            }
+
+            var region = _inlineTextRegion.Value;
+            var handle = GetResizeHandleAt(point, region);
+            if (handle == ResizeHandle.None)
+            {
+                return false;
+            }
+
+            _isResizingSelection = true;
+            _resizeInlineTextRegion = true;
+            _activeResizeHandle = handle;
+            _resizeStartBounds = region;
+            _resizeLayerId = null;
+            _resizeTargetIsCrop = false;
+            _resizeStartTextFontSize = 0;
+            _dragLayer = null;
+            OverlayCanvas.CapturePointer(e.Pointer);
+            return true;
+        }
+
+        private bool TryBeginInlineTextRegionMove(Point point, PointerRoutedEventArgs e)
+        {
+            if (_inlineTextEditor is null || !_inlineTextRegion.HasValue || !IsPointInInlineTextMoveBand(point))
+            {
+                return false;
+            }
+
+            _isDraggingInlineTextRegion = true;
+            _inlineTextRegionDragStart = point;
+            _inlineTextRegionAtDragStart = _inlineTextRegion.Value;
+            OverlayCanvas.CapturePointer(e.Pointer);
+            return true;
+        }
+
+        private bool IsPointInInlineTextMoveBand(Point point)
+        {
+            if (!_inlineTextRegion.HasValue)
+            {
+                return false;
+            }
+
+            var region = _inlineTextRegion.Value;
+            if (GetResizeHandleAt(point, region) != ResizeHandle.None)
+            {
+                return false;
+            }
+
+            var insideOuter = point.X >= region.X &&
+                              point.X <= region.X + region.Width &&
+                              point.Y >= region.Y &&
+                              point.Y <= region.Y + region.Height;
+            if (!insideOuter)
+            {
+                return false;
+            }
+
+            var innerLeft = region.X + InlineTextChromePadding;
+            var innerTop = region.Y + InlineTextChromePadding;
+            var innerRight = innerLeft + Math.Max(0, region.Width - (InlineTextChromePadding * 2));
+            var innerBottom = innerTop + Math.Max(0, region.Height - (InlineTextChromePadding * 2));
+            var insideInner = point.X > innerLeft &&
+                              point.X < innerRight &&
+                              point.Y > innerTop &&
+                              point.Y < innerBottom;
+            return !insideInner;
+        }
+
+        private void ApplyInlineTextRegionResize(Point point)
+        {
+            if (!_inlineTextRegion.HasValue)
+            {
+                return;
+            }
+
+            var left = _resizeStartBounds.X;
+            var top = _resizeStartBounds.Y;
+            var right = _resizeStartBounds.X + _resizeStartBounds.Width;
+            var bottom = _resizeStartBounds.Y + _resizeStartBounds.Height;
+            var pointX = Clamp((int)Math.Round(point.X), 0, _imageWidth);
+            var pointY = Clamp((int)Math.Round(point.Y), 0, _imageHeight);
+
+            switch (_activeResizeHandle)
+            {
+                case ResizeHandle.NorthWest:
+                    left = Clamp(pointX, 0, right - MinResizableRegionSize);
+                    top = Clamp(pointY, 0, bottom - MinResizableRegionSize);
+                    break;
+                case ResizeHandle.North:
+                    top = Clamp(pointY, 0, bottom - MinResizableRegionSize);
+                    break;
+                case ResizeHandle.NorthEast:
+                    right = Clamp(pointX, left + MinResizableRegionSize, _imageWidth);
+                    top = Clamp(pointY, 0, bottom - MinResizableRegionSize);
+                    break;
+                case ResizeHandle.East:
+                    right = Clamp(pointX, left + MinResizableRegionSize, _imageWidth);
+                    break;
+                case ResizeHandle.SouthEast:
+                    right = Clamp(pointX, left + MinResizableRegionSize, _imageWidth);
+                    bottom = Clamp(pointY, top + MinResizableRegionSize, _imageHeight);
+                    break;
+                case ResizeHandle.South:
+                    bottom = Clamp(pointY, top + MinResizableRegionSize, _imageHeight);
+                    break;
+                case ResizeHandle.SouthWest:
+                    left = Clamp(pointX, 0, right - MinResizableRegionSize);
+                    bottom = Clamp(pointY, top + MinResizableRegionSize, _imageHeight);
+                    break;
+                case ResizeHandle.West:
+                    left = Clamp(pointX, 0, right - MinResizableRegionSize);
+                    break;
+                default:
+                    return;
+            }
+
+            _inlineTextRegion = ClampRegion(
+                new EditorRect(
+                    left,
+                    top,
+                    Math.Max(MinResizableRegionSize, right - left),
+                    Math.Max(MinResizableRegionSize, bottom - top)),
+                _imageWidth,
+                _imageHeight);
+            SyncInlineTextEditorLayout();
+        }
+
         private bool IsPointOutsideInlineEditor(Point pointerPoint)
         {
             if (_inlineTextEditor is null)
             {
                 return false;
+            }
+
+            if (_inlineTextRegion.HasValue)
+            {
+                var region = _inlineTextRegion.Value;
+                return pointerPoint.X < region.X ||
+                       pointerPoint.X > region.X + region.Width ||
+                       pointerPoint.Y < region.Y ||
+                       pointerPoint.Y > region.Y + region.Height;
             }
 
             var left = Canvas.GetLeft(_inlineTextEditor);

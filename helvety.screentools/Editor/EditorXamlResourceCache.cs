@@ -6,42 +6,24 @@ using Windows.UI;
 
 namespace helvety.screentools.Editor
 {
-    /// <summary>Caches immutable XAML brushes and collections to reduce allocation during editor redraws.</summary>
+    /// <summary>
+    /// Caches parsed colors and font families. Brushes and dash collections are created per element because WinUI cannot share those instances across multiple live targets.
+    /// </summary>
     internal static class EditorXamlResourceCache
     {
-        private static readonly Dictionary<string, SolidColorBrush> BrushByHex = new(StringComparer.OrdinalIgnoreCase);
+        private static readonly Dictionary<string, Color> ColorByHex = new(StringComparer.OrdinalIgnoreCase);
         private static readonly Dictionary<string, FontFamily> FontByName = new(StringComparer.OrdinalIgnoreCase);
-        private static readonly DoubleCollection SelectionDash = new() { 4, 2 };
-        private static readonly DoubleCollection CropDash = new() { 4, 3 };
-        private static SolidColorBrush? _toolSelectedBrush;
-        private static SolidColorBrush? _selectionFillBrush;
-        private static SolidColorBrush? _cropFillBrush;
-        private static SolidColorBrush? _cropStrokeMutedBrush;
+        private static readonly double[] SelectionDashPattern = { 4, 2 };
+        private static readonly double[] CropDashPattern = { 4, 3 };
 
         internal static SolidColorBrush GetBrush(string colorHex)
         {
-            var key = string.IsNullOrWhiteSpace(colorHex) ? "#FFFFFFFF" : colorHex.Trim();
-            if (BrushByHex.TryGetValue(key, out var cached))
-            {
-                return cached;
-            }
-
-            var brush = new SolidColorBrush(ParseColor(key));
-            BrushByHex[key] = brush;
-            return brush;
+            return new SolidColorBrush(GetColor(colorHex));
         }
 
         internal static SolidColorBrush GetBrush(Color color)
         {
-            var key = $"argb:{color.A}:{color.R}:{color.G}:{color.B}";
-            if (BrushByHex.TryGetValue(key, out var cached))
-            {
-                return cached;
-            }
-
-            var brush = new SolidColorBrush(color);
-            BrushByHex[key] = brush;
-            return brush;
+            return new SolidColorBrush(color);
         }
 
         internal static FontFamily GetFontFamily(string? fontFamily)
@@ -57,26 +39,43 @@ namespace helvety.screentools.Editor
             return family;
         }
 
-        internal static DoubleCollection SelectionStrokeDash => SelectionDash;
-
-        internal static DoubleCollection CropStrokeDash => CropDash;
-
-        internal static SolidColorBrush ToolSelectedBackground
+        internal static DoubleCollection CreateSelectionStrokeDash()
         {
-            get
-            {
-                _toolSelectedBrush ??= GetBrush(ColorHelper.FromArgb(70, 216, 27, 96));
-                return _toolSelectedBrush;
-            }
+            return new DoubleCollection { SelectionDashPattern[0], SelectionDashPattern[1] };
         }
 
-        internal static SolidColorBrush SelectionFill => _selectionFillBrush ??= GetBrush(ColorHelper.FromArgb(35, 216, 27, 96));
+        internal static DoubleCollection CreateCropStrokeDash()
+        {
+            return new DoubleCollection { CropDashPattern[0], CropDashPattern[1] };
+        }
 
-        internal static SolidColorBrush CropFill => _cropFillBrush ??= GetBrush(ColorHelper.FromArgb(48, 216, 27, 96));
+        internal static SolidColorBrush ToolSelectedBackground => GetBrush(ColorHelper.FromArgb(70, 216, 27, 96));
 
-        internal static SolidColorBrush CropStrokeMuted => _cropStrokeMutedBrush ??= GetBrush(ColorHelper.FromArgb(220, 216, 27, 96));
+        internal static SolidColorBrush SelectionFill => GetBrush(ColorHelper.FromArgb(35, 216, 27, 96));
+
+        internal static SolidColorBrush CropFill => GetBrush(ColorHelper.FromArgb(48, 216, 27, 96));
+
+        internal static SolidColorBrush CropStrokeMuted => GetBrush(ColorHelper.FromArgb(220, 216, 27, 96));
 
         internal static Color ParseColor(string colorHex)
+        {
+            return GetColor(colorHex);
+        }
+
+        private static Color GetColor(string colorHex)
+        {
+            var key = string.IsNullOrWhiteSpace(colorHex) ? "#FFFFFFFF" : colorHex.Trim();
+            if (ColorByHex.TryGetValue(key, out var cached))
+            {
+                return cached;
+            }
+
+            var color = ParseColorCore(key);
+            ColorByHex[key] = color;
+            return color;
+        }
+
+        private static Color ParseColorCore(string colorHex)
         {
             if (string.IsNullOrWhiteSpace(colorHex))
             {

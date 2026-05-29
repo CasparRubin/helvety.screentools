@@ -33,8 +33,8 @@ namespace helvety.screentools.Views
     /// <summary>
     /// Home page (nav label "General", page title "Helvety Screen Tools"): lists files from the configured save folder with thumbnails and metadata, grouped by date sections (Today/Yesterday/Last Week/Older).
     /// Left-click on an image opens the editor; right-click copies that image to the clipboard.
+    /// Shows a warning <see cref="InfoBar"/> when global hotkey listeners are disabled in settings.
     /// Refreshes enumerate the folder on a background thread, then apply updates under a short lock. After a screenshot, the list reloads the same way as on navigation.
-    /// The page intentionally stays minimal and focuses on browsing saved files.
     /// </summary>
     public sealed partial class ScreenToolsPage : Page
     {

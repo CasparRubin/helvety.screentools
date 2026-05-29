@@ -700,7 +700,8 @@
                     <Grid
                         x:Name="EditorSurfaceGrid"
                         HorizontalAlignment="Left"
-                        VerticalAlignment="Top">
+                        VerticalAlignment="Top"
+                        DoubleTapped="EditorSurfaceGrid_DoubleTapped">
                         <Image
                             x:Name="BaseImage"
                             Stretch="None" />

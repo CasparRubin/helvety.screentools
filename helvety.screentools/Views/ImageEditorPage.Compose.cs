@@ -215,7 +215,7 @@ namespace helvety.screentools.Views
 
         private void RebuildOverlayAdorners(bool includeAdorners, bool suppressExpensiveEffects)
         {
-            OverlayCanvas.Children.Clear();
+            ClearOverlayExceptInlineEditor();
             DrawArrowPreview(suppressExpensiveEffects);
 
             if (includeAdorners && _selectedLayerId.HasValue)
@@ -236,7 +236,7 @@ namespace helvety.screentools.Views
                         Height = bounds.Height,
                         Stroke = EditorXamlResourceCache.GetBrush(DefaultPrimaryColor),
                         StrokeThickness = 2,
-                        StrokeDashArray = EditorXamlResourceCache.SelectionStrokeDash,
+                        StrokeDashArray = EditorXamlResourceCache.CreateSelectionStrokeDash(),
                         Fill = EditorXamlResourceCache.SelectionFill,
                         RadiusX = selectedCornerRadius,
                         RadiusY = selectedCornerRadius
@@ -269,7 +269,7 @@ namespace helvety.screentools.Views
                         : EditorXamlResourceCache.CropStrokeMuted,
                     Fill = EditorXamlResourceCache.CropFill,
                     StrokeThickness = _isCropSelected ? 2 : 1.5,
-                    StrokeDashArray = EditorXamlResourceCache.CropStrokeDash,
+                    StrokeDashArray = EditorXamlResourceCache.CreateCropStrokeDash(),
                     RadiusX = cropCornerRadius,
                     RadiusY = cropCornerRadius
                 };
@@ -290,8 +290,60 @@ namespace helvety.screentools.Views
 
             if (_inlineTextEditor is not null)
             {
+                EnsureInlineTextEditorOnOverlay();
+                DrawInlineTextPlacementChrome();
+            }
+        }
+
+        private void ClearOverlayExceptInlineEditor()
+        {
+            for (var i = OverlayCanvas.Children.Count - 1; i >= 0; i--)
+            {
+                if (OverlayCanvas.Children[i] != _inlineTextEditor)
+                {
+                    OverlayCanvas.Children.RemoveAt(i);
+                }
+            }
+        }
+
+        private void EnsureInlineTextEditorOnOverlay()
+        {
+            if (_inlineTextEditor is not null && !OverlayCanvas.Children.Contains(_inlineTextEditor))
+            {
                 OverlayCanvas.Children.Add(_inlineTextEditor);
             }
+        }
+
+        private void RefreshInlineTextOverlayChrome()
+        {
+            ClearOverlayExceptInlineEditor();
+            EnsureInlineTextEditorOnOverlay();
+            DrawInlineTextPlacementChrome();
+        }
+
+        private void DrawInlineTextPlacementChrome()
+        {
+            if (!_inlineTextRegion.HasValue)
+            {
+                return;
+            }
+
+            var region = _inlineTextRegion.Value;
+            var frame = new Microsoft.UI.Xaml.Shapes.Rectangle
+            {
+                Width = region.Width,
+                Height = region.Height,
+                Stroke = EditorXamlResourceCache.GetBrush(DefaultPrimaryColor),
+                StrokeThickness = 2,
+                StrokeDashArray = EditorXamlResourceCache.CreateSelectionStrokeDash(),
+                Fill = EditorXamlResourceCache.SelectionFill,
+                IsHitTestVisible = false
+            };
+            Canvas.SetLeft(frame, region.X);
+            Canvas.SetTop(frame, region.Y);
+            OverlayCanvas.Children.Add(frame);
+            EnsureInlineTextEditorOnOverlay();
+            DrawResizeHandles(region);
         }
 
         private void DrawArrowPreview(bool suppressExpensiveEffects)

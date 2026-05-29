@@ -14,7 +14,7 @@
                 <TextBlock Style="{StaticResource SettingsPageTitleTextStyle}" Text="General" />
                 <TextBlock
                     Style="{StaticResource SettingsSectionDescriptionTextStyle}"
-                    Text="Window, system tray, and image editor performance."
+                    Text="System tray, global hotkeys, Windows startup, image editor performance, snap-border intensity, and reset."
                     TextWrapping="WrapWholeWords" />
             </StackPanel>
 
