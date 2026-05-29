@@ -38,11 +38,11 @@ The app can be **packaged and deployed** (MSIX or unpackaged). Behavior and defa
 
 ## Tech Stack
 
-- .NET 8 (`net8.0-windows10.0.19041.0`)
+- .NET 10 (`net10.0-windows10.0.19041.0`)
 - WinUI 3 via **Windows App SDK 2.x** (see `Microsoft.WindowsAppSDK` version in `helvety.screentools.csproj`)
 - Native Win32 interop (global hotkeys, window hit-testing, GDI freeze-frame for selection overlay, `WS_EX_NOREDIRECTIONBITMAP` host for Live Draw)
 - Self-contained Windows App SDK runtime (unpackaged `dotnet run` / F5 without a separate machine-wide Windows App Runtime install)
-- `H.NotifyIcon.WinUI` 2.3.x for notification area tray integration (2.4.x requires .NET 10)
+- `H.NotifyIcon.WinUI` 2.4.x for notification area tray integration
 - `Microsoft.Graphics.Win2D` and **CommunityToolkit.WinUI** settings controls
 
 ## Install
@@ -124,8 +124,8 @@ A [GitHub Actions workflow](.github/workflows/release.yml) automates builds and 
 3. Tag and push:
 
 ```bash
-git tag v1.6.0
-git push origin v1.6.0
+git tag v1.8.0
+git push origin v1.8.0
 ```
 
 The workflow builds self-contained portable ZIPs for **x64** and **arm64**, then creates a GitHub Release with auto-generated release notes and the ZIPs attached. No certificate or MSIX signing is needed for the portable distribution.

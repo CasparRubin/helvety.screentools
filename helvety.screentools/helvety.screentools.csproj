@@ -5,7 +5,7 @@
   </PropertyGroup>
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
     <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
     <RootNamespace>helvety.screentools</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
@@ -19,9 +19,9 @@
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
     <Nullable>enable</Nullable>
     <!-- MSIX / About: bump for each release (must increase for in-place upgrades). -->
-    <ApplicationDisplayVersion>1.7.0.0</ApplicationDisplayVersion>
-    <ApplicationVersion>1.7.0.0</ApplicationVersion>
-    <Version>1.7.0.0</Version>
+    <ApplicationDisplayVersion>1.8.0.0</ApplicationDisplayVersion>
+    <ApplicationVersion>1.8.0.0</ApplicationVersion>
+    <Version>1.8.0.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
@@ -55,8 +55,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.WinUI.Controls.SettingsControls" Version="8.2.251219" />
-    <!-- 2.4.1+ targets net10 only; stay on 2.3.x while TFM is net8. -->
-    <PackageReference Include="H.NotifyIcon.WinUI" Version="2.3.0" />
+    <PackageReference Include="H.NotifyIcon.WinUI" Version="2.4.1" />
     <PackageReference Include="Microsoft.Graphics.Win2D" Version="1.4.0" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.1839" />
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.1.3" />
