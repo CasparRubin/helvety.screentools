@@ -713,6 +713,8 @@
                             Background="Transparent"
                             IsTabStop="True"
                             DoubleTapped="OverlayCanvas_DoubleTapped"
+                            PointerCanceled="OverlayCanvas_PointerInteractionCanceled"
+                            PointerCaptureLost="OverlayCanvas_PointerInteractionCanceled"
                             PointerPressed="OverlayCanvas_PointerPressed"
                             PointerMoved="OverlayCanvas_PointerMoved"
                             PointerReleased="OverlayCanvas_PointerReleased"

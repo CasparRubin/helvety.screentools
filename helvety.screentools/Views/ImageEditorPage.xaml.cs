@@ -151,6 +151,7 @@ namespace helvety.screentools.Views
         private bool _includeAdornersForQueuedRecompose;
         private bool _includePixelEffectsForQueuedRecompose;
         private long _lastInteractiveOverlayTicks;
+        private uint? _activeInteractionPointerId;
         private readonly Dictionary<Guid, EditorLayer> _layersById = new();
         private readonly EditorComposePipeline _composePipeline = new();
         private readonly VectorCanvasHost _vectorCanvasHost = new();
@@ -169,6 +170,7 @@ namespace helvety.screentools.Views
             UpdateExportButtonLabels();
             ConfigureCanvasZoomControlBounds();
             SyncCanvasZoomControlsFromScrollViewer();
+            SetToolButtonsEnabled(false);
             _isInitializingUi = false;
             Loaded += ImageEditorPage_Loaded;
             Unloaded += ImageEditorPage_Unloaded;
@@ -263,6 +265,7 @@ namespace helvety.screentools.Views
                 _forceVectorFullRebuild = true;
                 await UpdateBaseImageAsync(_composePipeline.BeginPixelCompose());
                 ApplyFitWidthZoom();
+                SetToolButtonsEnabled(true);
             }
             catch (Exception ex)
             {
@@ -562,7 +565,7 @@ namespace helvety.screentools.Views
 
         private void UpdateToolButtonVisuals()
         {
-            var highlightedTool = _activeTool == EditorToolType.Canvas ? _settingsTool : _activeTool;
+            var highlightedTool = _activeTool;
             CanvasToolButton.Background = CreateToolButtonBackground(highlightedTool == EditorToolType.Canvas);
             TextToolButton.Background = CreateToolButtonBackground(highlightedTool == EditorToolType.Text);
             BorderToolButton.Background = CreateToolButtonBackground(highlightedTool == EditorToolType.Border);
@@ -570,6 +573,17 @@ namespace helvety.screentools.Views
             HighlightToolButton.Background = CreateToolButtonBackground(highlightedTool == EditorToolType.Highlight);
             ArrowToolButton.Background = CreateToolButtonBackground(highlightedTool == EditorToolType.Arrow);
             CropToolButton.Background = CreateToolButtonBackground(highlightedTool == EditorToolType.Crop);
+        }
+
+        private void SetToolButtonsEnabled(bool isEnabled)
+        {
+            CanvasToolButton.IsEnabled = isEnabled;
+            TextToolButton.IsEnabled = isEnabled;
+            BorderToolButton.IsEnabled = isEnabled;
+            BlurToolButton.IsEnabled = isEnabled;
+            HighlightToolButton.IsEnabled = isEnabled;
+            ArrowToolButton.IsEnabled = isEnabled;
+            CropToolButton.IsEnabled = isEnabled;
         }
 
         private static Brush CreateToolButtonBackground(bool isSelected)
@@ -585,6 +599,40 @@ namespace helvety.screentools.Views
                 : EditorXamlResourceCache.GetBrush("#FF282828");
         }
 
+        private bool TryCaptureInteractionPointer(PointerRoutedEventArgs e)
+        {
+            if (_activeInteractionPointerId.HasValue)
+            {
+                return false;
+            }
+
+            OverlayCanvas.CancelDirectManipulations();
+            if (!OverlayCanvas.CapturePointer(e.Pointer))
+            {
+                return false;
+            }
+
+            _activeInteractionPointerId = e.GetCurrentPoint(OverlayCanvas).PointerId;
+            e.Handled = true;
+            return true;
+        }
+
+        private bool IsActiveInteractionPointer(PointerRoutedEventArgs e)
+        {
+            return _activeInteractionPointerId == e.GetCurrentPoint(OverlayCanvas).PointerId;
+        }
+
+        private void ReleaseInteractionPointer(PointerRoutedEventArgs e)
+        {
+            if (!IsActiveInteractionPointer(e))
+            {
+                return;
+            }
+
+            _activeInteractionPointerId = null;
+            OverlayCanvas.ReleasePointerCapture(e.Pointer);
+        }
+
         private void OverlayCanvas_PointerPressed(object sender, PointerRoutedEventArgs e)
         {
             if (_document is null)
@@ -592,7 +640,20 @@ namespace helvety.screentools.Views
                 return;
             }
 
-            var point = e.GetCurrentPoint(OverlayCanvas).Position;
+            var currentPoint = e.GetCurrentPoint(OverlayCanvas);
+            if (!currentPoint.IsInContact ||
+                !currentPoint.Properties.IsLeftButtonPressed ||
+                !currentPoint.Properties.IsPrimary)
+            {
+                return;
+            }
+
+            if (_activeInteractionPointerId.HasValue)
+            {
+                return;
+            }
+
+            var point = currentPoint.Position;
             if (!IsPointInImage(point))
             {
                 return;
@@ -635,7 +696,7 @@ namespace helvety.screentools.Views
                 }
 
                 ClearTextLayerDoubleClickState();
-                BeginSelectionDrag(point);
+                BeginSelectionDrag(point, e);
                 return;
             }
 
@@ -655,8 +716,12 @@ namespace helvety.screentools.Views
                 var hasSelectedLayer = SelectTopMostLayerAt(point);
                 if (_selectedLayerId.HasValue)
                 {
-                    _dragLayer = TryGetLayerById(_selectedLayerId.Value);
-                    _lastPointerPoint = point;
+                    var selectedLayer = TryGetLayerById(_selectedLayerId.Value);
+                    if (selectedLayer is not null && TryCaptureInteractionPointer(e))
+                    {
+                        _dragLayer = selectedLayer;
+                        _lastPointerPoint = point;
+                    }
                 }
                 else if (!hasSelectedLayer && TrySelectCropAt(point))
                 {
@@ -667,7 +732,7 @@ namespace helvety.screentools.Views
                 return;
             }
 
-            BeginSelectionDrag(point);
+            BeginSelectionDrag(point, e);
         }
 
         private void OverlayCanvas_DoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
@@ -861,8 +926,14 @@ namespace helvety.screentools.Views
 
         private void OverlayCanvas_PointerMoved(object sender, PointerRoutedEventArgs e)
         {
+            if (_activeInteractionPointerId.HasValue && !IsActiveInteractionPointer(e))
+            {
+                return;
+            }
+
             if (_isDraggingInlineTextRegion && _inlineTextRegion.HasValue)
             {
+                e.Handled = true;
                 var currentPoint = e.GetCurrentPoint(OverlayCanvas).Position;
                 var dx = currentPoint.X - _inlineTextRegionDragStart.X;
                 var dy = currentPoint.Y - _inlineTextRegionDragStart.Y;
@@ -888,6 +959,7 @@ namespace helvety.screentools.Views
             {
                 case EditorPointerController.PointerMoveKind.ResizeSelection:
                     {
+                        e.Handled = true;
                         var currentPoint = e.GetCurrentPoint(OverlayCanvas).Position;
                         if (_resizeInlineTextRegion)
                         {
@@ -919,6 +991,7 @@ namespace helvety.screentools.Views
 
                 case EditorPointerController.PointerMoveKind.DragLayer:
                     {
+                        e.Handled = true;
                         var currentPoint = e.GetCurrentPoint(OverlayCanvas).Position;
                         var dx = currentPoint.X - _lastPointerPoint.X;
                         var dy = currentPoint.Y - _lastPointerPoint.Y;
@@ -939,6 +1012,7 @@ namespace helvety.screentools.Views
 
                 case EditorPointerController.PointerMoveKind.ArrowPreview:
                     {
+                        e.Handled = true;
                         var point = e.GetCurrentPoint(OverlayCanvas).Position;
                         _arrowPreviewEndPoint = ClampPointToImage(point);
                         QueueArrowPreviewOnlyRebuild();
@@ -947,6 +1021,7 @@ namespace helvety.screentools.Views
 
                 case EditorPointerController.PointerMoveKind.RegionSelection:
                     {
+                        e.Handled = true;
                         var point = e.GetCurrentPoint(OverlayCanvas).Position;
                         UpdateSelectionRectangle(point);
                         return;
@@ -959,10 +1034,16 @@ namespace helvety.screentools.Views
 
         private async void OverlayCanvas_PointerReleased(object sender, PointerRoutedEventArgs e)
         {
+            if (_activeInteractionPointerId.HasValue && !IsActiveInteractionPointer(e))
+            {
+                return;
+            }
+
             if (_isDraggingInlineTextRegion)
             {
                 _isDraggingInlineTextRegion = false;
-                OverlayCanvas.ReleasePointerCaptures();
+                e.Handled = true;
+                ReleaseInteractionPointer(e);
                 RefreshInlineTextOverlayChrome();
                 return;
             }
@@ -976,20 +1057,23 @@ namespace helvety.screentools.Views
                 _resizeStartTextFontSize = 0;
                 var wasInlineTextResize = _resizeInlineTextRegion;
                 _resizeInlineTextRegion = false;
-                OverlayCanvas.ReleasePointerCaptures();
+                var recomposePixels = _deferPixelRecomposeUntilPointerRelease;
+                var recomposeVectors = _deferVectorRecomposeUntilPointerRelease;
+                _deferPixelRecomposeUntilPointerRelease = false;
+                _deferVectorRecomposeUntilPointerRelease = false;
+                e.Handled = true;
+                ReleaseInteractionPointer(e);
                 if (wasInlineTextResize)
                 {
                     RefreshInlineTextOverlayChrome();
                     return;
                 }
-                if (_deferPixelRecomposeUntilPointerRelease)
+                if (recomposePixels)
                 {
-                    _deferPixelRecomposeUntilPointerRelease = false;
                     await RecomposeAsync(includeAdorners: true, includePixelEffects: true);
                 }
-                else if (_deferVectorRecomposeUntilPointerRelease)
+                else if (recomposeVectors)
                 {
-                    _deferVectorRecomposeUntilPointerRelease = false;
                     await RecomposeAsync(includeAdorners: true, includePixelEffects: false);
                 }
                 else
@@ -1002,62 +1086,87 @@ namespace helvety.screentools.Views
 
             if (!_isDraggingSelection || _document is null)
             {
-                if (_deferPixelRecomposeUntilPointerRelease)
+                var recomposePixels = _deferPixelRecomposeUntilPointerRelease;
+                var recomposeVectors = _deferVectorRecomposeUntilPointerRelease;
+                _deferPixelRecomposeUntilPointerRelease = false;
+                _deferVectorRecomposeUntilPointerRelease = false;
+                _dragLayer = null;
+                if (_activeInteractionPointerId.HasValue)
                 {
-                    _deferPixelRecomposeUntilPointerRelease = false;
+                    e.Handled = true;
+                    ReleaseInteractionPointer(e);
+                }
+
+                if (recomposePixels)
+                {
                     await RecomposeAsync(includeAdorners: true, includePixelEffects: true);
                 }
-                else if (_deferVectorRecomposeUntilPointerRelease)
+                else if (recomposeVectors)
                 {
-                    _deferVectorRecomposeUntilPointerRelease = false;
                     await RecomposeAsync(includeAdorners: true, includePixelEffects: false);
                 }
 
-                _dragLayer = null;
                 return;
             }
 
             var endPoint = e.GetCurrentPoint(OverlayCanvas).Position;
             if (_activeTool == EditorToolType.Arrow)
             {
-                _isDraggingSelection = false;
-                _isPreviewingArrow = false;
-                RemoveSelectionRectangle();
+                e.Handled = true;
+                CompleteRegionPlacementInteraction(e);
+                _dragLayer = null;
                 if (AddArrowLayer(_dragStartPoint, endPoint))
                 {
                     await FinalizeRegionPlacementAsync(clearCropSelection: true);
                 }
 
-                _dragLayer = null;
                 return;
             }
 
-            var maybeRegion = CompleteSelectionDrag(endPoint);
+            e.Handled = true;
+            var maybeRegion = CompleteSelectionDrag(endPoint, e);
+            var recomposePixelsAfterPlacement = _deferPixelRecomposeUntilPointerRelease;
+            var recomposeVectorsAfterPlacement = _deferVectorRecomposeUntilPointerRelease;
+            _deferPixelRecomposeUntilPointerRelease = false;
+            _deferVectorRecomposeUntilPointerRelease = false;
+            _dragLayer = null;
             if (maybeRegion is null)
             {
-                _dragLayer = null;
                 return;
             }
 
             await HandleCompletedRegionSelectionAsync(maybeRegion.Value, endPoint);
 
-            if (_deferPixelRecomposeUntilPointerRelease)
+            if (recomposePixelsAfterPlacement)
             {
-                _deferPixelRecomposeUntilPointerRelease = false;
                 await RecomposeAsync(includeAdorners: true, includePixelEffects: true);
             }
-            else if (_deferVectorRecomposeUntilPointerRelease)
+            else if (recomposeVectorsAfterPlacement)
             {
-                _deferVectorRecomposeUntilPointerRelease = false;
                 await RecomposeAsync(includeAdorners: true, includePixelEffects: false);
             }
-
-            _dragLayer = null;
         }
 
-        private void BeginSelectionDrag(Point point)
+        private void OverlayCanvas_PointerInteractionCanceled(object sender, PointerRoutedEventArgs e)
+        {
+            if (!_activeInteractionPointerId.HasValue || !IsActiveInteractionPointer(e))
+            {
+                return;
+            }
+
+            e.Handled = true;
+            ReleaseInteractionPointer(e);
+            CancelActivePointerInteraction();
+        }
+
+        private void BeginSelectionDrag(Point point, PointerRoutedEventArgs e)
         {
             ClearTextLayerDoubleClickState();
+            if (!TryCaptureInteractionPointer(e))
+            {
+                return;
+            }
+
             _isDraggingSelection = true;
             _dragStartPoint = point;
             if (_activeTool == EditorToolType.Arrow)
@@ -1074,12 +1183,44 @@ namespace helvety.screentools.Views
             UpdateSelectionRectangle(point);
         }
 
-        private EditorRect? CompleteSelectionDrag(Point endPoint)
+        private void CompleteRegionPlacementInteraction(PointerRoutedEventArgs e)
         {
             _isDraggingSelection = false;
             _isPreviewingArrow = false;
-            var region = BuildRegion(_dragStartPoint, endPoint);
             RemoveSelectionRectangle();
+            ReleaseInteractionPointer(e);
+        }
+
+        private void CancelActivePointerInteraction()
+        {
+            var refreshInlineText = _isDraggingInlineTextRegion || _resizeInlineTextRegion;
+            _isDraggingInlineTextRegion = false;
+            _isResizingSelection = false;
+            _activeResizeHandle = ResizeHandle.None;
+            _resizeLayerId = null;
+            _resizeTargetIsCrop = false;
+            _resizeStartTextFontSize = 0;
+            _resizeInlineTextRegion = false;
+            _isDraggingSelection = false;
+            _isPreviewingArrow = false;
+            _dragLayer = null;
+            _deferPixelRecomposeUntilPointerRelease = false;
+            _deferVectorRecomposeUntilPointerRelease = false;
+            RemoveSelectionRectangle();
+            if (refreshInlineText)
+            {
+                RefreshInlineTextOverlayChrome();
+            }
+            else
+            {
+                QueueRecompose(includeAdorners: true, includePixelEffects: true);
+            }
+        }
+
+        private EditorRect? CompleteSelectionDrag(Point endPoint, PointerRoutedEventArgs e)
+        {
+            var region = BuildRegion(_dragStartPoint, endPoint);
+            CompleteRegionPlacementInteraction(e);
             if (_activeTool == EditorToolType.Text)
             {
                 if (region.Width < TextClickDragThresholdPx && region.Height < TextClickDragThresholdPx)
@@ -1737,6 +1878,7 @@ namespace helvety.screentools.Views
 
         private void UpdateSelectionRectangle(Point currentPoint)
         {
+            EnsureSelectionRectangle();
             if (_selectionRectangle is null)
             {
                 return;
@@ -1821,13 +1963,17 @@ namespace helvety.screentools.Views
                 var endpointHandle = GetArrowEndpointHandleAt(point, arrowLayer);
                 if (endpointHandle is ResizeHandle.ArrowStart or ResizeHandle.ArrowEnd)
                 {
+                    if (!TryCaptureInteractionPointer(e))
+                    {
+                        return false;
+                    }
+
                     _isResizingSelection = true;
                     _activeResizeHandle = endpointHandle;
                     _resizeStartBounds = arrowLayer.GetBounds();
                     _resizeLayerId = arrowLayer.Id;
                     _resizeTargetIsCrop = false;
                     _dragLayer = null;
-                    OverlayCanvas.CapturePointer(e.Pointer);
                     return true;
                 }
             }
@@ -1839,6 +1985,11 @@ namespace helvety.screentools.Views
 
             var handle = GetResizeHandleAt(point, bounds);
             if (handle == ResizeHandle.None)
+            {
+                return false;
+            }
+
+            if (!TryCaptureInteractionPointer(e))
             {
                 return false;
             }
@@ -1858,7 +2009,6 @@ namespace helvety.screentools.Views
                 }
             }
             _dragLayer = null;
-            OverlayCanvas.CapturePointer(e.Pointer);
             return true;
         }
 
@@ -3047,6 +3197,11 @@ namespace helvety.screentools.Views
                 return false;
             }
 
+            if (!TryCaptureInteractionPointer(e))
+            {
+                return false;
+            }
+
             _isResizingSelection = true;
             _resizeInlineTextRegion = true;
             _activeResizeHandle = handle;
@@ -3055,7 +3210,6 @@ namespace helvety.screentools.Views
             _resizeTargetIsCrop = false;
             _resizeStartTextFontSize = 0;
             _dragLayer = null;
-            OverlayCanvas.CapturePointer(e.Pointer);
             return true;
         }
 
@@ -3066,10 +3220,14 @@ namespace helvety.screentools.Views
                 return false;
             }
 
+            if (!TryCaptureInteractionPointer(e))
+            {
+                return false;
+            }
+
             _isDraggingInlineTextRegion = true;
             _inlineTextRegionDragStart = point;
             _inlineTextRegionAtDragStart = _inlineTextRegion.Value;
-            OverlayCanvas.CapturePointer(e.Pointer);
             return true;
         }
 
