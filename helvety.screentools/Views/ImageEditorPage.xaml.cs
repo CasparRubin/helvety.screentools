@@ -132,9 +132,12 @@ namespace helvety.screentools.Views
         private bool _isResizingSelection;
         private ResizeHandle _activeResizeHandle;
         private EditorRect _resizeStartBounds;
+        private EditorRect? _dragLayerStartBounds;
         private Guid? _resizeLayerId;
         private bool _resizeTargetIsCrop;
         private double _resizeStartTextFontSize;
+        private Point _resizeStartArrowStart;
+        private Point _resizeStartArrowEnd;
         private EditorToolType _settingsTool = EditorToolType.Canvas;
         private int _highlightDimPercent = 35;
         private bool _blurInvertMode;
@@ -642,8 +645,7 @@ namespace helvety.screentools.Views
 
             var currentPoint = e.GetCurrentPoint(OverlayCanvas);
             if (!currentPoint.IsInContact ||
-                !currentPoint.Properties.IsLeftButtonPressed ||
-                !currentPoint.Properties.IsPrimary)
+                !currentPoint.Properties.IsLeftButtonPressed)
             {
                 return;
             }
@@ -720,6 +722,7 @@ namespace helvety.screentools.Views
                     if (selectedLayer is not null && TryCaptureInteractionPointer(e))
                     {
                         _dragLayer = selectedLayer;
+                        _dragLayerStartBounds = selectedLayer.GetBounds();
                         _lastPointerPoint = point;
                     }
                 }
@@ -1091,6 +1094,7 @@ namespace helvety.screentools.Views
                 _deferPixelRecomposeUntilPointerRelease = false;
                 _deferVectorRecomposeUntilPointerRelease = false;
                 _dragLayer = null;
+                _dragLayerStartBounds = null;
                 if (_activeInteractionPointerId.HasValue)
                 {
                     e.Handled = true;
@@ -1125,29 +1129,19 @@ namespace helvety.screentools.Views
 
             e.Handled = true;
             var maybeRegion = CompleteSelectionDrag(endPoint, e);
-            var recomposePixelsAfterPlacement = _deferPixelRecomposeUntilPointerRelease;
-            var recomposeVectorsAfterPlacement = _deferVectorRecomposeUntilPointerRelease;
             _deferPixelRecomposeUntilPointerRelease = false;
             _deferVectorRecomposeUntilPointerRelease = false;
             _dragLayer = null;
+            _dragLayerStartBounds = null;
             if (maybeRegion is null)
             {
                 return;
             }
 
             await HandleCompletedRegionSelectionAsync(maybeRegion.Value, endPoint);
-
-            if (recomposePixelsAfterPlacement)
-            {
-                await RecomposeAsync(includeAdorners: true, includePixelEffects: true);
-            }
-            else if (recomposeVectorsAfterPlacement)
-            {
-                await RecomposeAsync(includeAdorners: true, includePixelEffects: false);
-            }
         }
 
-        private void OverlayCanvas_PointerInteractionCanceled(object sender, PointerRoutedEventArgs e)
+        private void OverlayCanvas_PointerCanceled(object sender, PointerRoutedEventArgs e)
         {
             if (!_activeInteractionPointerId.HasValue || !IsActiveInteractionPointer(e))
             {
@@ -1156,6 +1150,18 @@ namespace helvety.screentools.Views
 
             e.Handled = true;
             ReleaseInteractionPointer(e);
+            CancelActivePointerInteraction();
+        }
+
+        private void OverlayCanvas_PointerCaptureLost(object sender, PointerRoutedEventArgs e)
+        {
+            if (!_activeInteractionPointerId.HasValue || !IsActiveInteractionPointer(e))
+            {
+                return;
+            }
+
+            e.Handled = true;
+            _activeInteractionPointerId = null;
             CancelActivePointerInteraction();
         }
 
@@ -1194,6 +1200,7 @@ namespace helvety.screentools.Views
         private void CancelActivePointerInteraction()
         {
             var refreshInlineText = _isDraggingInlineTextRegion || _resizeInlineTextRegion;
+            RestoreCanceledPointerInteraction();
             _isDraggingInlineTextRegion = false;
             _isResizingSelection = false;
             _activeResizeHandle = ResizeHandle.None;
@@ -1204,6 +1211,7 @@ namespace helvety.screentools.Views
             _isDraggingSelection = false;
             _isPreviewingArrow = false;
             _dragLayer = null;
+            _dragLayerStartBounds = null;
             _deferPixelRecomposeUntilPointerRelease = false;
             _deferVectorRecomposeUntilPointerRelease = false;
             RemoveSelectionRectangle();
@@ -1214,6 +1222,83 @@ namespace helvety.screentools.Views
             else
             {
                 QueueRecompose(includeAdorners: true, includePixelEffects: true);
+            }
+        }
+
+        private void RestoreCanceledPointerInteraction()
+        {
+            if (_isDraggingInlineTextRegion)
+            {
+                _inlineTextRegion = _inlineTextRegionAtDragStart;
+                SyncInlineTextEditorLayout();
+                return;
+            }
+
+            if (_resizeInlineTextRegion)
+            {
+                _inlineTextRegion = _resizeStartBounds;
+                SyncInlineTextEditorLayout();
+                return;
+            }
+
+            if (_isResizingSelection)
+            {
+                RestoreCanceledResize();
+                return;
+            }
+
+            if (_dragLayer is not null && _dragLayerStartBounds.HasValue)
+            {
+                var currentBounds = _dragLayer.GetBounds();
+                _dragLayer.MoveBy(
+                    _dragLayerStartBounds.Value.X - currentBounds.X,
+                    _dragLayerStartBounds.Value.Y - currentBounds.Y,
+                    _imageWidth,
+                    _imageHeight);
+            }
+        }
+
+        private void RestoreCanceledResize()
+        {
+            if (_resizeTargetIsCrop)
+            {
+                _pendingCropRect = _resizeStartBounds;
+                _isCropSelected = true;
+                return;
+            }
+
+            if (!_resizeLayerId.HasValue)
+            {
+                return;
+            }
+
+            var layer = TryGetLayerById(_resizeLayerId.Value);
+            switch (layer)
+            {
+                case ArrowLayer arrowLayer:
+                    arrowLayer.StartX = _resizeStartArrowStart.X;
+                    arrowLayer.StartY = _resizeStartArrowStart.Y;
+                    arrowLayer.EndX = _resizeStartArrowEnd.X;
+                    arrowLayer.EndY = _resizeStartArrowEnd.Y;
+                    break;
+                case BorderLayer borderLayer:
+                    borderLayer.Region = _resizeStartBounds;
+                    borderLayer.Name = $"Border ({_resizeStartBounds.Width}x{_resizeStartBounds.Height})";
+                    break;
+                case BlurLayer blurLayer:
+                    blurLayer.Region = _resizeStartBounds;
+                    blurLayer.Name = $"Blur ({_resizeStartBounds.Width}x{_resizeStartBounds.Height})";
+                    break;
+                case HighlightLayer highlightLayer:
+                    highlightLayer.Region = _resizeStartBounds;
+                    highlightLayer.Name = $"Highlight ({_resizeStartBounds.Width}x{_resizeStartBounds.Height})";
+                    break;
+                case TextLayer textLayer:
+                    textLayer.X = _resizeStartBounds.X;
+                    textLayer.Y = _resizeStartBounds.Y;
+                    textLayer.UpdateWrapWidth(_resizeStartBounds.Width);
+                    textLayer.FontSize = _resizeStartTextFontSize;
+                    break;
             }
         }
 
@@ -1971,6 +2056,8 @@ namespace helvety.screentools.Views
                     _isResizingSelection = true;
                     _activeResizeHandle = endpointHandle;
                     _resizeStartBounds = arrowLayer.GetBounds();
+                    _resizeStartArrowStart = new Point(arrowLayer.StartX, arrowLayer.StartY);
+                    _resizeStartArrowEnd = new Point(arrowLayer.EndX, arrowLayer.EndY);
                     _resizeLayerId = arrowLayer.Id;
                     _resizeTargetIsCrop = false;
                     _dragLayer = null;
