@@ -132,14 +132,17 @@ namespace helvety.screentools.Editor
 
             var baseX = tipX - (unitX * headLength);
             var baseY = tipY - (unitY * headLength);
+            const double shaftHeadOverlap = 1.5;
+            var shaftEndX = baseX + (unitX * shaftHeadOverlap);
+            var shaftEndY = baseY + (unitY * shaftHeadOverlap);
 
             if (isTapered)
             {
                 var shaftPath = CreateTaperedShaftPath(
                     startX,
                     startY,
-                    baseX,
-                    baseY,
+                    shaftEndX,
+                    shaftEndY,
                     normalX,
                     normalY,
                     thickness,
@@ -157,8 +160,8 @@ namespace helvety.screentools.Editor
                 {
                     X1 = startX,
                     Y1 = startY,
-                    X2 = baseX,
-                    Y2 = baseY,
+                    X2 = shaftEndX,
+                    Y2 = shaftEndY,
                     Stroke = EditorXamlResourceCache.GetBrush(color),
                     StrokeThickness = thickness,
                     StrokeStartLineCap = PenLineCap.Round,
