@@ -197,6 +197,8 @@ namespace helvety.screentools.Editor
                         hash.Add(arrow.StartY);
                         hash.Add(arrow.EndX);
                         hash.Add(arrow.EndY);
+                        hash.Add(arrow.MidX);
+                        hash.Add(arrow.MidY);
                         hash.Add(arrow.Thickness);
                         hash.Add(arrow.ColorHex);
                         hash.Add(arrow.BorderColorHex);

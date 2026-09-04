@@ -85,7 +85,8 @@ namespace helvety.screentools.Views
             SouthWest = 7,
             West = 8,
             ArrowStart = 9,
-            ArrowEnd = 10
+            ArrowEnd = 10,
+            ArrowMid = 11
         }
 
         private readonly string _filePath;
@@ -138,6 +139,9 @@ namespace helvety.screentools.Views
         private double _resizeStartTextFontSize;
         private Point _resizeStartArrowStart;
         private Point _resizeStartArrowEnd;
+        private Point _resizeStartArrowMid;
+        private double _resizeStartBendOffsetX;
+        private double _resizeStartBendOffsetY;
         private MagnifierPart _magnifierDragPart = MagnifierPart.None;
         private MagnifierPart _magnifierResizePart = MagnifierPart.None;
         private EditorRect _resizeStartMagnifierSource;
@@ -1350,6 +1354,8 @@ namespace helvety.screentools.Views
                     arrowLayer.StartY = _resizeStartArrowStart.Y;
                     arrowLayer.EndX = _resizeStartArrowEnd.X;
                     arrowLayer.EndY = _resizeStartArrowEnd.Y;
+                    arrowLayer.MidX = _resizeStartArrowMid.X;
+                    arrowLayer.MidY = _resizeStartArrowMid.Y;
                     break;
                 case BorderLayer borderLayer:
                     borderLayer.Region = _resizeStartBounds;
@@ -2137,6 +2143,7 @@ namespace helvety.screentools.Views
         {
             DrawArrowEndpointHandle(ResizeHandle.ArrowStart, arrowLayer.StartX, arrowLayer.StartY);
             DrawArrowEndpointHandle(ResizeHandle.ArrowEnd, arrowLayer.EndX, arrowLayer.EndY);
+            DrawArrowEndpointHandle(ResizeHandle.ArrowMid, arrowLayer.MidX, arrowLayer.MidY);
         }
 
         private void DrawArrowEndpointHandle(ResizeHandle handle, double x, double y)
@@ -2163,7 +2170,7 @@ namespace helvety.screentools.Views
                 TryGetLayerById(_selectedLayerId.Value) is ArrowLayer arrowLayer)
             {
                 var endpointHandle = GetArrowEndpointHandleAt(point, arrowLayer);
-                if (endpointHandle is ResizeHandle.ArrowStart or ResizeHandle.ArrowEnd)
+                if (endpointHandle is ResizeHandle.ArrowStart or ResizeHandle.ArrowEnd or ResizeHandle.ArrowMid)
                 {
                     if (!TryCaptureInteractionPointer(e))
                     {
@@ -2175,6 +2182,10 @@ namespace helvety.screentools.Views
                     _resizeStartBounds = arrowLayer.GetBounds();
                     _resizeStartArrowStart = new Point(arrowLayer.StartX, arrowLayer.StartY);
                     _resizeStartArrowEnd = new Point(arrowLayer.EndX, arrowLayer.EndY);
+                    _resizeStartArrowMid = new Point(arrowLayer.MidX, arrowLayer.MidY);
+                    arrowLayer.GetChordMid(out var chordX, out var chordY);
+                    _resizeStartBendOffsetX = arrowLayer.MidX - chordX;
+                    _resizeStartBendOffsetY = arrowLayer.MidY - chordY;
                     _resizeLayerId = arrowLayer.Id;
                     _resizeTargetIsCrop = false;
                     _magnifierResizePart = MagnifierPart.None;
@@ -2266,6 +2277,12 @@ namespace helvety.screentools.Views
             if (_activeResizeHandle is ResizeHandle.ArrowStart or ResizeHandle.ArrowEnd)
             {
                 ApplyArrowEndpointResize(point);
+                return;
+            }
+
+            if (_activeResizeHandle == ResizeHandle.ArrowMid)
+            {
+                ApplyArrowMidResize(point);
                 return;
             }
 
@@ -2450,6 +2467,40 @@ namespace helvety.screentools.Views
                 arrowLayer.EndX = clamped.X;
                 arrowLayer.EndY = clamped.Y;
             }
+
+            arrowLayer.GetChordMid(out var chordX, out var chordY);
+            arrowLayer.MidX = chordX + _resizeStartBendOffsetX;
+            arrowLayer.MidY = chordY + _resizeStartBendOffsetY;
+        }
+
+        private void ApplyArrowMidResize(Point point)
+        {
+            if (_document is null || !_resizeLayerId.HasValue)
+            {
+                return;
+            }
+
+            if (TryGetLayerById(_resizeLayerId.Value) is not ArrowLayer arrowLayer)
+            {
+                return;
+            }
+
+            var clamped = ClampPointToImage(point);
+            var distanceToChord = ArrowLayer.PerpendicularDistanceToLine(
+                clamped.X,
+                clamped.Y,
+                arrowLayer.StartX,
+                arrowLayer.StartY,
+                arrowLayer.EndX,
+                arrowLayer.EndY);
+            if (distanceToChord <= ArrowLayer.StraightSnapPixels)
+            {
+                arrowLayer.ResetBend();
+                return;
+            }
+
+            arrowLayer.MidX = clamped.X;
+            arrowLayer.MidY = clamped.Y;
         }
 
         private bool TryGetActiveResizeTarget(out EditorRect bounds, out Guid? layerId, out bool isCrop)
@@ -2570,6 +2621,11 @@ namespace helvety.screentools.Views
             if (Distance(point, new Point(arrowLayer.EndX, arrowLayer.EndY)) <= tolerance)
             {
                 return ResizeHandle.ArrowEnd;
+            }
+
+            if (Distance(point, new Point(arrowLayer.MidX, arrowLayer.MidY)) <= tolerance)
+            {
+                return ResizeHandle.ArrowMid;
             }
 
             return ResizeHandle.None;

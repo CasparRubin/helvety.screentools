@@ -389,6 +389,10 @@ namespace helvety.screentools.Editor
 
     internal sealed class ArrowLayer : EditorLayer
     {
+        internal const double StraightSnapPixels = 6.0;
+        private const double StraightEpsilon = 0.5;
+        private const int CurveHitSampleCount = 16;
+
         internal ArrowLayer(double startX, double startY, double endX, double endY, double thickness, string colorHex, ArrowFormStyle formStyle)
             : base("Arrow", EditorLayerType.Arrow)
         {
@@ -399,6 +403,7 @@ namespace helvety.screentools.Editor
             Thickness = Math.Max(1, thickness);
             ColorHex = colorHex;
             FormStyle = formStyle;
+            ResetBend();
         }
 
         internal double StartX { get; set; }
@@ -408,6 +413,10 @@ namespace helvety.screentools.Editor
         internal double EndX { get; set; }
 
         internal double EndY { get; set; }
+
+        internal double MidX { get; set; }
+
+        internal double MidY { get; set; }
 
         internal double Thickness { get; set; }
 
@@ -427,22 +436,105 @@ namespace helvety.screentools.Editor
 
         internal int ShadowOffset { get; set; } = 2;
 
+        internal bool IsStraight
+        {
+            get
+            {
+                GetChordMid(out var cx, out var cy);
+                var dx = MidX - cx;
+                var dy = MidY - cy;
+                return ((dx * dx) + (dy * dy)) <= (StraightEpsilon * StraightEpsilon);
+            }
+        }
+
+        internal void ResetBend()
+        {
+            GetChordMid(out var cx, out var cy);
+            MidX = cx;
+            MidY = cy;
+        }
+
+        internal void GetChordMid(out double x, out double y)
+        {
+            x = (StartX + EndX) * 0.5;
+            y = (StartY + EndY) * 0.5;
+        }
+
+        internal void GetControlPoint(out double x, out double y)
+        {
+            GetChordMid(out var cx, out var cy);
+            x = (2d * MidX) - cx;
+            y = (2d * MidY) - cy;
+        }
+
+        internal static void EvaluateQuadratic(
+            double p0x,
+            double p0y,
+            double p1x,
+            double p1y,
+            double p2x,
+            double p2y,
+            double t,
+            out double x,
+            out double y)
+        {
+            var u = 1d - t;
+            x = (u * u * p0x) + (2d * u * t * p1x) + (t * t * p2x);
+            y = (u * u * p0y) + (2d * u * t * p1y) + (t * t * p2y);
+        }
+
+        internal static void EvaluateQuadraticTangent(
+            double p0x,
+            double p0y,
+            double p1x,
+            double p1y,
+            double p2x,
+            double p2y,
+            double t,
+            out double dx,
+            out double dy)
+        {
+            var u = 1d - t;
+            dx = (2d * u * (p1x - p0x)) + (2d * t * (p2x - p1x));
+            dy = (2d * u * (p1y - p0y)) + (2d * t * (p2y - p1y));
+        }
+
+        internal static double PerpendicularDistanceToLine(
+            double px,
+            double py,
+            double x1,
+            double y1,
+            double x2,
+            double y2)
+        {
+            var dx = x2 - x1;
+            var dy = y2 - y1;
+            var length = Math.Sqrt((dx * dx) + (dy * dy));
+            if (length < 0.0001)
+            {
+                return Math.Sqrt(((px - x1) * (px - x1)) + ((py - y1) * (py - y1)));
+            }
+
+            return Math.Abs((dx * (py - y1)) - (dy * (px - x1))) / length;
+        }
+
         internal override EditorRect GetBounds()
         {
-            var minX = (int)Math.Floor(Math.Min(StartX, EndX));
-            var minY = (int)Math.Floor(Math.Min(StartY, EndY));
-            var maxX = (int)Math.Ceiling(Math.Max(StartX, EndX));
-            var maxY = (int)Math.Ceiling(Math.Max(StartY, EndY));
+            GetControlPoint(out var cpx, out var cpy);
+            var minX = Math.Min(Math.Min(StartX, EndX), Math.Min(MidX, cpx));
+            var minY = Math.Min(Math.Min(StartY, EndY), Math.Min(MidY, cpy));
+            var maxX = Math.Max(Math.Max(StartX, EndX), Math.Max(MidX, cpx));
+            var maxY = Math.Max(Math.Max(StartY, EndY), Math.Max(MidY, cpy));
             var padding = Math.Max(8, (int)Math.Ceiling(Thickness * 2.5));
             if (FormStyle == ArrowFormStyle.Tapered)
             {
                 padding = Math.Max(padding, (int)Math.Ceiling(Thickness * 3.2));
             }
             return new EditorRect(
-                Math.Max(0, minX - padding),
-                Math.Max(0, minY - padding),
-                Math.Max(1, (maxX - minX) + (padding * 2)),
-                Math.Max(1, (maxY - minY) + (padding * 2)));
+                Math.Max(0, (int)Math.Floor(minX) - padding),
+                Math.Max(0, (int)Math.Floor(minY) - padding),
+                Math.Max(1, ((int)Math.Ceiling(maxX) - (int)Math.Floor(minX)) + (padding * 2)),
+                Math.Max(1, ((int)Math.Ceiling(maxY) - (int)Math.Floor(minY)) + (padding * 2)));
         }
 
         internal override bool ContainsPoint(double x, double y)
@@ -453,13 +545,15 @@ namespace helvety.screentools.Editor
                 return false;
             }
 
-            var distance = DistanceToSegment(x, y, StartX, StartY, EndX, EndY);
             var selectionRadius = Math.Max(6.0, Thickness + 3.0);
             if (FormStyle == ArrowFormStyle.Tapered)
             {
                 selectionRadius = Math.Max(selectionRadius, (Thickness * 2.6) + 3.0);
             }
 
+            var distance = IsStraight
+                ? DistanceToSegment(x, y, StartX, StartY, EndX, EndY)
+                : DistanceToCurve(x, y);
             return distance <= selectionRadius;
         }
 
@@ -474,6 +568,25 @@ namespace helvety.screentools.Editor
             StartY += moveY;
             EndX += moveX;
             EndY += moveY;
+            MidX += moveX;
+            MidY += moveY;
+        }
+
+        private double DistanceToCurve(double px, double py)
+        {
+            GetControlPoint(out var cpx, out var cpy);
+            EvaluateQuadratic(StartX, StartY, cpx, cpy, EndX, EndY, 0, out var prevX, out var prevY);
+            var minDistance = double.MaxValue;
+            for (var i = 1; i <= CurveHitSampleCount; i++)
+            {
+                var t = i / (double)CurveHitSampleCount;
+                EvaluateQuadratic(StartX, StartY, cpx, cpy, EndX, EndY, t, out var x, out var y);
+                minDistance = Math.Min(minDistance, DistanceToSegment(px, py, prevX, prevY, x, y));
+                prevX = x;
+                prevY = y;
+            }
+
+            return minDistance;
         }
 
         private static double DistanceToSegment(double px, double py, double x1, double y1, double x2, double y2)

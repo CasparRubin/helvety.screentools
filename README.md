@@ -25,7 +25,7 @@ The app can be **packaged and deployed** (MSIX or unpackaged). Behavior and defa
 - Mouse wheel over the canvas adjusts the selected layer's primary size (text size, arrow/border/magnifier thickness, blur radius, highlight dim, or magnifier zoom); **Ctrl**+wheel still zooms the viewport
 - Export section under Layers (bottom-right) with **Save, copy and close** and **Save and close** (or **Save crop...** variants while crop is active); each save writes a new flattened PNG and closes the editor, while the first option also copies the result to clipboard
 - Saved edits are intentionally non-reeditable: reopening a saved image starts from the bitmap result, and new annotations can be added in a fresh edit session
-- Arrow tool: **Tapered** or **Straight** forms with optional border and shadow; while drawing, only the arrow preview on the overlay updates (existing layers are not rebuilt on every pointer move)
+- Arrow tool: **Tapered** or **Straight** forms with optional border and shadow. New arrows are straight; a selected arrow has a **middle handle** you can drag to bow the shaft. While drawing, only the arrow preview on the overlay updates (existing layers are not rebuilt on every pointer move)
 - **Magnifier** tool: drag a circle or rectangle source region; a larger loupe is placed nearby with nearest-neighbor upscaled pixels and a tapered connector from source to loupe. Source and loupe move independently; sizes stay linked by zoom
 - **Text** tool: **click** to place a resizable text box (default ~380×100 px) or **drag** to size first; while typing, drag the frame border to move or use corner/edge handles to resize (full edge strips, not just corners); **bold** and **italic** styling; re-edit via toolbar controls or **double-click** an existing text layer
 - Blur settings include Radius, Corner Radius, Feather, and Invert; Highlight includes Dim, Corner Radius, and Invert (inside/outside targeting)
@@ -129,11 +129,11 @@ A [GitHub Actions workflow](.github/workflows/release.yml) automates builds and 
 3. Tag and push:
 
 ```bash
-git tag v2.2.0.0
-git push origin v2.2.0.0
+git tag v2.3.0.0
+git push origin v2.3.0.0
 ```
 
-Use a tag that matches the four-part `ApplicationVersion` in `helvety.screentools.csproj` (for example `v2.2.0.0`). **About** shows the full four-part version when installed (MSIX) or unpackaged.
+Use a tag that matches the four-part `ApplicationVersion` in `helvety.screentools.csproj` (for example `v2.3.0.0`). **About** shows the full four-part version when installed (MSIX) or unpackaged.
 
 The workflow builds self-contained portable ZIPs for **x64** and **arm64** (`helvety-screentools-v<tag>-win-x64.zip` and `helvety-screentools-v<tag>-win-arm64.zip`), then creates a GitHub Release with auto-generated release notes and the ZIPs attached. No certificate or MSIX signing is needed for the portable distribution.
 
