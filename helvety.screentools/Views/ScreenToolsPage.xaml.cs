@@ -32,7 +32,7 @@ namespace helvety.screentools.Views
 {
     /// <summary>
     /// Home page (nav label "General", page title "Helvety Screen Tools"): lists files from the configured save folder with thumbnails and metadata, grouped by date sections (Today/Yesterday/Last Week/Older).
-    /// Left-click on an image opens the editor; right-click copies that image to the clipboard.
+    /// Left-click on an image opens the editor; right-click copies that image to the clipboard; the bin icon deletes the file to the Recycle Bin.
     /// Shows a warning <see cref="InfoBar"/> when global hotkey listeners are disabled in settings.
     /// Refreshes enumerate the folder on a background thread, then apply updates under a short lock. After a screenshot, the list reloads the same way as on navigation.
     /// </summary>
@@ -52,6 +52,8 @@ namespace helvety.screentools.Views
         private FileSystemWatcher? _saveFolderWatcher;
         private string? _watchedFolderPath;
         private readonly DispatcherQueueTimer _watcherRefreshTimer;
+        /// <summary>GridView ItemClick also fires when the overlay delete button is pressed; skip opening the editor for that click.</summary>
+        private bool _suppressNextGalleryItemClick;
 
         public ScreenToolsPage()
         {
@@ -740,12 +742,74 @@ namespace helvety.screentools.Views
 
         private void ImageFilesGridView_ItemClick(object sender, ItemClickEventArgs e)
         {
+            if (_suppressNextGalleryItemClick)
+            {
+                _suppressNextGalleryItemClick = false;
+                return;
+            }
+
             if (e.ClickedItem is not GalleryFileItem item || !item.IsEditableImage)
             {
                 return;
             }
 
             Editor.ImageEditorLauncher.OpenEditor(item.Path);
+        }
+
+        private void DeleteGalleryImage_PointerPressed(object sender, PointerRoutedEventArgs e)
+        {
+            _suppressNextGalleryItemClick = true;
+        }
+
+        private async void DeleteGalleryImage_Click(object sender, RoutedEventArgs e)
+        {
+            _suppressNextGalleryItemClick = true;
+
+            if (FindGalleryFileItemFromEventSource(e.OriginalSource) is not { } item || !item.IsEditableImage)
+            {
+                return;
+            }
+
+            var confirmationDialog = new ContentDialog
+            {
+                XamlRoot = XamlRoot,
+                Title = "Delete this image?",
+                Content = "The file will be moved to the Recycle Bin.",
+                PrimaryButtonText = "Delete",
+                CloseButtonText = "Cancel",
+                DefaultButton = ContentDialogButton.Close
+            };
+
+            var dialogResult = await confirmationDialog.ShowAsync();
+            if (dialogResult != ContentDialogResult.Primary)
+            {
+                return;
+            }
+
+            await DeleteGalleryImageAsync(item.Path);
+        }
+
+        private static async Task DeleteGalleryImageAsync(string path)
+        {
+            try
+            {
+                if (!File.Exists(path))
+                {
+                    InAppToastService.Show("Image file does not exist.", InAppToastSeverity.Error);
+                    return;
+                }
+
+                ImageEditorLauncher.CloseEditor(path);
+
+                var file = await StorageFile.GetFileFromPathAsync(path);
+                await file.DeleteAsync();
+
+                InAppToastService.Show("Image moved to the Recycle Bin.", InAppToastSeverity.Success);
+            }
+            catch (Exception ex)
+            {
+                InAppToastService.Show($"Delete failed ({ex.Message}).", InAppToastSeverity.Error);
+            }
         }
 
         private async void ImageFilesGridView_RightTapped(object sender, RightTappedRoutedEventArgs e)

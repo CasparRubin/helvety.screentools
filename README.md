@@ -15,7 +15,7 @@ The app can be **packaged and deployed** (MSIX or unpackaged). Behavior and defa
 - **Navigation**: left **NavigationView** with **General** (home), an expandable **Settings** group (**General**, **Screenshot**, **Live Draw**), and **About**. **About** shows a short product summary, the app **Version** (package version when installed; assembly version when running unpackaged), and links to [helvety.com](https://helvety.com/) and the [GitHub repository](https://github.com/CasparRubin/helvety.screentools).
 - Close-to-tray behavior (notification area) with optional full-exit-on-close setting. The tray icon context menu offers **Open**, **Enable/Disable global hotkey listeners**, and **Exit**. When the packaged app starts from the Windows **startup task**, it can launch **hidden to the tray** instead of showing the main window.
 - Restore main window after **screenshot** when the window was tray-hidden and **at least one screenshot was saved** in that session (Live Draw does not restore the main window).
-- **General** home page (titled **Helvety Screen Tools**): after each **screenshot** is saved to the configured folder, the coordinator notifies this page so the gallery **reloads** (same as navigating back to home). Other saves (for example from the editor) rely on the folder watcher and debounced rescan like any file change. For **`.png`** files thumbnails use a **scaled decode from disk** (about max width 520px), then a generic file decode, then the **shell thumbnail** provider. A **debounced** `FileSystemWatcher` still runs a full folder rescan so ordering and metadata stay correct. **Listing files** for a refresh runs on a **background thread** before the gallery lock; applying updates to the grid stays **serialized**. Images are grouped into date sections (**Today**, **Yesterday**, **Last Week**, **Older**). Thumbnails attach to the **visible row by file path**. In-flight thumbnail work is **not** cancelled on every refresh (only when leaving the page). The images header sits above the card and reminds you that **left-click** opens the image in the editor and **right-click** copies the image to the clipboard.
+- **General** home page (titled **Helvety Screen Tools**): after each **screenshot** is saved to the configured folder, the coordinator notifies this page so the gallery **reloads** (same as navigating back to home). Other saves (for example from the editor) rely on the folder watcher and debounced rescan like any file change. For **`.png`** files thumbnails use a **scaled decode from disk** (about max width 520px), then a generic file decode, then the **shell thumbnail** provider. A **debounced** `FileSystemWatcher` still runs a full folder rescan so ordering and metadata stay correct. **Listing files** for a refresh runs on a **background thread** before the gallery lock; applying updates to the grid stays **serialized**. Images are grouped into date sections (**Today**, **Yesterday**, **Last Week**, **Older**). Thumbnails attach to the **visible row by file path**. In-flight thumbnail work is **not** cancelled on every refresh (only when leaving the page). The images header sits above the card and reminds you that **left-click** opens the image in the editor, **right-click** copies the image to the clipboard, and the **bin icon** deletes the file to the Recycle Bin.
 - Home gallery lists **PNG** captures from the save folder only (screenshot saves are PNG; other extensions in the folder are ignored)
 - File metadata shown as European date/time format (`dd.MM.yyyy HH:mm`) plus relative age (`... ago`)
 - Built-in **PNG** image editor in a **separate window** from the home gallery (one window per file path); tools: **Canvas**, Text, Border, Blur, Highlight, Arrow, Magnifier, Crop, Color (Color is last in the toolbar)
@@ -130,11 +130,11 @@ A [GitHub Actions workflow](.github/workflows/release.yml) automates builds and 
 3. Tag and push:
 
 ```bash
-git tag v2.4.0.0
-git push origin v2.4.0.0
+git tag v2.5.0.0
+git push origin v2.5.0.0
 ```
 
-Use a tag that matches the four-part `ApplicationVersion` in `helvety.screentools.csproj` (for example `v2.4.0.0`). **About** shows the full four-part version when installed (MSIX) or unpackaged.
+Use a tag that matches the four-part `ApplicationVersion` in `helvety.screentools.csproj` (for example `v2.5.0.0`). **About** shows the full four-part version when installed (MSIX) or unpackaged.
 
 The workflow builds self-contained portable ZIPs for **x64** and **arm64** (`helvety-screentools-v<tag>-win-x64.zip` and `helvety-screentools-v<tag>-win-arm64.zip`), then creates a GitHub Release with auto-generated release notes and the ZIPs attached. No certificate or MSIX signing is needed for the portable distribution.
 
