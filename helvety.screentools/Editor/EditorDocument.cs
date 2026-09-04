@@ -13,7 +13,9 @@ namespace helvety.screentools.Editor
         Arrow = 4,
         Highlight = 5,
         Crop = 6,
-        Magnifier = 7
+        Magnifier = 7,
+        /// <summary>Color tool: click a pixel to sample hex and RGB from the composed image. Does not create a layer.</summary>
+        Color = 8
     }
 
     internal enum EditorLayerType

@@ -32,7 +32,7 @@ namespace helvety.screentools.Views
 {
     /// <summary>
     /// Layer-based PNG editor in a dedicated <see cref="Microsoft.UI.Xaml.Window"/> (see <see cref="Editor.ImageEditorLauncher"/>).
-    /// Tools: Canvas (select, move, resize), Text, Border, Blur, Highlight, Arrow, and Crop.
+    /// Tools: Canvas (select, move, resize), Text, Border, Blur, Highlight, Arrow, Magnifier, Crop, and Color.
     /// Pixel layers (blur/highlight) compose through <see cref="Editor.EditorComposePipeline"/> (Win2D GPU per-region ROI with CPU fallback);
     /// text, border, and arrow layers render as XAML vector visuals reused via <see cref="Editor.VectorCanvasHost"/>.
     /// Text: click or drag to place; the placement frame can be moved (border band) and resized (handles, including edge strips) while editing; double-click re-edits an existing text layer.
@@ -149,6 +149,8 @@ namespace helvety.screentools.Views
         private EditorRect? _dragMagnifierStartSource;
         private EditorRect? _dragMagnifierStartLoupe;
         private EditorToolType _settingsTool = EditorToolType.Canvas;
+        private string? _sampledColorHex;
+        private string? _sampledColorRgb;
         private int _highlightDimPercent = 35;
         private bool _blurInvertMode;
         private bool _highlightInvertMode;
@@ -507,6 +509,7 @@ namespace helvety.screentools.Views
             ArrowToolSettingsPanel.Visibility = _settingsTool == EditorToolType.Arrow ? Visibility.Visible : Visibility.Collapsed;
             MagnifierToolSettingsPanel.Visibility = _settingsTool == EditorToolType.Magnifier ? Visibility.Visible : Visibility.Collapsed;
             CropToolSettingsPanel.Visibility = _settingsTool == EditorToolType.Crop ? Visibility.Visible : Visibility.Collapsed;
+            ColorToolSettingsPanel.Visibility = _settingsTool == EditorToolType.Color ? Visibility.Visible : Visibility.Collapsed;
             UpdateExportButtonLabels();
             UpdateArrowShadowToggleState(forceOffWhenUnsupported: true);
         }
@@ -589,6 +592,7 @@ namespace helvety.screentools.Views
             ArrowToolButton.Background = CreateToolButtonBackground(highlightedTool == EditorToolType.Arrow);
             MagnifierToolButton.Background = CreateToolButtonBackground(highlightedTool == EditorToolType.Magnifier);
             CropToolButton.Background = CreateToolButtonBackground(highlightedTool == EditorToolType.Crop);
+            ColorToolButton.Background = CreateToolButtonBackground(highlightedTool == EditorToolType.Color);
         }
 
         private void SetToolButtonsEnabled(bool isEnabled)
@@ -601,6 +605,7 @@ namespace helvety.screentools.Views
             ArrowToolButton.IsEnabled = isEnabled;
             MagnifierToolButton.IsEnabled = isEnabled;
             CropToolButton.IsEnabled = isEnabled;
+            ColorToolButton.IsEnabled = isEnabled;
         }
 
         private static Brush CreateToolButtonBackground(bool isSelected)
@@ -696,6 +701,12 @@ namespace helvety.screentools.Views
             }
 
             OverlayCanvas.Focus(FocusState.Pointer);
+
+            if (_activeTool == EditorToolType.Color)
+            {
+                SampleColorAt(point);
+                return;
+            }
 
             if (_activeTool == EditorToolType.Text)
             {
@@ -1441,6 +1452,8 @@ namespace helvety.screentools.Views
                 case EditorToolType.Crop:
                     SelectCropRegion(region);
                     await FinalizeRegionPlacementAsync(clearCropSelection: false);
+                    return;
+                case EditorToolType.Color:
                     return;
                 default:
                     return;
@@ -3577,6 +3590,54 @@ namespace helvety.screentools.Views
         private static string ColorToHex(Color color)
         {
             return $"#{color.A:X2}{color.R:X2}{color.G:X2}{color.B:X2}";
+        }
+
+        private void SampleColorAt(Point point)
+        {
+            if (_workingPixels is null || _imageWidth <= 0 || _imageHeight <= 0)
+            {
+                return;
+            }
+
+            var x = Clamp((int)Math.Floor(point.X), 0, _imageWidth - 1);
+            var y = Clamp((int)Math.Floor(point.Y), 0, _imageHeight - 1);
+            var offset = ((y * _imageWidth) + x) * 4;
+            var b = _workingPixels[offset];
+            var g = _workingPixels[offset + 1];
+            var r = _workingPixels[offset + 2];
+            _sampledColorHex = $"#{r:X2}{g:X2}{b:X2}";
+            _sampledColorRgb = $"rgb({r}, {g}, {b})";
+
+            ColorSwatchBorder.Background = new SolidColorBrush(ColorHelper.FromArgb(255, r, g, b));
+            ColorSampleHintText.Visibility = Visibility.Collapsed;
+            ColorHexValueText.Text = _sampledColorHex;
+            ColorRgbValueText.Text = _sampledColorRgb;
+            CopyColorHexButton.IsEnabled = true;
+            CopyColorRgbButton.IsEnabled = true;
+        }
+
+        private void CopyColorHexButton_Click(object sender, RoutedEventArgs e)
+        {
+            CopySampledColorToClipboard(_sampledColorHex);
+        }
+
+        private void CopyColorRgbButton_Click(object sender, RoutedEventArgs e)
+        {
+            CopySampledColorToClipboard(_sampledColorRgb);
+        }
+
+        private static void CopySampledColorToClipboard(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return;
+            }
+
+            var package = new DataPackage();
+            package.SetText(value);
+            Clipboard.SetContent(package);
+            Clipboard.Flush();
+            InAppToastService.Show($"Copied {value}");
         }
 
         private static string GetSelectedColorHex(ComboBox comboBox, string fallback)

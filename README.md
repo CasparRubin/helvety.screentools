@@ -18,7 +18,7 @@ The app can be **packaged and deployed** (MSIX or unpackaged). Behavior and defa
 - **General** home page (titled **Helvety Screen Tools**): after each **screenshot** is saved to the configured folder, the coordinator notifies this page so the gallery **reloads** (same as navigating back to home). Other saves (for example from the editor) rely on the folder watcher and debounced rescan like any file change. For **`.png`** files thumbnails use a **scaled decode from disk** (about max width 520px), then a generic file decode, then the **shell thumbnail** provider. A **debounced** `FileSystemWatcher` still runs a full folder rescan so ordering and metadata stay correct. **Listing files** for a refresh runs on a **background thread** before the gallery lock; applying updates to the grid stays **serialized**. Images are grouped into date sections (**Today**, **Yesterday**, **Last Week**, **Older**). Thumbnails attach to the **visible row by file path**. In-flight thumbnail work is **not** cancelled on every refresh (only when leaving the page). The images header sits above the card and reminds you that **left-click** opens the image in the editor and **right-click** copies the image to the clipboard.
 - Home gallery lists **PNG** captures from the save folder only (screenshot saves are PNG; other extensions in the folder are ignored)
 - File metadata shown as European date/time format (`dd.MM.yyyy HH:mm`) plus relative age (`... ago`)
-- Built-in **PNG** image editor in a **separate window** from the home gallery (one window per file path); tools: **Canvas**, Text, Border, Blur, Highlight, Arrow, Magnifier, Crop (Crop is last in the toolbar)
+- Built-in **PNG** image editor in a **separate window** from the home gallery (one window per file path); tools: **Canvas**, Text, Border, Blur, Highlight, Arrow, Magnifier, Crop, Color (Color is last in the toolbar)
 - Single-row editor settings strip with horizontal overflow handling; settings switch to the active tool, or to the selected layer's settings while **Canvas** is active. Toolbar defaults (colors, thickness, toggles, etc.) are **persisted quietly** so the main window and gallery are not refreshed on every change (keeps the editor window in focus)
 - **Canvas** tool: select, move, and resize layers (resize handles on the selection). When no layer-specific panel applies, the **Size** card controls viewport zoom (slider, +/-, **Reset** to fit the image to the editor width; zoom is per session, not saved in settings)
 - Layer list with drag-and-drop reordering (top item is rendered in front). **Delete** or **Backspace** removes the selected layer (from the canvas or layer list) or clears an active crop region; while the inline text editor is focused, those keys edit text instead
@@ -27,6 +27,7 @@ The app can be **packaged and deployed** (MSIX or unpackaged). Behavior and defa
 - Saved edits are intentionally non-reeditable: reopening a saved image starts from the bitmap result, and new annotations can be added in a fresh edit session
 - Arrow tool: **Tapered** or **Straight** forms with optional border and shadow. New arrows are straight; a selected arrow has a **middle handle** you can drag to bow the shaft. While drawing, only the arrow preview on the overlay updates (existing layers are not rebuilt on every pointer move)
 - **Magnifier** tool: drag a circle or rectangle source region; a larger loupe is placed nearby with nearest-neighbor upscaled pixels and a tapered connector from source to loupe. Source and loupe move independently; sizes stay linked by zoom
+- **Color** tool: click a pixel to sample **hex** (`#RRGGBB`) and **RGB**; copy either to the clipboard. Stays selected so you can keep sampling. Reads the composed image (screenshot plus baked blur/highlight), not vector overlays.
 - **Text** tool: **click** to place a resizable text box (default ~380×100 px) or **drag** to size first; while typing, drag the frame border to move or use corner/edge handles to resize (full edge strips, not just corners); **bold** and **italic** styling; re-edit via toolbar controls or **double-click** an existing text layer
 - Blur settings include Radius, Corner Radius, Feather, and Invert; Highlight includes Dim, Corner Radius, and Invert (inside/outside targeting)
 - **Blur** and **Highlight** bake into the base image through **`EditorComposePipeline`** (Win2D **GPU** per-region ROI when available, **CPU** fallback otherwise). GPU blur normalizes each ROI to image coordinates before masking so the blurred area matches the selection. If GPU compositing fails, the editor uses CPU for the **rest of that editor session** and may show a one-time warning toast; **`GpuEffectsEnabled`** is stored only when you change and save toolbar defaults (a GPU failure alone does not turn GPU off for future sessions unless you save settings afterward)
@@ -129,11 +130,11 @@ A [GitHub Actions workflow](.github/workflows/release.yml) automates builds and 
 3. Tag and push:
 
 ```bash
-git tag v2.3.0.0
-git push origin v2.3.0.0
+git tag v2.4.0.0
+git push origin v2.4.0.0
 ```
 
-Use a tag that matches the four-part `ApplicationVersion` in `helvety.screentools.csproj` (for example `v2.3.0.0`). **About** shows the full four-part version when installed (MSIX) or unpackaged.
+Use a tag that matches the four-part `ApplicationVersion` in `helvety.screentools.csproj` (for example `v2.4.0.0`). **About** shows the full four-part version when installed (MSIX) or unpackaged.
 
 The workflow builds self-contained portable ZIPs for **x64** and **arm64** (`helvety-screentools-v<tag>-win-x64.zip` and `helvety-screentools-v<tag>-win-arm64.zip`), then creates a GitHub Release with auto-generated release notes and the ZIPs attached. No certificate or MSIX signing is needed for the portable distribution.
 

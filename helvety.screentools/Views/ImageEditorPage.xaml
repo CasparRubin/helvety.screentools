@@ -621,6 +621,80 @@
                                 </StackPanel>
                             </Border>
                         </ItemsControl>
+
+                        <ItemsControl
+                            x:Name="ColorToolSettingsPanel"
+                            Style="{StaticResource ToolSettingsItemsControlStyle}"
+                            Visibility="Collapsed">
+                            <Border Style="{StaticResource ToolSettingItemBorderStyle}">
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Style="{StaticResource AppToolSettingCardTitleTextStyle}" Text="Color" />
+                                    <StackPanel
+                                        Orientation="Horizontal"
+                                        Spacing="{StaticResource AppSpacingStack}"
+                                        VerticalAlignment="Center">
+                                        <Border
+                                            x:Name="ColorSwatchBorder"
+                                            Width="34"
+                                            Height="34"
+                                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="{StaticResource AppCornerRadiusControl}"
+                                            Background="{ThemeResource SubtleFillColorSecondaryBrush}" />
+                                        <TextBlock
+                                            x:Name="ColorSampleHintText"
+                                            VerticalAlignment="Center"
+                                            Text="Click a pixel to sample." />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource ToolSettingItemBorderStyle}">
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Style="{StaticResource AppToolSettingCardTitleTextStyle}" Text="Hex" />
+                                    <StackPanel
+                                        Orientation="Horizontal"
+                                        Spacing="{StaticResource AppSpacingStack}"
+                                        VerticalAlignment="Center">
+                                        <TextBlock
+                                            x:Name="ColorHexValueText"
+                                            MinWidth="88"
+                                            VerticalAlignment="Center"
+                                            FontFamily="Consolas"
+                                            Text="—" />
+                                        <Button
+                                            x:Name="CopyColorHexButton"
+                                            Height="34"
+                                            Click="CopyColorHexButton_Click"
+                                            Content="Copy"
+                                            IsEnabled="False"
+                                            ToolTipService.ToolTip="Copy hex" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource ToolSettingItemBorderStyle}">
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Style="{StaticResource AppToolSettingCardTitleTextStyle}" Text="RGB" />
+                                    <StackPanel
+                                        Orientation="Horizontal"
+                                        Spacing="{StaticResource AppSpacingStack}"
+                                        VerticalAlignment="Center">
+                                        <TextBlock
+                                            x:Name="ColorRgbValueText"
+                                            MinWidth="140"
+                                            VerticalAlignment="Center"
+                                            FontFamily="Consolas"
+                                            Text="—" />
+                                        <Button
+                                            x:Name="CopyColorRgbButton"
+                                            Height="34"
+                                            Click="CopyColorRgbButton_Click"
+                                            Content="Copy"
+                                            IsEnabled="False"
+                                            ToolTipService.ToolTip="Copy RGB" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                        </ItemsControl>
                     </Grid>
                 </ScrollViewer>
             </Border>
@@ -642,9 +716,24 @@
                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                 BorderThickness="1"
                 CornerRadius="{StaticResource AppCornerRadiusToolbarChrome}">
-                <StackPanel Spacing="{StaticResource AppSpacingStack}">
-                    <TextBlock Style="{StaticResource SettingsSubsectionTitleTextStyle}" Text="Tools" />
-                    <StackPanel Spacing="{StaticResource AppSpacingStack}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <TextBlock
+                        Grid.Row="0"
+                        Margin="0,0,0,8"
+                        Style="{StaticResource SettingsSubsectionTitleTextStyle}"
+                        Text="Tools" />
+                    <ScrollViewer
+                        Grid.Row="1"
+                        HorizontalScrollBarVisibility="Disabled"
+                        HorizontalScrollMode="Disabled"
+                        VerticalScrollBarVisibility="Auto"
+                        VerticalScrollMode="Enabled"
+                        ZoomMode="Disabled">
+                        <StackPanel Spacing="{StaticResource AppSpacingStack}">
                         <Button
                             x:Name="CanvasToolButton"
                             Width="124"
@@ -783,8 +872,21 @@
                                 <TextBlock Style="{StaticResource AppEditorToolLabelTextStyle}" Text="Crop" />
                             </StackPanel>
                         </Button>
-                    </StackPanel>
-                </StackPanel>
+
+                        <Button
+                            x:Name="ColorToolButton"
+                            Width="124"
+                            Height="64"
+                            Tag="Color"
+                            Click="ToolButton_Click">
+                            <StackPanel Spacing="{StaticResource AppSpacingTight}" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <FontIcon Glyph="&#xEF3C;" />
+                                <TextBlock Style="{StaticResource AppEditorToolLabelTextStyle}" Text="Color" />
+                            </StackPanel>
+                        </Button>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
             </Border>
 
             <Border
