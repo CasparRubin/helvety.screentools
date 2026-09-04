@@ -49,6 +49,11 @@ namespace helvety.screentools
         int HighlightDimPercent,
         bool HighlightInvertMode,
         int RegionCornerRadius,
+        /// <summary>Magnifier shape name: "Circle" or "Rectangle".</summary>
+        string MagnifierShape,
+        /// <summary>Magnifier zoom factor (loupe size / source size).</summary>
+        double MagnifierZoom,
+        bool MagnifierShadowEnabled,
         /// <summary>When enabled, skips shadows and similar vector effects during drag, resize, and arrow preview; blur and highlight still recompose after pointer release.</summary>
         bool PerformanceModeEnabled,
         /// <summary>Prefer Win2D for blur/highlight; the editor may clear this for the session after GPU failure (and persist it when toolbar defaults save).</summary>

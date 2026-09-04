@@ -48,6 +48,9 @@ namespace helvety.screentools
         private const int DefaultEditorHighlightDimPercent = 35;
         private const bool DefaultEditorHighlightInvertMode = false;
         private const int DefaultEditorRegionCornerRadius = 8;
+        private const string DefaultEditorMagnifierShape = "Circle";
+        private const double DefaultEditorMagnifierZoom = 2.0;
+        private const bool DefaultEditorMagnifierShadowEnabled = true;
         private const bool DefaultEditorPerformanceModeEnabled = false;
         private const bool DefaultEditorGpuEffectsEnabled = true;
         private const bool DefaultCaptureHotkeyEnabled = true;
@@ -115,6 +118,9 @@ namespace helvety.screentools
         private const string EditorHighlightDimPercentKey = "EditorHighlightDimPercent";
         private const string EditorHighlightInvertModeKey = "EditorHighlightInvertMode";
         private const string EditorRegionCornerRadiusKey = "EditorRegionCornerRadius";
+        private const string EditorMagnifierShapeKey = "EditorMagnifierShape";
+        private const string EditorMagnifierZoomKey = "EditorMagnifierZoom";
+        private const string EditorMagnifierShadowEnabledKey = "EditorMagnifierShadowEnabled";
         private const string EditorPerformanceModeEnabledKey = "EditorPerformanceModeEnabled";
         private const string EditorGpuEffectsEnabledKey = "EditorGpuEffectsEnabled";
         private static readonly string[] ManagedSettingKeys =
@@ -171,6 +177,9 @@ namespace helvety.screentools
             EditorHighlightDimPercentKey,
             EditorHighlightInvertModeKey,
             EditorRegionCornerRadiusKey,
+            EditorMagnifierShapeKey,
+            EditorMagnifierZoomKey,
+            EditorMagnifierShadowEnabledKey,
             EditorPerformanceModeEnabledKey,
             EditorGpuEffectsEnabledKey
         };
@@ -369,6 +378,9 @@ namespace helvety.screentools
                 ReadInt(values, EditorHighlightDimPercentKey, DefaultEditorHighlightDimPercent, 0, 80),
                 ReadBool(values, EditorHighlightInvertModeKey, DefaultEditorHighlightInvertMode),
                 ReadInt(values, EditorRegionCornerRadiusKey, DefaultEditorRegionCornerRadius, 0, 24),
+                NormalizeMagnifierShape(ReadString(values, EditorMagnifierShapeKey, DefaultEditorMagnifierShape)),
+                ReadDouble(values, EditorMagnifierZoomKey, DefaultEditorMagnifierZoom, 1.5, 4.0),
+                ReadBool(values, EditorMagnifierShadowEnabledKey, DefaultEditorMagnifierShadowEnabled),
                 ReadBool(values, EditorPerformanceModeEnabledKey, DefaultEditorPerformanceModeEnabled),
                 ReadBool(values, EditorGpuEffectsEnabledKey, DefaultEditorGpuEffectsEnabled));
         }
@@ -432,6 +444,9 @@ namespace helvety.screentools
             values[EditorHighlightDimPercentKey] = Math.Clamp(settings.HighlightDimPercent, 0, 80);
             values[EditorHighlightInvertModeKey] = settings.HighlightInvertMode;
             values[EditorRegionCornerRadiusKey] = Math.Clamp(settings.RegionCornerRadius, 0, 24);
+            values[EditorMagnifierShapeKey] = NormalizeMagnifierShape(settings.MagnifierShape);
+            values[EditorMagnifierZoomKey] = Math.Clamp(settings.MagnifierZoom, 1.5, 4.0);
+            values[EditorMagnifierShadowEnabledKey] = settings.MagnifierShadowEnabled;
             values[EditorPerformanceModeEnabledKey] = settings.PerformanceModeEnabled;
             values[EditorGpuEffectsEnabledKey] = settings.GpuEffectsEnabled;
             if (notifyAppSettingsChanged)
@@ -1090,6 +1105,9 @@ namespace helvety.screentools
             values[EditorHighlightDimPercentKey] = DefaultEditorHighlightDimPercent;
             values[EditorHighlightInvertModeKey] = DefaultEditorHighlightInvertMode;
             values[EditorRegionCornerRadiusKey] = DefaultEditorRegionCornerRadius;
+            values[EditorMagnifierShapeKey] = DefaultEditorMagnifierShape;
+            values[EditorMagnifierZoomKey] = DefaultEditorMagnifierZoom;
+            values[EditorMagnifierShadowEnabledKey] = DefaultEditorMagnifierShadowEnabled;
             values[EditorPerformanceModeEnabledKey] = DefaultEditorPerformanceModeEnabled;
             values[EditorGpuEffectsEnabledKey] = DefaultEditorGpuEffectsEnabled;
         }
@@ -1193,6 +1211,29 @@ namespace helvety.screentools
                 : defaultValue;
         }
 
+        private static double ReadDouble(IPropertySet values, string key, double defaultValue, double minValue, double maxValue)
+        {
+            if (values.TryGetValue(key, out var value))
+            {
+                if (value is double asDouble)
+                {
+                    return Math.Clamp(asDouble, minValue, maxValue);
+                }
+
+                if (value is float asFloat)
+                {
+                    return Math.Clamp(asFloat, minValue, maxValue);
+                }
+
+                if (value is int asInt)
+                {
+                    return Math.Clamp(asInt, minValue, maxValue);
+                }
+            }
+
+            return defaultValue;
+        }
+
         private static bool ReadBool(IPropertySet values, string key, bool defaultValue)
         {
             return values.TryGetValue(key, out var value) && value is bool parsed
@@ -1207,6 +1248,13 @@ namespace helvety.screentools
                    !string.IsNullOrWhiteSpace(parsed)
                 ? parsed
                 : defaultValue;
+        }
+
+        private static string NormalizeMagnifierShape(string? shape)
+        {
+            return string.Equals(shape, "Rectangle", StringComparison.OrdinalIgnoreCase)
+                ? "Rectangle"
+                : "Circle";
         }
 
         private static void WriteSetting(string key, object value)

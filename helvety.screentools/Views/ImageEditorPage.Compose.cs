@@ -192,6 +192,8 @@ namespace helvety.screentools.Views
                 return;
             }
 
+            RefreshMagnifierLoupeContents();
+
             var suppressExpensiveEffects = ShouldSuppressExpensiveEffects();
             _vectorCanvasHost.Sync(
                 _document.Layers,
@@ -201,6 +203,26 @@ namespace helvety.screentools.Views
             _forceVectorFullRebuild = false;
 
             RebuildOverlayAdorners(includeAdorners, suppressExpensiveEffects);
+        }
+
+        private void RefreshMagnifierLoupeContents()
+        {
+            if (_document is null || _workingPixels is null || _imageWidth <= 0 || _imageHeight <= 0)
+            {
+                return;
+            }
+
+            foreach (var layer in _document.Layers)
+            {
+                if (layer is MagnifierLayer magnifierLayer && magnifierLayer.IsVisible)
+                {
+                    MagnifierContentBuilder.UpdateLoupePixels(
+                        magnifierLayer,
+                        _workingPixels,
+                        _imageWidth,
+                        _imageHeight);
+                }
+            }
         }
 
         private void RebuildArrowPreviewOnly(bool includeAdorners)
@@ -228,30 +250,37 @@ namespace helvety.screentools.Views
 
                 if (selected is not null)
                 {
-                    var bounds = selected.GetBounds();
-                    var selectedCornerRadius = GetEffectiveCornerRadius(bounds, GetLayerCornerRadius(selected));
-                    var selectedRect = new Microsoft.UI.Xaml.Shapes.Rectangle
+                    if (selected is MagnifierLayer magnifierLayer)
                     {
-                        Width = bounds.Width,
-                        Height = bounds.Height,
-                        Stroke = EditorXamlResourceCache.GetBrush(DefaultPrimaryColor),
-                        StrokeThickness = 2,
-                        StrokeDashArray = EditorXamlResourceCache.CreateSelectionStrokeDash(),
-                        Fill = EditorXamlResourceCache.SelectionFill,
-                        RadiusX = selectedCornerRadius,
-                        RadiusY = selectedCornerRadius
-                    };
-                    Canvas.SetLeft(selectedRect, bounds.X);
-                    Canvas.SetTop(selectedRect, bounds.Y);
-                    OverlayCanvas.Children.Add(selectedRect);
-
-                    if (selected is BorderLayer or BlurLayer or TextLayer or HighlightLayer)
-                    {
-                        DrawResizeHandles(bounds);
+                        DrawMagnifierSelectionAdorners(magnifierLayer);
                     }
-                    else if (selected is ArrowLayer arrowLayer)
+                    else
                     {
-                        DrawArrowEndpointHandles(arrowLayer);
+                        var bounds = selected.GetBounds();
+                        var selectedCornerRadius = GetEffectiveCornerRadius(bounds, GetLayerCornerRadius(selected));
+                        var selectedRect = new Microsoft.UI.Xaml.Shapes.Rectangle
+                        {
+                            Width = bounds.Width,
+                            Height = bounds.Height,
+                            Stroke = EditorXamlResourceCache.GetBrush(DefaultPrimaryColor),
+                            StrokeThickness = 2,
+                            StrokeDashArray = EditorXamlResourceCache.CreateSelectionStrokeDash(),
+                            Fill = EditorXamlResourceCache.SelectionFill,
+                            RadiusX = selectedCornerRadius,
+                            RadiusY = selectedCornerRadius
+                        };
+                        Canvas.SetLeft(selectedRect, bounds.X);
+                        Canvas.SetTop(selectedRect, bounds.Y);
+                        OverlayCanvas.Children.Add(selectedRect);
+
+                        if (selected is BorderLayer or BlurLayer or TextLayer or HighlightLayer)
+                        {
+                            DrawResizeHandles(bounds);
+                        }
+                        else if (selected is ArrowLayer arrowLayer)
+                        {
+                            DrawArrowEndpointHandles(arrowLayer);
+                        }
                     }
                 }
             }
@@ -344,6 +373,49 @@ namespace helvety.screentools.Views
             OverlayCanvas.Children.Add(frame);
             EnsureInlineTextEditorOnOverlay();
             DrawResizeHandles(region);
+        }
+
+        private void DrawMagnifierSelectionAdorners(MagnifierLayer magnifierLayer)
+        {
+            DrawMagnifierPartOutline(magnifierLayer.SourceRegion, magnifierLayer.Shape);
+            DrawMagnifierPartOutline(magnifierLayer.LoupeRegion, magnifierLayer.Shape);
+            DrawResizeHandles(magnifierLayer.SourceRegion);
+            DrawResizeHandles(magnifierLayer.LoupeRegion);
+        }
+
+        private void DrawMagnifierPartOutline(EditorRect region, MagnifierShape shape)
+        {
+            if (shape == MagnifierShape.Circle)
+            {
+                var ellipse = new Microsoft.UI.Xaml.Shapes.Ellipse
+                {
+                    Width = region.Width,
+                    Height = region.Height,
+                    Stroke = EditorXamlResourceCache.GetBrush(DefaultPrimaryColor),
+                    StrokeThickness = 2,
+                    StrokeDashArray = EditorXamlResourceCache.CreateSelectionStrokeDash(),
+                    Fill = EditorXamlResourceCache.SelectionFill,
+                    IsHitTestVisible = false
+                };
+                Canvas.SetLeft(ellipse, region.X);
+                Canvas.SetTop(ellipse, region.Y);
+                OverlayCanvas.Children.Add(ellipse);
+                return;
+            }
+
+            var rect = new Microsoft.UI.Xaml.Shapes.Rectangle
+            {
+                Width = region.Width,
+                Height = region.Height,
+                Stroke = EditorXamlResourceCache.GetBrush(DefaultPrimaryColor),
+                StrokeThickness = 2,
+                StrokeDashArray = EditorXamlResourceCache.CreateSelectionStrokeDash(),
+                Fill = EditorXamlResourceCache.SelectionFill,
+                IsHitTestVisible = false
+            };
+            Canvas.SetLeft(rect, region.X);
+            Canvas.SetTop(rect, region.Y);
+            OverlayCanvas.Children.Add(rect);
         }
 
         private void DrawArrowPreview(bool suppressExpensiveEffects)

@@ -148,7 +148,7 @@ namespace helvety.screentools.Editor
 
         private static bool IsVectorLayer(EditorLayer layer)
         {
-            return layer is TextLayer or BorderLayer or ArrowLayer;
+            return layer is TextLayer or BorderLayer or ArrowLayer or MagnifierLayer;
         }
 
         private sealed record LayerSlot(long RenderKey, IReadOnlyList<UIElement> Elements);
@@ -206,6 +206,24 @@ namespace helvety.screentools.Editor
                         hash.Add(arrow.ShadowColorHex);
                         hash.Add(arrow.ShadowOffset);
                         hash.Add((int)arrow.FormStyle);
+                        break;
+                    case MagnifierLayer magnifier:
+                        hash.Add(magnifier.SourceRegion.X);
+                        hash.Add(magnifier.SourceRegion.Y);
+                        hash.Add(magnifier.SourceRegion.Width);
+                        hash.Add(magnifier.SourceRegion.Height);
+                        hash.Add(magnifier.LoupeRegion.X);
+                        hash.Add(magnifier.LoupeRegion.Y);
+                        hash.Add(magnifier.LoupeRegion.Width);
+                        hash.Add(magnifier.LoupeRegion.Height);
+                        hash.Add((int)magnifier.Shape);
+                        hash.Add(magnifier.Zoom);
+                        hash.Add(magnifier.Thickness);
+                        hash.Add(magnifier.ColorHex);
+                        hash.Add(magnifier.HasShadow);
+                        hash.Add(magnifier.ShadowColorHex);
+                        hash.Add(magnifier.ShadowOffset);
+                        hash.Add(magnifier.ContentGeneration);
                         break;
                 }
 

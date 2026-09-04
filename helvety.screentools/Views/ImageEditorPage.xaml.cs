@@ -138,6 +138,12 @@ namespace helvety.screentools.Views
         private double _resizeStartTextFontSize;
         private Point _resizeStartArrowStart;
         private Point _resizeStartArrowEnd;
+        private MagnifierPart _magnifierDragPart = MagnifierPart.None;
+        private MagnifierPart _magnifierResizePart = MagnifierPart.None;
+        private EditorRect _resizeStartMagnifierSource;
+        private EditorRect _resizeStartMagnifierLoupe;
+        private EditorRect? _dragMagnifierStartSource;
+        private EditorRect? _dragMagnifierStartLoupe;
         private EditorToolType _settingsTool = EditorToolType.Canvas;
         private int _highlightDimPercent = 35;
         private bool _blurInvertMode;
@@ -495,6 +501,7 @@ namespace helvety.screentools.Views
             BlurToolSettingsPanel.Visibility = _settingsTool == EditorToolType.Blur ? Visibility.Visible : Visibility.Collapsed;
             HighlightToolSettingsPanel.Visibility = _settingsTool == EditorToolType.Highlight ? Visibility.Visible : Visibility.Collapsed;
             ArrowToolSettingsPanel.Visibility = _settingsTool == EditorToolType.Arrow ? Visibility.Visible : Visibility.Collapsed;
+            MagnifierToolSettingsPanel.Visibility = _settingsTool == EditorToolType.Magnifier ? Visibility.Visible : Visibility.Collapsed;
             CropToolSettingsPanel.Visibility = _settingsTool == EditorToolType.Crop ? Visibility.Visible : Visibility.Collapsed;
             UpdateExportButtonLabels();
             UpdateArrowShadowToggleState(forceOffWhenUnsupported: true);
@@ -531,6 +538,7 @@ namespace helvety.screentools.Views
                 EditorLayerType.Blur => EditorToolType.Blur,
                 EditorLayerType.Arrow => EditorToolType.Arrow,
                 EditorLayerType.Highlight => EditorToolType.Highlight,
+                EditorLayerType.Magnifier => EditorToolType.Magnifier,
                 _ => EditorToolType.Canvas
             };
         }
@@ -575,6 +583,7 @@ namespace helvety.screentools.Views
             BlurToolButton.Background = CreateToolButtonBackground(highlightedTool == EditorToolType.Blur);
             HighlightToolButton.Background = CreateToolButtonBackground(highlightedTool == EditorToolType.Highlight);
             ArrowToolButton.Background = CreateToolButtonBackground(highlightedTool == EditorToolType.Arrow);
+            MagnifierToolButton.Background = CreateToolButtonBackground(highlightedTool == EditorToolType.Magnifier);
             CropToolButton.Background = CreateToolButtonBackground(highlightedTool == EditorToolType.Crop);
         }
 
@@ -586,6 +595,7 @@ namespace helvety.screentools.Views
             BlurToolButton.IsEnabled = isEnabled;
             HighlightToolButton.IsEnabled = isEnabled;
             ArrowToolButton.IsEnabled = isEnabled;
+            MagnifierToolButton.IsEnabled = isEnabled;
             CropToolButton.IsEnabled = isEnabled;
         }
 
@@ -724,6 +734,20 @@ namespace helvety.screentools.Views
                         _dragLayer = selectedLayer;
                         _dragLayerStartBounds = selectedLayer.GetBounds();
                         _lastPointerPoint = point;
+                        _magnifierDragPart = MagnifierPart.None;
+                        _dragMagnifierStartSource = null;
+                        _dragMagnifierStartLoupe = null;
+                        if (selectedLayer is MagnifierLayer magnifierLayer)
+                        {
+                            _magnifierDragPart = magnifierLayer.HitTestPart(point.X, point.Y);
+                            if (_magnifierDragPart == MagnifierPart.None)
+                            {
+                                _magnifierDragPart = MagnifierPart.Loupe;
+                            }
+
+                            _dragMagnifierStartSource = magnifierLayer.SourceRegion;
+                            _dragMagnifierStartLoupe = magnifierLayer.LoupeRegion;
+                        }
                     }
                 }
                 else if (!hasSelectedLayer && TrySelectCropAt(point))
@@ -905,6 +929,20 @@ namespace helvety.screentools.Views
                             break;
                         }
 
+                    case MagnifierLayer:
+                        {
+                            var current = MagnifierZoomSlider.Value;
+                            var next = MagnifierLayer.ClampZoom(Math.Round((current + (step * 0.1)) * 10) / 10.0);
+                            if (Math.Abs(next - current) < 0.001)
+                            {
+                                return true;
+                            }
+
+                            MagnifierZoomSlider.Value = next;
+                            valueChanged = true;
+                            break;
+                        }
+
                     default:
                         return false;
                 }
@@ -998,7 +1036,22 @@ namespace helvety.screentools.Views
                         var currentPoint = e.GetCurrentPoint(OverlayCanvas).Position;
                         var dx = currentPoint.X - _lastPointerPoint.X;
                         var dy = currentPoint.Y - _lastPointerPoint.Y;
-                        _dragLayer!.MoveBy(dx, dy, _imageWidth, _imageHeight);
+                        if (_dragLayer is MagnifierLayer magnifierLayer && _magnifierDragPart != MagnifierPart.None)
+                        {
+                            if (_magnifierDragPart == MagnifierPart.Source)
+                            {
+                                magnifierLayer.MoveSourceBy(dx, dy, _imageWidth, _imageHeight);
+                            }
+                            else
+                            {
+                                magnifierLayer.MoveLoupeBy(dx, dy, _imageWidth, _imageHeight);
+                            }
+                        }
+                        else
+                        {
+                            _dragLayer!.MoveBy(dx, dy, _imageWidth, _imageHeight);
+                        }
+
                         _lastPointerPoint = currentPoint;
                         if (plan.DeferPixelRecompose)
                         {
@@ -1058,6 +1111,7 @@ namespace helvety.screentools.Views
                 _resizeLayerId = null;
                 _resizeTargetIsCrop = false;
                 _resizeStartTextFontSize = 0;
+                _magnifierResizePart = MagnifierPart.None;
                 var wasInlineTextResize = _resizeInlineTextRegion;
                 _resizeInlineTextRegion = false;
                 var recomposePixels = _deferPixelRecomposeUntilPointerRelease;
@@ -1095,6 +1149,9 @@ namespace helvety.screentools.Views
                 _deferVectorRecomposeUntilPointerRelease = false;
                 _dragLayer = null;
                 _dragLayerStartBounds = null;
+                _magnifierDragPart = MagnifierPart.None;
+                _dragMagnifierStartSource = null;
+                _dragMagnifierStartLoupe = null;
                 if (_activeInteractionPointerId.HasValue)
                 {
                     e.Handled = true;
@@ -1212,6 +1269,10 @@ namespace helvety.screentools.Views
             _isPreviewingArrow = false;
             _dragLayer = null;
             _dragLayerStartBounds = null;
+            _magnifierDragPart = MagnifierPart.None;
+            _magnifierResizePart = MagnifierPart.None;
+            _dragMagnifierStartSource = null;
+            _dragMagnifierStartLoupe = null;
             _deferPixelRecomposeUntilPointerRelease = false;
             _deferVectorRecomposeUntilPointerRelease = false;
             RemoveSelectionRectangle();
@@ -1249,12 +1310,21 @@ namespace helvety.screentools.Views
 
             if (_dragLayer is not null && _dragLayerStartBounds.HasValue)
             {
-                var currentBounds = _dragLayer.GetBounds();
-                _dragLayer.MoveBy(
-                    _dragLayerStartBounds.Value.X - currentBounds.X,
-                    _dragLayerStartBounds.Value.Y - currentBounds.Y,
-                    _imageWidth,
-                    _imageHeight);
+                if (_dragLayer is MagnifierLayer magnifierLayer &&
+                    _dragMagnifierStartSource.HasValue &&
+                    _dragMagnifierStartLoupe.HasValue)
+                {
+                    magnifierLayer.RestoreRegions(_dragMagnifierStartSource.Value, _dragMagnifierStartLoupe.Value);
+                }
+                else
+                {
+                    var currentBounds = _dragLayer.GetBounds();
+                    _dragLayer.MoveBy(
+                        _dragLayerStartBounds.Value.X - currentBounds.X,
+                        _dragLayerStartBounds.Value.Y - currentBounds.Y,
+                        _imageWidth,
+                        _imageHeight);
+                }
             }
         }
 
@@ -1298,6 +1368,9 @@ namespace helvety.screentools.Views
                     textLayer.Y = _resizeStartBounds.Y;
                     textLayer.UpdateWrapWidth(_resizeStartBounds.Width);
                     textLayer.FontSize = _resizeStartTextFontSize;
+                    break;
+                case MagnifierLayer magnifierLayer:
+                    magnifierLayer.RestoreRegions(_resizeStartMagnifierSource, _resizeStartMagnifierLoupe);
                     break;
             }
         }
@@ -1347,6 +1420,10 @@ namespace helvety.screentools.Views
                     return;
                 case EditorToolType.Highlight:
                     AddHighlightLayer(region);
+                    await FinalizeRegionPlacementAsync(clearCropSelection: true);
+                    return;
+                case EditorToolType.Magnifier:
+                    AddMagnifierLayer(region);
                     await FinalizeRegionPlacementAsync(clearCropSelection: true);
                     return;
                 case EditorToolType.Arrow:
@@ -1527,6 +1604,39 @@ namespace helvety.screentools.Views
             var layer = new HighlightLayer(region)
             {
                 CornerRadius = _regionCornerRadius
+            };
+            InsertNewLayer(layer);
+        }
+
+        private void AddMagnifierLayer(EditorRect region)
+        {
+            if (_document is null)
+            {
+                return;
+            }
+
+            var shape = GetSelectedMagnifierShape();
+            var source = shape == MagnifierShape.Circle
+                ? MagnifierLayer.NormalizeCircleRegion(region)
+                : region;
+            if (source.Width < MagnifierLayer.MinRegionSize || source.Height < MagnifierLayer.MinRegionSize)
+            {
+                return;
+            }
+
+            var zoom = MagnifierLayer.ClampZoom(MagnifierZoomSlider.Value);
+            var loupe = MagnifierLayer.CreateLoupeRegionFromSource(source, zoom, _imageWidth, _imageHeight);
+            var layer = new MagnifierLayer(
+                source,
+                loupe,
+                shape,
+                zoom,
+                Clamp((int)Math.Round(MagnifierThicknessNumberBox.Value), 1, MaxPrimaryThickness),
+                GetSelectedColorHex(MagnifierColorComboBox, DefaultPrimaryColor))
+            {
+                HasShadow = MagnifierShadowToggle.IsOn,
+                ShadowColorHex = DefaultSharedShadowColor,
+                ShadowOffset = DefaultSharedShadowOffset
             };
             InsertNewLayer(layer);
         }
@@ -1970,9 +2080,16 @@ namespace helvety.screentools.Views
             }
 
             var region = BuildRegion(_dragStartPoint, currentPoint);
+            if (_activeTool == EditorToolType.Magnifier && GetSelectedMagnifierShape() == MagnifierShape.Circle)
+            {
+                region = MagnifierLayer.NormalizeCircleRegion(region);
+            }
+
             _selectionRectangle.Width = Math.Max(1, region.Width);
             _selectionRectangle.Height = Math.Max(1, region.Height);
-            var selectionCornerRadius = GetEffectiveCornerRadius(region, _regionCornerRadius);
+            var selectionCornerRadius = _activeTool == EditorToolType.Magnifier && GetSelectedMagnifierShape() == MagnifierShape.Circle
+                ? Math.Min(region.Width, region.Height) / 2.0
+                : GetEffectiveCornerRadius(region, _regionCornerRadius);
             _selectionRectangle.RadiusX = selectionCornerRadius;
             _selectionRectangle.RadiusY = selectionCornerRadius;
             Canvas.SetLeft(_selectionRectangle, region.X);
@@ -2060,7 +2177,37 @@ namespace helvety.screentools.Views
                     _resizeStartArrowEnd = new Point(arrowLayer.EndX, arrowLayer.EndY);
                     _resizeLayerId = arrowLayer.Id;
                     _resizeTargetIsCrop = false;
+                    _magnifierResizePart = MagnifierPart.None;
                     _dragLayer = null;
+                    return true;
+                }
+            }
+
+            if (_document is not null &&
+                _selectedLayerId.HasValue &&
+                TryGetLayerById(_selectedLayerId.Value) is MagnifierLayer magnifierLayer)
+            {
+                var loupeHandle = GetResizeHandleAt(point, magnifierLayer.LoupeRegion);
+                if (loupeHandle != ResizeHandle.None)
+                {
+                    if (!TryCaptureInteractionPointer(e))
+                    {
+                        return false;
+                    }
+
+                    BeginMagnifierResize(magnifierLayer, MagnifierPart.Loupe, loupeHandle);
+                    return true;
+                }
+
+                var sourceHandle = GetResizeHandleAt(point, magnifierLayer.SourceRegion);
+                if (sourceHandle != ResizeHandle.None)
+                {
+                    if (!TryCaptureInteractionPointer(e))
+                    {
+                        return false;
+                    }
+
+                    BeginMagnifierResize(magnifierLayer, MagnifierPart.Source, sourceHandle);
                     return true;
                 }
             }
@@ -2087,6 +2234,7 @@ namespace helvety.screentools.Views
             _resizeLayerId = layerId;
             _resizeTargetIsCrop = isCrop;
             _resizeStartTextFontSize = 0;
+            _magnifierResizePart = MagnifierPart.None;
             if (_document is not null && _resizeLayerId.HasValue)
             {
                 var layer = TryGetLayerById(_resizeLayerId.Value);
@@ -2099,11 +2247,33 @@ namespace helvety.screentools.Views
             return true;
         }
 
+        private void BeginMagnifierResize(MagnifierLayer magnifierLayer, MagnifierPart part, ResizeHandle handle)
+        {
+            _isResizingSelection = true;
+            _activeResizeHandle = handle;
+            _magnifierResizePart = part;
+            _resizeStartBounds = part == MagnifierPart.Source ? magnifierLayer.SourceRegion : magnifierLayer.LoupeRegion;
+            _resizeStartMagnifierSource = magnifierLayer.SourceRegion;
+            _resizeStartMagnifierLoupe = magnifierLayer.LoupeRegion;
+            _resizeLayerId = magnifierLayer.Id;
+            _resizeTargetIsCrop = false;
+            _resizeStartTextFontSize = 0;
+            _dragLayer = null;
+        }
+
         private void ApplyResize(Point point)
         {
             if (_activeResizeHandle is ResizeHandle.ArrowStart or ResizeHandle.ArrowEnd)
             {
                 ApplyArrowEndpointResize(point);
+                return;
+            }
+
+            if (_magnifierResizePart != MagnifierPart.None &&
+                _resizeLayerId.HasValue &&
+                TryGetLayerById(_resizeLayerId.Value) is MagnifierLayer magnifierLayer)
+            {
+                ApplyMagnifierResize(magnifierLayer, point);
                 return;
             }
 
@@ -2189,6 +2359,71 @@ namespace helvety.screentools.Views
                     var heightRatio = resized.Height / Math.Max(1.0, _resizeStartBounds.Height);
                     textLayer.FontSize = Math.Clamp(baseFontSize * heightRatio, 8, 180);
                     break;
+            }
+        }
+
+        private void ApplyMagnifierResize(MagnifierLayer magnifierLayer, Point point)
+        {
+            var left = _resizeStartBounds.X;
+            var top = _resizeStartBounds.Y;
+            var right = _resizeStartBounds.X + _resizeStartBounds.Width;
+            var bottom = _resizeStartBounds.Y + _resizeStartBounds.Height;
+            var pointX = Clamp((int)Math.Round(point.X), 0, _imageWidth);
+            var pointY = Clamp((int)Math.Round(point.Y), 0, _imageHeight);
+            var minSize = MagnifierLayer.MinRegionSize;
+
+            switch (_activeResizeHandle)
+            {
+                case ResizeHandle.NorthWest:
+                    left = Clamp(pointX, 0, right - minSize);
+                    top = Clamp(pointY, 0, bottom - minSize);
+                    break;
+                case ResizeHandle.North:
+                    top = Clamp(pointY, 0, bottom - minSize);
+                    break;
+                case ResizeHandle.NorthEast:
+                    right = Clamp(pointX, left + minSize, _imageWidth);
+                    top = Clamp(pointY, 0, bottom - minSize);
+                    break;
+                case ResizeHandle.East:
+                    right = Clamp(pointX, left + minSize, _imageWidth);
+                    break;
+                case ResizeHandle.SouthEast:
+                    right = Clamp(pointX, left + minSize, _imageWidth);
+                    bottom = Clamp(pointY, top + minSize, _imageHeight);
+                    break;
+                case ResizeHandle.South:
+                    bottom = Clamp(pointY, top + minSize, _imageHeight);
+                    break;
+                case ResizeHandle.SouthWest:
+                    left = Clamp(pointX, 0, right - minSize);
+                    bottom = Clamp(pointY, top + minSize, _imageHeight);
+                    break;
+                case ResizeHandle.West:
+                    left = Clamp(pointX, 0, right - minSize);
+                    break;
+                default:
+                    return;
+            }
+
+            var resized = new EditorRect(
+                left,
+                top,
+                Math.Max(minSize, right - left),
+                Math.Max(minSize, bottom - top));
+
+            if (magnifierLayer.Shape == MagnifierShape.Circle)
+            {
+                resized = MagnifierLayer.NormalizeCircleRegion(resized);
+            }
+
+            if (_magnifierResizePart == MagnifierPart.Source)
+            {
+                magnifierLayer.SetSourceRegionKeepingZoom(resized, _imageWidth, _imageHeight);
+            }
+            else
+            {
+                magnifierLayer.SetLoupeRegionKeepingZoom(resized, _imageWidth, _imageHeight);
             }
         }
 
@@ -2376,7 +2611,14 @@ namespace helvety.screentools.Views
             var width = (int)Math.Ceiling(Math.Abs(end.X - start.X));
             var height = (int)Math.Ceiling(Math.Abs(end.Y - start.Y));
             var region = new EditorRect(x, y, width, height);
-            return ClampRegion(region, _imageWidth, _imageHeight);
+            region = ClampRegion(region, _imageWidth, _imageHeight);
+            if (_activeTool == EditorToolType.Magnifier && GetSelectedMagnifierShape() == MagnifierShape.Circle)
+            {
+                region = MagnifierLayer.NormalizeCircleRegion(region);
+                region = ClampRegion(region, _imageWidth, _imageHeight);
+            }
+
+            return region;
         }
 
         private void ClearTextLayerDoubleClickState()
@@ -2688,6 +2930,11 @@ namespace helvety.screentools.Views
             await PickColorForComboBoxAsync(ArrowColorComboBox, DefaultPrimaryColor, "Pick arrow color");
         }
 
+        private async void PickMagnifierColorButton_Click(object sender, RoutedEventArgs e)
+        {
+            await PickColorForComboBoxAsync(MagnifierColorComboBox, DefaultPrimaryColor, "Pick magnifier color");
+        }
+
         private void ToolSettingSliderValueChanged(object sender, RangeBaseValueChangedEventArgs args)
         {
             if (_isSyncingToolSettings)
@@ -2844,6 +3091,13 @@ namespace helvety.screentools.Views
                         HighlightDimValueText.Text = $"{_highlightDimPercent}%";
                         HighlightInvertToggle.IsOn = _highlightInvertMode;
                         break;
+                    case MagnifierLayer magnifierLayer:
+                        SelectComboItemByTag(MagnifierShapeComboBox, magnifierLayer.Shape.ToString());
+                        MagnifierZoomSlider.Value = magnifierLayer.Zoom;
+                        MagnifierThicknessNumberBox.Value = magnifierLayer.Thickness;
+                        SetComboBoxSelectedColor(MagnifierColorComboBox, magnifierLayer.ColorHex);
+                        MagnifierShadowToggle.IsOn = magnifierLayer.HasShadow;
+                        break;
                 }
             }
             finally
@@ -2870,10 +3124,12 @@ namespace helvety.screentools.Views
                 SetComboBoxSelectedColor(TextColorComboBox, settings.PrimaryColorHex);
                 SetComboBoxSelectedColor(BorderColorComboBox, settings.PrimaryColorHex);
                 SetComboBoxSelectedColor(ArrowColorComboBox, settings.PrimaryColorHex);
+                SetComboBoxSelectedColor(MagnifierColorComboBox, settings.PrimaryColorHex);
 
                 TextBorderThicknessNumberBox.Value = Clamp(settings.TextBorderThickness, 1, MaxPrimaryThickness);
                 BorderThicknessNumberBox.Value = Clamp(settings.PrimaryThickness, 1, MaxPrimaryThickness);
                 ArrowThicknessNumberBox.Value = Clamp(settings.PrimaryThickness, 1, MaxPrimaryThickness);
+                MagnifierThicknessNumberBox.Value = Clamp(settings.PrimaryThickness, 1, MaxPrimaryThickness);
 
                 SelectComboItemByContent(TextFontComboBox, settings.TextFont);
                 TextSizeNumberBox.Value = Clamp(settings.TextSize, 8, 180);
@@ -2903,6 +3159,9 @@ namespace helvety.screentools.Views
 
                 _regionCornerRadius = Clamp(settings.RegionCornerRadius, 0, MaxRegionCornerRadius);
                 SetRegionCornerRadius(_regionCornerRadius);
+                SelectComboItemByTag(MagnifierShapeComboBox, settings.MagnifierShape);
+                MagnifierZoomSlider.Value = MagnifierLayer.ClampZoom(settings.MagnifierZoom);
+                MagnifierShadowToggle.IsOn = settings.MagnifierShadowEnabled;
                 _performanceModeEnabled = settings.PerformanceModeEnabled;
                 _gpuEffectsEnabled = settings.GpuEffectsEnabled;
             }
@@ -2943,6 +3202,9 @@ namespace helvety.screentools.Views
                 Clamp(_highlightDimPercent, 0, MaxHighlightDimPercent),
                 _highlightInvertMode,
                 Clamp(_regionCornerRadius, 0, MaxRegionCornerRadius),
+                GetSelectedMagnifierShape().ToString(),
+                MagnifierLayer.ClampZoom(MagnifierZoomSlider.Value),
+                MagnifierShadowToggle.IsOn,
                 _performanceModeEnabled,
                 _gpuEffectsEnabled);
 
@@ -3011,6 +3273,8 @@ namespace helvety.screentools.Views
             BlurFeatherValueText.Text = $"{Clamp((int)Math.Round(BlurFeatherSlider.Value), 0, 40)} px";
             HighlightCornerRadiusValueText.Text = $"{Clamp((int)Math.Round(HighlightCornerRadiusSlider.Value), 0, MaxRegionCornerRadius)} px";
             HighlightDimValueText.Text = $"{Clamp(_highlightDimPercent, 0, MaxHighlightDimPercent)}%";
+            MagnifierThicknessValueText.Text = $"{Clamp((int)Math.Round(MagnifierThicknessNumberBox.Value), 1, MaxPrimaryThickness)} px";
+            MagnifierZoomValueText.Text = $"{MagnifierLayer.ClampZoom(MagnifierZoomSlider.Value):0.0}×";
         }
 
         private void UpdateSelectionRectangleCornerRadius()
@@ -3074,6 +3338,10 @@ namespace helvety.screentools.Views
             {
                 ApplyArrowStyleFromUi(arrowLayer);
             }
+            else if (layer is MagnifierLayer magnifierLayer)
+            {
+                ApplyMagnifierStyleFromUi(magnifierLayer);
+            }
 
             QueueRecompose(includeAdorners: true, includePixelEffects: includePixelEffects);
         }
@@ -3115,6 +3383,42 @@ namespace helvety.screentools.Views
             arrowLayer.ShadowColorHex = DefaultSharedShadowColor;
             arrowLayer.ShadowOffset = DefaultSharedShadowOffset;
             arrowLayer.FormStyle = formStyle;
+        }
+
+        private void ApplyMagnifierStyleFromUi(MagnifierLayer magnifierLayer)
+        {
+            var shape = GetSelectedMagnifierShape();
+            magnifierLayer.Thickness = Clamp((int)Math.Round(MagnifierThicknessNumberBox.Value), 1, MaxPrimaryThickness);
+            magnifierLayer.ColorHex = GetSelectedColorHex(MagnifierColorComboBox, DefaultPrimaryColor);
+            magnifierLayer.HasShadow = MagnifierShadowToggle.IsOn;
+            magnifierLayer.ShadowColorHex = DefaultSharedShadowColor;
+            magnifierLayer.ShadowOffset = DefaultSharedShadowOffset;
+
+            if (magnifierLayer.Shape != shape)
+            {
+                magnifierLayer.Shape = shape;
+                if (shape == MagnifierShape.Circle)
+                {
+                    magnifierLayer.SetSourceRegionKeepingZoom(
+                        MagnifierLayer.NormalizeCircleRegion(magnifierLayer.SourceRegion),
+                        _imageWidth,
+                        _imageHeight);
+                }
+            }
+
+            magnifierLayer.ApplyZoomKeepingSource(MagnifierZoomSlider.Value, _imageWidth, _imageHeight);
+        }
+
+        private MagnifierShape GetSelectedMagnifierShape()
+        {
+            if (MagnifierShapeComboBox.SelectedItem is ComboBoxItem item &&
+                item.Tag is string tag &&
+                Enum.TryParse<MagnifierShape>(tag, true, out var shape))
+            {
+                return shape;
+            }
+
+            return MagnifierShape.Circle;
         }
 
         private bool GetCurrentArrowShadowEnabled()

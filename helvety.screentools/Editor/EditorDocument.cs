@@ -12,7 +12,8 @@ namespace helvety.screentools.Editor
         Blur = 3,
         Arrow = 4,
         Highlight = 5,
-        Crop = 6
+        Crop = 6,
+        Magnifier = 7
     }
 
     internal enum EditorLayerType
@@ -21,7 +22,21 @@ namespace helvety.screentools.Editor
         Border = 1,
         Blur = 2,
         Arrow = 3,
-        Highlight = 4
+        Highlight = 4,
+        Magnifier = 5
+    }
+
+    internal enum MagnifierShape
+    {
+        Circle = 0,
+        Rectangle = 1
+    }
+
+    internal enum MagnifierPart
+    {
+        None = 0,
+        Source = 1,
+        Loupe = 2
     }
 
     internal enum ArrowFormStyle
@@ -479,6 +494,286 @@ namespace helvety.screentools.Editor
             return Math.Sqrt((diffX * diffX) + (diffY * diffY));
         }
 
+    }
+
+    internal sealed class MagnifierLayer : EditorLayer
+    {
+        internal const double MinZoom = 1.5;
+        internal const double MaxZoom = 4.0;
+        internal const int MinRegionSize = 8;
+
+        private double _zoom;
+
+        internal MagnifierLayer(
+            EditorRect sourceRegion,
+            EditorRect loupeRegion,
+            MagnifierShape shape,
+            double zoom,
+            int thickness,
+            string colorHex)
+            : base($"Magnifier ({sourceRegion.Width}x{sourceRegion.Height})", EditorLayerType.Magnifier)
+        {
+            SourceRegion = sourceRegion;
+            LoupeRegion = loupeRegion;
+            Shape = shape;
+            _zoom = ClampZoom(zoom);
+            Thickness = Math.Max(1, thickness);
+            ColorHex = colorHex;
+        }
+
+        internal EditorRect SourceRegion { get; private set; }
+
+        internal EditorRect LoupeRegion { get; private set; }
+
+        internal MagnifierShape Shape { get; set; }
+
+        internal double Zoom
+        {
+            get => _zoom;
+            private set => _zoom = ClampZoom(value);
+        }
+
+        internal int Thickness { get; set; }
+
+        internal string ColorHex { get; set; }
+
+        internal bool HasShadow { get; set; } = true;
+
+        internal string ShadowColorHex { get; set; } = "#66000000";
+
+        internal int ShadowOffset { get; set; } = 2;
+
+        /// <summary>Bumped when loupe pixel content is rebuilt so vector sync invalidates the cached image.</summary>
+        internal int ContentGeneration { get; set; }
+
+        /// <summary>Nearest-neighbor BGRA loupe buffer (transient; rebuilt during compose).</summary>
+        internal byte[]? LoupePixels { get; set; }
+
+        internal int LoupePixelWidth { get; set; }
+
+        internal int LoupePixelHeight { get; set; }
+
+        internal override EditorRect GetBounds()
+        {
+            return Union(SourceRegion, LoupeRegion);
+        }
+
+        internal override bool ContainsPoint(double x, double y)
+        {
+            return HitTestPart(x, y) != MagnifierPart.None;
+        }
+
+        internal MagnifierPart HitTestPart(double x, double y)
+        {
+            if (RegionContainsPoint(LoupeRegion, x, y))
+            {
+                return MagnifierPart.Loupe;
+            }
+
+            if (RegionContainsPoint(SourceRegion, x, y))
+            {
+                return MagnifierPart.Source;
+            }
+
+            return MagnifierPart.None;
+        }
+
+        internal override void MoveBy(double deltaX, double deltaY, int maxWidth, int maxHeight)
+        {
+            MoveSourceBy(deltaX, deltaY, maxWidth, maxHeight);
+            MoveLoupeBy(deltaX, deltaY, maxWidth, maxHeight);
+        }
+
+        internal void MoveSourceBy(double deltaX, double deltaY, int maxWidth, int maxHeight)
+        {
+            SourceRegion = ClampMove(SourceRegion, deltaX, deltaY, maxWidth, maxHeight);
+            RefreshName();
+        }
+
+        internal void MoveLoupeBy(double deltaX, double deltaY, int maxWidth, int maxHeight)
+        {
+            LoupeRegion = ClampMove(LoupeRegion, deltaX, deltaY, maxWidth, maxHeight);
+        }
+
+        internal void RestoreRegions(EditorRect source, EditorRect loupe)
+        {
+            SourceRegion = source;
+            LoupeRegion = loupe;
+            RefreshName();
+        }
+
+        internal void SetSourceRegionKeepingZoom(EditorRect source, int maxWidth, int maxHeight)
+        {
+            var normalized = NormalizeSource(source);
+            SourceRegion = ClampRectToImage(normalized, maxWidth, maxHeight);
+            LoupeRegion = RebuildLoupeFromSource(SourceRegion, LoupeRegion, Zoom, maxWidth, maxHeight);
+            RefreshName();
+        }
+
+        internal void SetLoupeRegionKeepingZoom(EditorRect loupe, int maxWidth, int maxHeight)
+        {
+            var normalizedLoupe = NormalizeLoupe(loupe);
+            LoupeRegion = ClampRectToImage(normalizedLoupe, maxWidth, maxHeight);
+            var sourceWidth = Math.Max(MinRegionSize, (int)Math.Round(LoupeRegion.Width / Zoom));
+            var sourceHeight = Math.Max(MinRegionSize, (int)Math.Round(LoupeRegion.Height / Zoom));
+            if (Shape == MagnifierShape.Circle)
+            {
+                var side = Math.Max(MinRegionSize, Math.Min(sourceWidth, sourceHeight));
+                sourceWidth = side;
+                sourceHeight = side;
+                var loupeSide = Math.Max(MinRegionSize, (int)Math.Round(side * Zoom));
+                LoupeRegion = ClampRectToImage(
+                    new EditorRect(LoupeRegion.X, LoupeRegion.Y, loupeSide, loupeSide),
+                    maxWidth,
+                    maxHeight);
+            }
+
+            SourceRegion = ClampRectToImage(
+                new EditorRect(SourceRegion.X, SourceRegion.Y, sourceWidth, sourceHeight),
+                maxWidth,
+                maxHeight);
+            RefreshName();
+        }
+
+        internal void ApplyZoomKeepingSource(double zoom, int maxWidth, int maxHeight)
+        {
+            Zoom = zoom;
+            LoupeRegion = RebuildLoupeFromSource(SourceRegion, LoupeRegion, Zoom, maxWidth, maxHeight);
+            RefreshName();
+        }
+
+        internal static double ClampZoom(double zoom) => Math.Clamp(zoom, MinZoom, MaxZoom);
+
+        internal static EditorRect CreateLoupeRegionFromSource(
+            EditorRect source,
+            double zoom,
+            int maxWidth,
+            int maxHeight)
+        {
+            var safeZoom = ClampZoom(zoom);
+            var loupeWidth = Math.Max(MinRegionSize, (int)Math.Round(source.Width * safeZoom));
+            var loupeHeight = Math.Max(MinRegionSize, (int)Math.Round(source.Height * safeZoom));
+            var offsetX = (int)Math.Round(source.Width * 0.35);
+            var offsetY = (int)Math.Round(source.Height * 0.35);
+            var loupeX = source.X + source.Width + offsetX;
+            var loupeY = source.Y + offsetY;
+            if (loupeX + loupeWidth > maxWidth)
+            {
+                loupeX = Math.Max(0, source.X - loupeWidth - offsetX);
+            }
+
+            if (loupeY + loupeHeight > maxHeight)
+            {
+                loupeY = Math.Max(0, source.Y - loupeHeight - offsetY);
+            }
+
+            return ClampRectToImage(new EditorRect(loupeX, loupeY, loupeWidth, loupeHeight), maxWidth, maxHeight);
+        }
+
+        internal static EditorRect NormalizeCircleRegion(EditorRect region)
+        {
+            var side = Math.Max(MinRegionSize, Math.Min(region.Width, region.Height));
+            return new EditorRect(region.X, region.Y, side, side);
+        }
+
+        private EditorRect NormalizeSource(EditorRect source)
+        {
+            var width = Math.Max(MinRegionSize, source.Width);
+            var height = Math.Max(MinRegionSize, source.Height);
+            if (Shape == MagnifierShape.Circle)
+            {
+                var side = Math.Max(MinRegionSize, Math.Min(width, height));
+                return new EditorRect(source.X, source.Y, side, side);
+            }
+
+            return new EditorRect(source.X, source.Y, width, height);
+        }
+
+        private EditorRect NormalizeLoupe(EditorRect loupe)
+        {
+            var width = Math.Max(MinRegionSize, loupe.Width);
+            var height = Math.Max(MinRegionSize, loupe.Height);
+            if (Shape == MagnifierShape.Circle)
+            {
+                var side = Math.Max(MinRegionSize, Math.Min(width, height));
+                return new EditorRect(loupe.X, loupe.Y, side, side);
+            }
+
+            return new EditorRect(loupe.X, loupe.Y, width, height);
+        }
+
+        private static EditorRect RebuildLoupeFromSource(
+            EditorRect source,
+            EditorRect currentLoupe,
+            double zoom,
+            int maxWidth,
+            int maxHeight)
+        {
+            var loupeWidth = Math.Max(MinRegionSize, (int)Math.Round(source.Width * zoom));
+            var loupeHeight = Math.Max(MinRegionSize, (int)Math.Round(source.Height * zoom));
+            return ClampRectToImage(
+                new EditorRect(currentLoupe.X, currentLoupe.Y, loupeWidth, loupeHeight),
+                maxWidth,
+                maxHeight);
+        }
+
+        private bool RegionContainsPoint(EditorRect region, double x, double y)
+        {
+            if (x < region.X || y < region.Y || x > region.X + region.Width || y > region.Y + region.Height)
+            {
+                return false;
+            }
+
+            if (Shape != MagnifierShape.Circle)
+            {
+                return true;
+            }
+
+            var radiusX = region.Width / 2.0;
+            var radiusY = region.Height / 2.0;
+            if (radiusX <= 0 || radiusY <= 0)
+            {
+                return false;
+            }
+
+            var cx = region.X + radiusX;
+            var cy = region.Y + radiusY;
+            var nx = (x - cx) / radiusX;
+            var ny = (y - cy) / radiusY;
+            return (nx * nx) + (ny * ny) <= 1.0;
+        }
+
+        private static EditorRect ClampMove(EditorRect region, double deltaX, double deltaY, int maxWidth, int maxHeight)
+        {
+            var targetX = (int)Math.Round(region.X + deltaX);
+            var targetY = (int)Math.Round(region.Y + deltaY);
+            targetX = Math.Clamp(targetX, 0, Math.Max(0, maxWidth - region.Width));
+            targetY = Math.Clamp(targetY, 0, Math.Max(0, maxHeight - region.Height));
+            return region with { X = targetX, Y = targetY };
+        }
+
+        private static EditorRect ClampRectToImage(EditorRect region, int maxWidth, int maxHeight)
+        {
+            var width = Math.Clamp(region.Width, MinRegionSize, Math.Max(MinRegionSize, maxWidth));
+            var height = Math.Clamp(region.Height, MinRegionSize, Math.Max(MinRegionSize, maxHeight));
+            var x = Math.Clamp(region.X, 0, Math.Max(0, maxWidth - width));
+            var y = Math.Clamp(region.Y, 0, Math.Max(0, maxHeight - height));
+            return new EditorRect(x, y, width, height);
+        }
+
+        private static EditorRect Union(EditorRect a, EditorRect b)
+        {
+            var left = Math.Min(a.X, b.X);
+            var top = Math.Min(a.Y, b.Y);
+            var right = Math.Max(a.X + a.Width, b.X + b.Width);
+            var bottom = Math.Max(a.Y + a.Height, b.Y + b.Height);
+            return new EditorRect(left, top, Math.Max(1, right - left), Math.Max(1, bottom - top));
+        }
+
+        private void RefreshName()
+        {
+            Name = $"Magnifier ({SourceRegion.Width}x{SourceRegion.Height})";
+        }
     }
 
     internal readonly record struct EditorRect(int X, int Y, int Width, int Height)

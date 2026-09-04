@@ -521,6 +521,96 @@
                         </ItemsControl>
 
                         <ItemsControl
+                            x:Name="MagnifierToolSettingsPanel"
+                            Style="{StaticResource ToolSettingsItemsControlStyle}"
+                            Visibility="Collapsed">
+                            <Border Style="{StaticResource ToolSettingItemBorderStyle}">
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Style="{StaticResource AppToolSettingCardTitleTextStyle}" Text="Shape" />
+                                    <ComboBox
+                                        x:Name="MagnifierShapeComboBox"
+                                        Width="140"
+                                        Height="34"
+                                        VerticalAlignment="Center"
+                                        SelectionChanged="ToolSettingSelectionChanged">
+                                        <ComboBoxItem Content="Circle" Tag="Circle" IsSelected="True" />
+                                        <ComboBoxItem Content="Rectangle" Tag="Rectangle" />
+                                    </ComboBox>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource ToolSettingItemBorderStyle}">
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Style="{StaticResource AppToolSettingCardTitleTextStyle}" Text="Zoom" />
+                                    <StackPanel Orientation="Horizontal" Spacing="{StaticResource AppSpacingStack}">
+                                        <Slider
+                                            x:Name="MagnifierZoomSlider"
+                                            Style="{StaticResource SettingsInlineSliderStyle}"
+                                            Width="180"
+                                            Height="34"
+                                            Minimum="1.5"
+                                            Maximum="4"
+                                            StepFrequency="0.1"
+                                            TickFrequency="0.5"
+                                            Value="2"
+                                            ValueChanged="ToolSettingSliderValueChanged" />
+                                        <TextBlock
+                                            x:Name="MagnifierZoomValueText"
+                                            MinWidth="44"
+                                            Text="2.0×" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource ToolSettingItemBorderStyle}">
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Style="{StaticResource AppToolSettingCardTitleTextStyle}" Text="Color" />
+                                    <StackPanel Orientation="Horizontal" Spacing="{StaticResource AppSpacingStack}" VerticalAlignment="Center">
+                                        <ComboBox x:Name="MagnifierColorComboBox" Width="108" Height="34" VerticalAlignment="Center" SelectionChanged="ToolSettingSelectionChanged">
+                                            <ComboBoxItem Content="Fuchsia Red" Tag="#FFD81B60" IsSelected="True" />
+                                            <ComboBoxItem Content="Blue" Tag="#FF4285F4" />
+                                            <ComboBoxItem Content="Orange" Tag="#FFFFA500" />
+                                            <ComboBoxItem Content="White" Tag="#FFFFFFFF" />
+                                            <ComboBoxItem Content="Black" Tag="#FF000000" />
+                                            <ComboBoxItem Content="Custom" Tag="#FFD81B60" />
+                                        </ComboBox>
+                                        <Button Content="Pick" Height="34" VerticalAlignment="Center" Click="PickMagnifierColorButton_Click" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource ToolSettingItemBorderStyle}">
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Style="{StaticResource AppToolSettingCardTitleTextStyle}" Text="Thickness" />
+                                    <StackPanel Orientation="Horizontal" Spacing="{StaticResource AppSpacingStack}">
+                                        <Slider
+                                            x:Name="MagnifierThicknessNumberBox"
+                                            Style="{StaticResource SettingsInlineSliderStyle}"
+                                            Width="180"
+                                            Height="34"
+                                            Minimum="1"
+                                            Maximum="24"
+                                            StepFrequency="1"
+                                            TickFrequency="1"
+                                            Value="4"
+                                            ValueChanged="ToolSettingSliderValueChanged" />
+                                        <TextBlock
+                                            x:Name="MagnifierThicknessValueText"
+                                            MinWidth="44"
+                                            Text="4 px" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource ToolSettingItemBorderStyle}">
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Style="{StaticResource AppToolSettingCardTitleTextStyle}" Text="Shadow" />
+                                    <ToggleSwitch
+                                        x:Name="MagnifierShadowToggle"
+                                        IsOn="True"
+                                        Style="{StaticResource SettingsInlineToggleSwitchStyle}"
+                                        Toggled="ToolSettingToggled" />
+                                </StackPanel>
+                            </Border>
+                        </ItemsControl>
+
+                        <ItemsControl
                             x:Name="CropToolSettingsPanel"
                             Style="{StaticResource ToolSettingsItemsControlStyle}"
                             Visibility="Collapsed">
@@ -667,6 +757,18 @@
                             <StackPanel Spacing="{StaticResource AppSpacingTight}" HorizontalAlignment="Center" VerticalAlignment="Center">
                                 <SymbolIcon Symbol="Forward" />
                                 <TextBlock Style="{StaticResource AppEditorToolLabelTextStyle}" Text="Arrow" />
+                            </StackPanel>
+                        </Button>
+
+                        <Button
+                            x:Name="MagnifierToolButton"
+                            Width="124"
+                            Height="64"
+                            Tag="Magnifier"
+                            Click="ToolButton_Click">
+                            <StackPanel Spacing="{StaticResource AppSpacingTight}" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <FontIcon Glyph="&#xE71E;" />
+                                <TextBlock Style="{StaticResource AppEditorToolLabelTextStyle}" Text="Magnifier" />
                             </StackPanel>
                         </Button>
 
