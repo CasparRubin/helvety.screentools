@@ -42,7 +42,7 @@ The app can be **packaged and deployed** (MSIX or unpackaged). Behavior and defa
 ## Tech Stack
 
 - .NET 10 (`net10.0-windows10.0.19041.0`)
-- WinUI 3 via **Windows App SDK 2.4.0** (see `Microsoft.WindowsAppSDK` in `helvety.screentools.csproj`)
+- WinUI 3 via **Windows App SDK 2.5.1** (see `Microsoft.WindowsAppSDK` in `helvety.screentools.csproj`)
 - Native Win32 interop (global hotkeys, window hit-testing, GDI freeze-frame for selection overlay, `WS_EX_NOREDIRECTIONBITMAP` host for Live Draw)
 - Self-contained Windows App SDK runtime (unpackaged `dotnet run` / F5 without a separate machine-wide Windows App Runtime install)
 - `H.NotifyIcon.WinUI` 2.4.1 for notification area tray integration
