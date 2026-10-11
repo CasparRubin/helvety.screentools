@@ -8,6 +8,7 @@ namespace helvety.screentools.Editor
 {
     /// <summary>
     /// Reuses vector layer visuals on a <see cref="Canvas"/> when layer content and z-order are unchanged between recomposes.
+    /// Includes every <see cref="EditorLayer.IsVectorOverlay"/> layer (text, border, arrow, and magnifier).
     /// </summary>
     internal sealed class VectorCanvasHost
     {
@@ -21,7 +22,7 @@ namespace helvety.screentools.Editor
             bool forceFullRebuild)
         {
             var visibleVectors = layers
-                .Where(layer => layer.IsVisible && IsVectorLayer(layer))
+                .Where(layer => layer.IsVisible && layer.IsVectorOverlay)
                 .Reverse()
                 .ToList();
 
@@ -144,11 +145,6 @@ namespace helvety.screentools.Editor
             {
                 targetCanvas.Children.Remove(element);
             }
-        }
-
-        private static bool IsVectorLayer(EditorLayer layer)
-        {
-            return layer is TextLayer or BorderLayer or ArrowLayer or MagnifierLayer;
         }
 
         private sealed record LayerSlot(long RenderKey, IReadOnlyList<UIElement> Elements);

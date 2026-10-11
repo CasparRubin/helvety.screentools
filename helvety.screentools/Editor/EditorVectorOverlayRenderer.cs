@@ -33,6 +33,9 @@ namespace helvety.screentools.Editor
                 BorderLayer borderLayer => CreateBorderElements(borderLayer, suppressExpensiveEffects),
                 ArrowLayer arrowLayer => ArrowRendering.CreateArrowElements(arrowLayer, suppressExpensiveEffects),
                 MagnifierLayer magnifierLayer => CreateMagnifierElements(magnifierLayer, suppressExpensiveEffects),
+                // A vector overlay with no factory would show in the editor host filter and then vanish on save.
+                _ when layer.IsVectorOverlay => throw new InvalidOperationException(
+                    $"Vector overlay {layer.GetType().Name} has no element factory."),
                 _ => Array.Empty<UIElement>()
             };
         }

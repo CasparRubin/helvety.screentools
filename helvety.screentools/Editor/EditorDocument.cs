@@ -90,6 +90,12 @@ namespace helvety.screentools.Editor
 
         internal bool IsVisible { get; set; }
 
+        /// <summary>
+        /// Drawn on the vector canvas. Export must rasterize the surface when any visible layer returns true.
+        /// Pixel effects such as blur and highlight stay false because they are already in the working buffer.
+        /// </summary>
+        internal virtual bool IsVectorOverlay => false;
+
         internal abstract EditorRect GetBounds();
 
         internal abstract bool ContainsPoint(double x, double y);
@@ -116,6 +122,8 @@ namespace helvety.screentools.Editor
             ColorHex = colorHex;
             _wrapWidth = Math.Max(1, wrapWidth);
         }
+
+        internal override bool IsVectorOverlay => true;
 
         internal string Text
         {
@@ -276,6 +284,8 @@ namespace helvety.screentools.Editor
             ColorHex = colorHex;
         }
 
+        internal override bool IsVectorOverlay => true;
+
         internal EditorRect Region { get; set; }
 
         internal int Thickness { get; set; }
@@ -409,6 +419,8 @@ namespace helvety.screentools.Editor
             FormStyle = formStyle;
             ResetBend();
         }
+
+        internal override bool IsVectorOverlay => true;
 
         internal double StartX { get; set; }
 
@@ -637,6 +649,8 @@ namespace helvety.screentools.Editor
             Thickness = Math.Max(1, thickness);
             ColorHex = colorHex;
         }
+
+        internal override bool IsVectorOverlay => true;
 
         internal EditorRect SourceRegion { get; private set; }
 

@@ -1969,13 +1969,16 @@ namespace helvety.screentools.Views
         }
 
         /// <summary>
-        /// Captures the full editor surface as pixels. All exports are flattened so they can be viewed everywhere without editor state.
+        /// Captures the flattened editor image used by save, copy, crop, and resize.
+        /// Blur and highlight are already in the working buffer. Any visible vector overlay
+        /// (text, border, arrow, or magnifier) is rasterized from the editor surface so it is included.
+        /// Selection adorners are omitted.
         /// </summary>
         private async Task<byte[]> RenderCompositePixelsAsync()
         {
             if (_document is not null &&
                 _workingPixels is not null &&
-                !_document.Layers.Any(layer => layer.IsVisible && layer is TextLayer or BorderLayer or ArrowLayer))
+                !_document.Layers.Any(layer => layer.IsVisible && layer.IsVectorOverlay))
             {
                 var pixels = new byte[_workingPixels.Length];
                 System.Buffer.BlockCopy(_workingPixels, 0, pixels, 0, _workingPixels.Length);
@@ -1983,6 +1986,7 @@ namespace helvety.screentools.Views
             }
 
             RebuildOverlayVisuals(includeAdorners: false);
+            EditorSurfaceGrid.UpdateLayout();
             var renderTarget = new RenderTargetBitmap();
             await renderTarget.RenderAsync(EditorSurfaceGrid, _imageWidth, _imageHeight);
             var buffer = await renderTarget.GetPixelsAsync();
