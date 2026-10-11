@@ -131,11 +131,11 @@ A [GitHub Actions workflow](.github/workflows/release.yml) automates builds and 
 3. Tag and push:
 
 ```bash
-git tag v2.5.0.0
-git push origin v2.5.0.0
+git tag v2.6.0.0
+git push origin v2.6.0.0
 ```
 
-Use a tag that matches the four-part `ApplicationVersion` in `helvety.screentools.csproj` (for example `v2.5.0.0`). **About** shows the full four-part version when installed (MSIX) or unpackaged.
+Use a tag that matches the four-part `ApplicationVersion` in `helvety.screentools.csproj` (for example `v2.6.0.0`). **About** shows the full four-part version when installed (MSIX) or unpackaged.
 
 The workflow builds self-contained portable ZIPs for **x64** and **arm64** (`helvety-screentools-v<tag>-win-x64.zip` and `helvety-screentools-v<tag>-win-arm64.zip`), then creates a GitHub Release with auto-generated release notes and the ZIPs attached. No certificate or MSIX signing is needed for the portable distribution.
 
