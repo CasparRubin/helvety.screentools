@@ -32,7 +32,8 @@ namespace helvety.screentools.Views
 {
     /// <summary>
     /// Layer-based PNG editor in a dedicated <see cref="Microsoft.UI.Xaml.Window"/> (see <see cref="Editor.ImageEditorLauncher"/>).
-    /// Tools: Canvas (select, move, resize), Text, Border, Blur, Highlight, Arrow, Magnifier, Crop, and Color.
+    /// Tools: Canvas (select, move, resize), Text, Border, Blur, Highlight, Arrow, Magnifier, Crop, Resize, and Color.
+    /// Resize only shrinks the exported PNG (10–100%); the canvas and layers stay at the source pixel size.
     /// Pixel layers (blur/highlight) compose through <see cref="Editor.EditorComposePipeline"/> (Win2D GPU per-region ROI with CPU fallback);
     /// text, border, and arrow layers render as XAML vector visuals reused via <see cref="Editor.VectorCanvasHost"/>.
     /// Text: click or drag to place; the placement frame can be moved (border band) and resized (handles, including edge strips) while editing; double-click re-edits an existing text layer.
@@ -205,6 +206,7 @@ namespace helvety.screentools.Views
 
             _vectorCanvasHost.Clear(LayersCanvas);
 
+            CancelResizeMeasure();
             SettingsService.EditorUiSettingsChanged -= SettingsService_EditorUiSettingsChanged;
             Loaded -= ImageEditorPage_Loaded;
             Unloaded -= ImageEditorPage_Unloaded;
@@ -492,10 +494,19 @@ namespace helvety.screentools.Views
 
         private void SetActiveTool(EditorToolType tool)
         {
+            var previous = _activeTool;
             _activeTool = tool;
             UpdateDisplayedToolContext();
             UpdateToolButtonVisuals();
             UpdateSelectedTextEditorVisibility();
+            if (tool == EditorToolType.Resize)
+            {
+                RefreshResizeReadout(scheduleMeasure: true);
+            }
+            else if (previous == EditorToolType.Resize)
+            {
+                CancelResizeMeasure();
+            }
         }
 
         private void UpdateDisplayedToolContext()
@@ -509,6 +520,7 @@ namespace helvety.screentools.Views
             ArrowToolSettingsPanel.Visibility = _settingsTool == EditorToolType.Arrow ? Visibility.Visible : Visibility.Collapsed;
             MagnifierToolSettingsPanel.Visibility = _settingsTool == EditorToolType.Magnifier ? Visibility.Visible : Visibility.Collapsed;
             CropToolSettingsPanel.Visibility = _settingsTool == EditorToolType.Crop ? Visibility.Visible : Visibility.Collapsed;
+            ResizeToolSettingsPanel.Visibility = _settingsTool == EditorToolType.Resize ? Visibility.Visible : Visibility.Collapsed;
             ColorToolSettingsPanel.Visibility = _settingsTool == EditorToolType.Color ? Visibility.Visible : Visibility.Collapsed;
             UpdateExportButtonLabels();
             UpdateArrowShadowToggleState(forceOffWhenUnsupported: true);
@@ -516,6 +528,13 @@ namespace helvety.screentools.Views
 
         private void UpdateExportButtonLabels()
         {
+            if (_resizeScalePercent < ImageDownscaler.MaximumScalePercent)
+            {
+                SaveCopyAndCloseButton.Content = "Save resized, copy and close";
+                SaveAndCloseButton.Content = "Save resized and close";
+                return;
+            }
+
             var cropIsActive = _pendingCropRect.HasValue && !_pendingCropRect.Value.IsEmpty;
             SaveCopyAndCloseButton.Content = cropIsActive ? "Save crop, copy and close" : "Save, copy and close";
             SaveAndCloseButton.Content = cropIsActive ? "Save crop and close" : "Save and close";
@@ -592,6 +611,7 @@ namespace helvety.screentools.Views
             ArrowToolButton.Background = CreateToolButtonBackground(highlightedTool == EditorToolType.Arrow);
             MagnifierToolButton.Background = CreateToolButtonBackground(highlightedTool == EditorToolType.Magnifier);
             CropToolButton.Background = CreateToolButtonBackground(highlightedTool == EditorToolType.Crop);
+            ResizeToolButton.Background = CreateToolButtonBackground(highlightedTool == EditorToolType.Resize);
             ColorToolButton.Background = CreateToolButtonBackground(highlightedTool == EditorToolType.Color);
         }
 
@@ -605,6 +625,7 @@ namespace helvety.screentools.Views
             ArrowToolButton.IsEnabled = isEnabled;
             MagnifierToolButton.IsEnabled = isEnabled;
             CropToolButton.IsEnabled = isEnabled;
+            ResizeToolButton.IsEnabled = isEnabled;
             ColorToolButton.IsEnabled = isEnabled;
         }
 
@@ -771,6 +792,11 @@ namespace helvety.screentools.Views
                 }
 
                 QueueOverlayOnlyRebuild(includeAdorners: true);
+                return;
+            }
+
+            if (_activeTool == EditorToolType.Resize)
+            {
                 return;
             }
 
@@ -1453,6 +1479,7 @@ namespace helvety.screentools.Views
                     SelectCropRegion(region);
                     await FinalizeRegionPlacementAsync(clearCropSelection: false);
                     return;
+                case EditorToolType.Resize:
                 case EditorToolType.Color:
                     return;
                 default:
@@ -1938,20 +1965,7 @@ namespace helvety.screentools.Views
         {
             CommitInlineTextEditor();
             await RecomposeAsync(includeAdorners: true, includePixelEffects: true);
-
-            if (_pendingCropRect.HasValue && !_pendingCropRect.Value.IsEmpty)
-            {
-                var region = _pendingCropRect.Value;
-                var fullPixels = await RenderCompositePixelsAsync();
-                var cropPixels = CropPixels(fullPixels, _imageWidth, _imageHeight, region);
-                var outputPath = BuildOutputPath(_filePath, "_crop");
-                await SaveNewImageAndCloseAsync(outputPath, cropPixels, region.Width, region.Height, "Cropped image saved", copyToClipboard);
-                return;
-            }
-
-            var pixels = await RenderCompositePixelsAsync();
-            var fullOutputPath = BuildOutputPath(_filePath, "_edited");
-            await SaveNewImageAndCloseAsync(fullOutputPath, pixels, _imageWidth, _imageHeight, "Saved", copyToClipboard);
+            await SaveExportFrameAndCloseAsync(copyToClipboard);
         }
 
         /// <summary>

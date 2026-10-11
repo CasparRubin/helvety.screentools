@@ -623,6 +623,78 @@
                         </ItemsControl>
 
                         <ItemsControl
+                            x:Name="ResizeToolSettingsPanel"
+                            Style="{StaticResource ToolSettingsItemsControlStyle}"
+                            Visibility="Collapsed">
+                            <Border Style="{StaticResource ToolSettingItemBorderStyle}">
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Style="{StaticResource AppToolSettingCardTitleTextStyle}" Text="Scale" />
+                                    <StackPanel
+                                        Orientation="Horizontal"
+                                        Spacing="{StaticResource AppSpacingStack}"
+                                        VerticalAlignment="Center">
+                                        <Slider
+                                            x:Name="ResizeScaleSlider"
+                                            Style="{StaticResource SettingsInlineSliderStyle}"
+                                            Width="180"
+                                            Height="34"
+                                            Minimum="10"
+                                            Maximum="100"
+                                            StepFrequency="1"
+                                            TickFrequency="10"
+                                            Value="100"
+                                            ValueChanged="ResizeScaleSlider_ValueChanged" />
+                                        <TextBlock
+                                            x:Name="ResizeScaleValueText"
+                                            MinWidth="48"
+                                            VerticalAlignment="Center"
+                                            Text="100%" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource ToolSettingItemBorderStyle}">
+                                <StackPanel VerticalAlignment="Center" Spacing="2">
+                                    <TextBlock Style="{StaticResource AppToolSettingCardTitleTextStyle}" Text="Output" />
+                                    <TextBlock
+                                        x:Name="ResizeOutputSizeText"
+                                        FontSize="12"
+                                        Text="—" />
+                                    <TextBlock
+                                        x:Name="ResizeFileSizeText"
+                                        FontSize="12"
+                                        Text="—" />
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource ToolSettingItemBorderStyle}">
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Style="{StaticResource AppToolSettingCardTitleTextStyle}" Text="Max size" />
+                                    <StackPanel
+                                        Orientation="Horizontal"
+                                        Spacing="{StaticResource AppSpacingStack}"
+                                        VerticalAlignment="Center">
+                                        <NumberBox
+                                            x:Name="ResizeMaxSizeNumberBox"
+                                            Style="{StaticResource SettingsInlineNumberBoxStyle}"
+                                            Width="110"
+                                            Minimum="1"
+                                            Maximum="102400"
+                                            Value="1024"
+                                            SmallChange="64"
+                                            LargeChange="256"
+                                            SpinButtonPlacementMode="Compact" />
+                                        <TextBlock VerticalAlignment="Center" Text="KB" />
+                                        <Button
+                                            x:Name="ResizeFitButton"
+                                            Height="34"
+                                            Click="ResizeFitButton_Click"
+                                            Content="Fit"
+                                            ToolTipService.ToolTip="Largest scale whose saved PNG fits this size" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                        </ItemsControl>
+
+                        <ItemsControl
                             x:Name="ColorToolSettingsPanel"
                             Style="{StaticResource ToolSettingsItemsControlStyle}"
                             Visibility="Collapsed">
@@ -870,6 +942,18 @@
                             <StackPanel Spacing="{StaticResource AppSpacingTight}" HorizontalAlignment="Center" VerticalAlignment="Center">
                                 <FontIcon Glyph="&#xE7A8;" />
                                 <TextBlock Style="{StaticResource AppEditorToolLabelTextStyle}" Text="Crop" />
+                            </StackPanel>
+                        </Button>
+
+                        <Button
+                            x:Name="ResizeToolButton"
+                            Width="124"
+                            Height="64"
+                            Tag="Resize"
+                            Click="ToolButton_Click">
+                            <StackPanel Spacing="{StaticResource AppSpacingTight}" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <FontIcon Glyph="&#xE71F;" />
+                                <TextBlock Style="{StaticResource AppEditorToolLabelTextStyle}" Text="Resize" />
                             </StackPanel>
                         </Button>
 

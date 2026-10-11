@@ -302,7 +302,7 @@ namespace helvety.screentools.Views
                 ? liveDrawHotkey.Display
                 : "not set";
             AppHeroDescriptionText.Text =
-                $"Take screenshots with smart snap selection ({captureBindingText}), draw live on your desktop in fullscreen ({liveDrawBindingText}), and edit saved images with crop, blur, highlight, text, borders, and arrows in the built-in editor.";
+                $"Take screenshots with smart snap selection ({captureBindingText}), draw live on your desktop in fullscreen ({liveDrawBindingText}), and edit saved images with crop, resize, blur, highlight, text, borders, and arrows in the built-in editor.";
 
             if (plan.Kind == GalleryRefreshKind.NoSaveFolder)
             {
