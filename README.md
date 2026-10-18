@@ -146,3 +146,7 @@ The workflow builds self-contained portable ZIPs for **x64** and **arm64** (`hel
 - **Screenshot quality** defaults to **Fast** for new settings profiles (missing `ScreenshotQualityMode` in LocalSettings). If you previously saved **Heavy** or **Optimized**, that choice is kept until you change it under **Settings → Screenshot → Screenshot quality**.
 - Default save folder when the app first creates one (and you have not cleared it in Settings) is **`Helvety Screen Tools captures`** on your desktop. The top-nav home item is labeled **General** and the page title is **Helvety Screen Tools**; this is not tied to any legacy “Screenshots” folder name.
 - Quality enhancement modes improve perceived readability for some text-heavy screenshots, but they cannot guarantee recovery of detail that is not present in source screen pixels.
+
+## License
+
+Helvety Screen Tools is licensed under the GNU Affero General Public License version 3 or later (AGPL-3.0-or-later). See [LICENSE](LICENSE).
