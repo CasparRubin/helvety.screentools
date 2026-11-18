@@ -15,7 +15,7 @@ The app can be **packaged and deployed** (MSIX or unpackaged). Behavior and defa
 - **Navigation**: left **NavigationView** with **General** (home), an expandable **Settings** group (**General**, **Screenshot**, **Live Draw**), and **About**. **About** shows a short product summary, the app **Version** (package version when installed; assembly version when running unpackaged), and links to [helvety.com](https://helvety.com/) and the [GitHub repository](https://github.com/CasparRubin/helvety.screentools).
 - Close-to-tray behavior (notification area) with optional full-exit-on-close setting. The tray icon context menu offers **Open**, **Enable/Disable global hotkey listeners**, and **Exit**. When the packaged app starts from the Windows **startup task**, it can launch **hidden to the tray** instead of showing the main window.
 - Restore main window after **screenshot** when the window was tray-hidden and **at least one screenshot was saved** in that session (Live Draw does not restore the main window).
-- **General** home page (titled **Helvety Screen Tools**): after each **screenshot** is saved to the configured folder, the coordinator notifies this page so the gallery **reloads** (same as navigating back to home). Other saves (for example from the editor) rely on the folder watcher and debounced rescan like any file change. For **`.png`** files thumbnails use a **scaled decode from disk** (about max width 520px), then a generic file decode, then the **shell thumbnail** provider. A **debounced** `FileSystemWatcher` still runs a full folder rescan so ordering and metadata stay correct. **Listing files** for a refresh runs on a **background thread** before the gallery lock; applying updates to the grid stays **serialized**. Images are grouped into date sections (**Today**, **Yesterday**, **Last Week**, **Older**). Thumbnails attach to the **visible row by file path**. In-flight thumbnail work is **not** cancelled on every refresh (only when leaving the page). The images header sits above the card and reminds you that **left-click** opens the image in the editor, **right-click** copies the image to the clipboard, and the **bin icon** deletes the file to the Recycle Bin.
+- **General** home page (titled **Helvety Screen Tools**): after each **screenshot** is saved to the configured folder, the coordinator notifies this page so the gallery **reloads** (same as navigating back to home). Other saves (for example from the editor) rely on the folder watcher and debounced rescan like any file change. For **`.png`** files thumbnails use a **scaled decode from disk** (about max width 520px), then a generic file decode, then the **shell thumbnail** provider. A **debounced** `FileSystemWatcher` still runs a full folder rescan so ordering and metadata stay correct. **Listing files** for a refresh runs on a **background thread** before the gallery lock; applying updates to the grid stays **serialized**. Images are grouped into date sections (**Today**, **Yesterday**, **Last Week**, **Older**). Thumbnails are decoded **lazily** when a card first scrolls into view and attach by file path; in-flight thumbnail work is cancelled only when leaving the page. If the folder watcher fails (buffer overflow, folder removed), the page drops it and rescans. The images header sits above the card and reminds you that **left-click** opens the image in the editor, **right-click** copies the image to the clipboard, and the **bin icon** deletes the file to the Recycle Bin.
 - Home gallery lists **PNG** captures from the save folder only (screenshot saves are PNG; other extensions in the folder are ignored)
 - File metadata shown as European date/time format (`dd.MM.yyyy HH:mm`) plus relative age (`... ago`)
 - Built-in **PNG** image editor in a **separate window** from the home gallery (one window per file path); tools: **Canvas**, Text, Border, Blur, Highlight, Arrow, Magnifier, Crop, Resize, Color (Color is last in the toolbar)
@@ -31,7 +31,7 @@ The app can be **packaged and deployed** (MSIX or unpackaged). Behavior and defa
 - **Color** tool: click a pixel to sample **hex** (`#RRGGBB`) and **RGB**; copy either to the clipboard. Stays selected so you can keep sampling. Reads the composed image (screenshot plus baked blur/highlight), not vector overlays.
 - **Text** tool: **click** to place a resizable text box (default ~380×100 px) or **drag** to size first; while typing, drag the frame border to move or use corner/edge handles to resize (full edge strips, not just corners); **bold** and **italic** styling; re-edit via toolbar controls or **double-click** an existing text layer
 - Blur settings include Radius, Corner Radius, Feather, and Invert; Highlight includes Dim, Corner Radius, and Invert (inside/outside targeting)
-- **Blur** and **Highlight** bake into the base image through **`EditorComposePipeline`** (Win2D **GPU** per-region ROI when available, **CPU** fallback otherwise). GPU blur normalizes each ROI to image coordinates before masking so the blurred area matches the selection. If GPU compositing fails, the editor uses CPU for the **rest of that editor session** and may show a one-time warning toast; **`GpuEffectsEnabled`** is stored only when you change and save toolbar defaults (a GPU failure alone does not turn GPU off for future sessions unless you save settings afterward)
+- **Blur** and **Highlight** bake into the base image through **`EditorComposePipeline`** (Win2D **GPU** per-region ROI when available, **CPU** fallback otherwise). GPU blur normalizes each ROI to image coordinates before masking so the blurred area matches the selection. GPU and CPU paths share the same semantics (`PixelEffects`): blur and highlight regions support rounded corners and feather, several highlights combine as a union, and **Invert** applies the effect to everything outside the union of regions. Layers are snapshotted on the UI thread before rendering. If GPU compositing fails, the editor uses CPU for the **rest of that editor window** and shows a one-time warning toast (a lost GPU device is recreated once first); the failure is **never** written to settings. Save, copy, crop, and resize always wait for a running recompose, so exports never contain a half-applied blur
 - While moving or resizing layers, selection handles update on the overlay and full layer recomposes wait until pointer release (blur/highlight regions do not live-preview during the drag)
 - Editor responsiveness: coalesced recomposes, generation tokens that cancel stale GPU work when sliders change quickly, and reused vector visuals on the layer canvas between edits
 - Optional **Editor performance mode** under **Settings → General**: skips shadows and other expensive vector effects during drag, resize, and arrow preview (blur and highlight still refresh after you release the pointer). Applies to **open editor windows** immediately without stealing focus
@@ -43,7 +43,8 @@ The app can be **packaged and deployed** (MSIX or unpackaged). Behavior and defa
 ## Tech Stack
 
 - .NET 10 (`net10.0-windows10.0.19041.0`)
-- WinUI 3 via **Windows App SDK 2.5.1** (see `Microsoft.WindowsAppSDK` in `helvety.screentools.csproj`)
+- WinUI 3 via **Windows App SDK 2.7.0** (see `Microsoft.WindowsAppSDK` in `helvety.screentools.csproj`)
+- Release builds are **trimmed**; the project sets `IsAotCompatible` so the trim analyzers and CsWinRT source-generated marshalling are active, and XAML data templates use compiled `x:Bind`
 - Native Win32 interop (global hotkeys, window hit-testing, GDI freeze-frame for selection overlay, `WS_EX_NOREDIRECTIONBITMAP` host for Live Draw)
 - Self-contained Windows App SDK runtime (unpackaged `dotnet run` / F5 without a separate machine-wide Windows App Runtime install)
 - `H.NotifyIcon.WinUI` 2.4.1 for notification area tray integration
@@ -53,7 +54,7 @@ The app can be **packaged and deployed** (MSIX or unpackaged). Behavior and defa
 
 ### Download from GitHub Releases (recommended)
 
-Go to the [**Releases**](https://github.com/CasparRubin/helvety.screentools/releases) page, download the ZIP for your platform (`helvety-screentools-v<tag>-win-x64.zip` or `helvety-screentools-v<tag>-win-arm64.zip`), extract it anywhere, and run **`helvety.screentools.exe`**. The app is self-contained — no .NET or Windows App Runtime install required.
+Go to the [**Releases**](https://github.com/CasparRubin/helvety.screentools/releases) page, download the ZIP for your platform (`helvety-screentools-v<tag>-win-x64.zip`, `-win-x86.zip`, or `-win-arm64.zip`), extract it anywhere, and run **`helvety.screentools.exe`**. The app is self-contained — no .NET or Windows App Runtime install required.
 
 ### Build from source
 
@@ -79,7 +80,7 @@ The app is **`helvety.screentools.exe`**, under:
 
 **Visual Studio:** use the **helvety.screentools (Unpackaged)** launch profile (see `helvety.screentools/Properties/launchSettings.json`).
 
-Unpackaged runs **do not** register the app as a full MSIX install; **Settings → Apps → Startup** integration and **Run at sign-in** in the app apply to the **packaged** build only.
+Unpackaged runs **do not** register the app as a full MSIX install; **Settings → Apps → Startup** integration and **Run at sign-in** in the app apply to the **packaged** build only. Settings still persist: packaged installs use their package LocalSettings, unpackaged runs (including the release ZIPs) use the Windows App SDK per-user store for unpackaged apps (`ApplicationData.GetForUnpackaged`).
 
 #### Build an MSIX package
 
@@ -103,7 +104,7 @@ The **`.msix`** file is written under **`helvety.screentools/AppPackages/`**, in
 **Signing and trust:** packages are signed with that **self-signed** dev certificate. Windows may refuse to install until you either:
 
 - enable **Developer Mode** and use **`Add-AppxPackage -AllowUnsigned`** only when your package is in the correct **unsigned** publisher configuration, or  
-- **sign** the `.msix` with a certificate whose chain is trusted (typical for self-signed dev certs: import the **signer** into **Local Computer → Trusted Root Certification Authorities** using an **elevated** session, then install).
+- **trust** the self-signed signer for sideloading: the script also writes `helvety.screentools_TemporaryKey.cer`; import it into **Local Computer → Trusted People** from an **elevated** PowerShell (`Import-Certificate -FilePath helvety.screentools\helvety.screentools_TemporaryKey.cer -CertStoreLocation Cert:\LocalMachine\TrustedPeople`), then install. Do **not** put a self-signed dev certificate into **Trusted Root Certification Authorities**: anyone with the PFX could then sign code your machine fully trusts.
 
 If Windows reports that an **unpackaged** registration of the same app already exists, remove that app (Settings → Installed apps, or `Get-AppxPackage` / `Remove-AppxPackage`) before installing the MSIX.
 
@@ -131,17 +132,18 @@ A [GitHub Actions workflow](.github/workflows/release.yml) automates builds and 
 3. Tag and push:
 
 ```bash
-git tag v2.6.1.0
-git push origin v2.6.1.0
+git tag v2.7.0.0
+git push origin v2.7.0.0
 ```
 
-Use a tag that matches the four-part `ApplicationVersion` in `helvety.screentools.csproj` (for example `v2.6.1.0`). **About** shows the full four-part version when installed (MSIX) or unpackaged.
+Use a tag that matches the four-part `ApplicationVersion` in `helvety.screentools.csproj` (for example `v2.7.0.0`). **About** shows the full four-part version when installed (MSIX) or unpackaged.
 
-The workflow builds self-contained portable ZIPs for **x64** and **arm64** (`helvety-screentools-v<tag>-win-x64.zip` and `helvety-screentools-v<tag>-win-arm64.zip`), then creates a GitHub Release with auto-generated release notes and the ZIPs attached. No certificate or MSIX signing is needed for the portable distribution.
+The same workflow runs on every push to `main` and on pull requests (publish for all platforms plus a startup smoke test of the trimmed x64/x86 builds). On a `v*` tag it also checks that the tag matches the versions in `helvety.screentools.csproj`, `Package.appxmanifest`, and `app.manifest`, builds self-contained portable ZIPs for **x64**, **x86**, and **arm64** (`helvety-screentools-v<tag>-win-<arch>.zip`), and creates a GitHub Release with auto-generated release notes and the ZIPs attached. No certificate or MSIX signing is needed for the portable distribution. Workflow actions are pinned to commit SHAs and kept current by Dependabot.
 
 ## Notes
 
-- **Automated tests**: the solution currently has **no** `dotnet test` project; validation is by **build** (`dotnet build helvety.screentools.slnx` or the `.csproj` with `-c Release` and the desired `-p:Platform=`).
+- **Automated tests**: the solution currently has **no** `dotnet test` project; validation is by **build** (`dotnet build helvety.screentools.slnx` or the `.csproj` with `-c Release` and the desired `-p:Platform=`) and the CI startup smoke test.
+- **Diagnostics**: errors (including unhandled exceptions) are written to `%LOCALAPPDATA%\Helvety\ScreenTools\Logs\app.log` (one rolled-over `app.old.log` is kept). Packaged installs see this path redirected into the package's private `LocalCache` folder.
 - **About → Version**: **installed MSIX** shows `Package.Current` identity (matches release versioning). **Unpackaged** runs show the assembly version from the same `Version` MSBuild property.
 - **Screenshot quality** defaults to **Fast** for new settings profiles (missing `ScreenshotQualityMode` in LocalSettings). If you previously saved **Heavy** or **Optimized**, that choice is kept until you change it under **Settings → Screenshot → Screenshot quality**.
 - Default save folder when the app first creates one (and you have not cleared it in Settings) is **`Helvety Screen Tools captures`** on your desktop. The top-nav home item is labeled **General** and the page title is **Helvety Screen Tools**; this is not tied to any legacy “Screenshots” folder name.
