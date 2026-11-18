@@ -1,35 +1,27 @@
 using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text;
 using Windows.Graphics;
 
 namespace helvety.screentools.Capture
 {
-    internal sealed class WindowSnapHitTester
+    /// <summary>
+    /// Window snapping for the screenshot overlay. Candidate window bounds are captured once, together with the
+    /// freeze frame, so snapping matches the frozen pixels and pointer moves never enumerate live windows.
+    /// </summary>
+    internal static class WindowSnapHitTester
     {
         private const uint GaRoot = 2;
         private const int GwlExstyle = -20;
         private const int WsExToolwindow = 0x00000080;
         private const int DwmaExtendedFrameBounds = 9;
         private const int DwmaCloaked = 14;
-        private readonly IBrowserContentSnapProbe _browserContentSnapProbe;
 
-        public WindowSnapHitTester(IBrowserContentSnapProbe? browserContentSnapProbe = null)
+        /// <summary>Returns snap candidates in z-order (topmost first).</summary>
+        internal static RectInt32[] CaptureSnapTargets(nint excludedWindowHandle)
         {
-            _browserContentSnapProbe = browserContentSnapProbe ?? new NoopBrowserContentSnapProbe();
-        }
-
-        public bool TryGetSnapBoundsAt(int screenX, int screenY, nint excludedWindowHandle, out RectInt32 bounds)
-        {
-            if (_browserContentSnapProbe.TryGetContentBoundsAt(screenX, screenY, out bounds) &&
-                bounds.Width > 1 &&
-                bounds.Height > 1)
-            {
-                return true;
-            }
-
-            bounds = default;
-            var context = new HitTestContext(screenX, screenY, excludedWindowHandle);
+            var context = new SnapshotContext(excludedWindowHandle);
             var contextHandle = GCHandle.Alloc(context);
             try
             {
@@ -40,13 +32,25 @@ namespace helvety.screentools.Capture
                 contextHandle.Free();
             }
 
-            if (!context.HasMatch || !context.MatchBounds.HasValue)
+            return [.. context.Targets];
+        }
+
+        internal static bool TryGetSnapBoundsAt(RectInt32[] snapTargets, int screenX, int screenY, out RectInt32 bounds)
+        {
+            foreach (var candidate in snapTargets)
             {
-                return false;
+                if (screenX >= candidate.X &&
+                    screenY >= candidate.Y &&
+                    screenX < candidate.X + candidate.Width &&
+                    screenY < candidate.Y + candidate.Height)
+                {
+                    bounds = candidate;
+                    return true;
+                }
             }
 
-            bounds = context.MatchBounds.Value;
-            return bounds.Width > 1 && bounds.Height > 1;
+            bounds = default;
+            return false;
         }
 
         private static bool IsCandidateWindow(nint hwnd, nint excludedWindowHandle)
@@ -86,37 +90,22 @@ namespace helvety.screentools.Capture
 
         private static bool EnumWindowsCallback(nint hwnd, nint lParam)
         {
-            var handle = GCHandle.FromIntPtr(lParam);
-            if (handle.Target is not HitTestContext context)
+            if (GCHandle.FromIntPtr(lParam).Target is not SnapshotContext context)
             {
-                return true;
+                return false;
             }
 
             var rootWindow = GetAncestor(hwnd, GaRoot);
-            if (rootWindow == nint.Zero || !IsCandidateWindow(rootWindow, context.ExcludedWindowHandle))
+            if (rootWindow != nint.Zero &&
+                IsCandidateWindow(rootWindow, context.ExcludedWindowHandle) &&
+                TryGetWindowBounds(rootWindow, out var candidateBounds) &&
+                candidateBounds.Width > 1 &&
+                candidateBounds.Height > 1)
             {
-                return true;
+                context.Targets.Add(candidateBounds);
             }
 
-            if (!TryGetWindowBounds(rootWindow, out var candidateBounds))
-            {
-                return true;
-            }
-
-            var isInsideBounds =
-                context.ScreenX >= candidateBounds.X &&
-                context.ScreenY >= candidateBounds.Y &&
-                context.ScreenX < candidateBounds.X + candidateBounds.Width &&
-                context.ScreenY < candidateBounds.Y + candidateBounds.Height;
-
-            if (!isInsideBounds)
-            {
-                return true;
-            }
-
-            context.MatchBounds = candidateBounds;
-            context.HasMatch = true;
-            return false;
+            return true;
         }
 
         private static bool TryGetWindowBounds(nint hwnd, out RectInt32 bounds)
@@ -175,20 +164,10 @@ namespace helvety.screentools.Capture
 
         private delegate bool EnumWindowsProc(nint hWnd, nint lParam);
 
-        private sealed class HitTestContext
+        private sealed class SnapshotContext(nint excludedWindowHandle)
         {
-            public HitTestContext(int screenX, int screenY, nint excludedWindowHandle)
-            {
-                ScreenX = screenX;
-                ScreenY = screenY;
-                ExcludedWindowHandle = excludedWindowHandle;
-            }
-
-            public int ScreenX { get; }
-            public int ScreenY { get; }
-            public nint ExcludedWindowHandle { get; }
-            public RectInt32? MatchBounds { get; set; }
-            public bool HasMatch { get; set; }
+            public nint ExcludedWindowHandle { get; } = excludedWindowHandle;
+            public List<RectInt32> Targets { get; } = [];
         }
 
         [StructLayout(LayoutKind.Sequential)]

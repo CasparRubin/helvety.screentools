@@ -60,11 +60,9 @@ namespace helvety.screentools
             }
 
             var freezeFrameProvider = new GdiFreezeFrameProvider();
-            var windowSnapHitTester = new WindowSnapHitTester();
             var imageSaveService = new ImageSaveService();
             _captureCoordinator = new CaptureCoordinator(
                 freezeFrameProvider,
-                windowSnapHitTester,
                 imageSaveService,
                 _window.DispatcherQueue);
 

@@ -2,7 +2,6 @@ using System;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.WindowsRuntime;
-using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.UI.Dispatching;
 using Windows.ApplicationModel.DataTransfer;
@@ -14,22 +13,23 @@ namespace helvety.screentools.Capture
     internal sealed class CaptureCoordinator
     {
         private readonly IFreezeFrameProvider _freezeFrameProvider;
-        private readonly WindowSnapHitTester _windowSnapHitTester;
         private readonly ImageSaveService _imageSaveService;
         private readonly DispatcherQueue _dispatcherQueue;
 
         public CaptureCoordinator(
             IFreezeFrameProvider freezeFrameProvider,
-            WindowSnapHitTester windowSnapHitTester,
             ImageSaveService imageSaveService,
             DispatcherQueue dispatcherQueue)
         {
             _freezeFrameProvider = freezeFrameProvider;
-            _windowSnapHitTester = windowSnapHitTester;
             _imageSaveService = imageSaveService;
             _dispatcherQueue = dispatcherQueue;
         }
 
+        /// <summary>
+        /// Runs one screenshot session. Must be called on the UI thread (hotkey sessions are started from the
+        /// dispatcher); CPU-heavy freeze and save work runs on the thread pool and resumes back on the UI thread.
+        /// </summary>
         public async Task<CaptureSessionResult> StartSelectionAsync(Action<string> publishStatus)
         {
             if (!await OverlaySessionGate.Gate.WaitAsync(0))
@@ -38,6 +38,7 @@ namespace helvety.screentools.Capture
             }
 
             var savedScreenshotCount = 0;
+            SelectionOverlayWindow? overlay = null;
             try
             {
                 if (!SettingsService.TryGetEffectiveSaveFolderPath(out var outputFolderPath))
@@ -51,42 +52,26 @@ namespace helvety.screentools.Capture
                 try
                 {
                     // GDI BitBlt + GetDIBits can stall the UI thread for large virtual desktops; run off the dispatcher.
-                    freezeFrame = await Task.Run(() => _freezeFrameProvider.CaptureVirtualScreen()).ConfigureAwait(false);
+                    freezeFrame = await Task.Run(_freezeFrameProvider.CaptureVirtualScreen);
                 }
                 catch (Exception ex)
                 {
+                    AppLog.Error("Screenshot freeze failed.", ex);
                     publishStatus($"Screenshot failed while freezing screen ({ex.Message}).");
                     return new CaptureSessionResult(0, WasCanceled: false);
                 }
 
-                var showInstructions = captureSettings.ShowScreenshotOverlayInstructions;
-                var overlay = await EnqueueAsync(() => new SelectionOverlayWindow(freezeFrame, _windowSnapHitTester, showInstructions));
-                ActiveOverlayCancelService.Register(
-                    _dispatcherQueue,
-                    HotkeySessionKind.Screenshot,
-                    () => overlay.RequestCancelFromExternal());
+                overlay = new SelectionOverlayWindow(freezeFrame, captureSettings.ShowScreenshotOverlayInstructions);
+                var activeOverlay = overlay;
+                ActiveOverlayCancelService.Register(_dispatcherQueue, HotkeySessionKind.Screenshot, activeOverlay.RequestCancelFromExternal);
+                // Release Escape / repeat-hotkey routing as soon as the overlay is gone, not after the save finishes.
+                activeOverlay.Closed += (_, _) => ActiveOverlayCancelService.Unregister();
 
                 while (true)
                 {
-                    SelectionAction action;
-                    try
-                    {
-                        action = await EnqueueAsync(async () => await overlay.RunSelectionAsync());
-                    }
-                    catch (Exception ex)
-                    {
-                        publishStatus($"Screenshot failed while selecting area ({ex.Message}).");
-                        await EnqueueAsync(() =>
-                        {
-                            overlay.Close();
-                            return true;
-                        });
-                        return new CaptureSessionResult(savedScreenshotCount, WasCanceled: false);
-                    }
-
+                    var action = await activeOverlay.RunSelectionAsync();
                     if (action.Mode == SelectionCommitMode.Cancel || !action.Bounds.HasValue)
                     {
-                        // Overlay is already closed by SelectionOverlayWindow.CompleteSelection; do not touch it here.
                         publishStatus("Screenshot canceled.");
                         return new CaptureSessionResult(savedScreenshotCount, WasCanceled: true);
                     }
@@ -99,10 +84,11 @@ namespace helvety.screentools.Capture
                             freezeFrame,
                             action.Bounds.Value,
                             outputFolderPath,
-                            captureSettings.ScreenshotQualityMode)).ConfigureAwait(true);
+                            captureSettings.ScreenshotQualityMode));
                     }
                     catch (Exception ex)
                     {
+                        AppLog.Error("Screenshot save failed.", ex);
                         publishStatus($"Screenshot failed while saving image ({ex.Message}).");
                         return new CaptureSessionResult(savedScreenshotCount, WasCanceled: false);
                     }
@@ -110,34 +96,31 @@ namespace helvety.screentools.Capture
                     savedScreenshotCount++;
                     // Screen Tools reloads its gallery when notified; saveResult.PngBytes is still used for clipboard copy below.
                     CaptureGalleryNotifier.NotifyCaptureSaved(saveResult.OutputPath);
+                    var filename = Path.GetFileName(saveResult.OutputPath);
 
                     if (action.Mode == SelectionCommitMode.RightCommitContinue)
                     {
-                        var filename = Path.GetFileName(saveResult.OutputPath);
-                        await EnqueueAsync(() =>
+                        if (activeOverlay.IsClosed)
                         {
-                            overlay.UpdateInstructionStatus("Ready for next screenshot...");
-                            overlay.ShowSessionToast($"Saved {filename}", saveResult.OutputPath);
-                            return true;
-                        });
+                            // Escape was pressed while the save was running.
+                            publishStatus($"Saved screenshot: {saveResult.OutputPath}");
+                            return new CaptureSessionResult(savedScreenshotCount, WasCanceled: false);
+                        }
+
+                        activeOverlay.UpdateInstructionStatus("Ready for next screenshot...");
+                        activeOverlay.ShowSessionToast($"Saved {filename}", saveResult.OutputPath);
                         publishStatus($"Saved screenshot (staying in screenshot mode): {saveResult.OutputPath}");
                         continue;
                     }
 
                     try
                     {
-                        var filename = Path.GetFileName(saveResult.OutputPath);
-                        // Single dispatcher async block: clipboard APIs require the UI thread; continuations must stay on it.
-                        await EnqueueAsync(async () =>
-                        {
-                            overlay.UpdateInstructionStatus("Saved and copied to clipboard.");
-                            overlay.ShowSessionToast($"Saved {filename}", saveResult.OutputPath);
-                            await CopyBitmapToClipboardAsync(saveResult.PngBytes).ConfigureAwait(true);
-                            return true;
-                        });
+                        // Clipboard APIs require the UI thread, which this method runs on.
+                        await CopyBitmapToClipboardAsync(saveResult.PngBytes);
                     }
                     catch (Exception ex)
                     {
+                        AppLog.Warn("Screenshot clipboard copy failed.", ex);
                         publishStatus($"Saved screenshot but failed to copy clipboard ({DescribeException(ex)}).");
                         return new CaptureSessionResult(savedScreenshotCount, WasCanceled: false);
                     }
@@ -146,55 +129,19 @@ namespace helvety.screentools.Capture
                     return new CaptureSessionResult(savedScreenshotCount, WasCanceled: false);
                 }
             }
+            catch (Exception ex)
+            {
+                AppLog.Error("Screenshot session failed.", ex);
+                publishStatus($"Screenshot failed ({ex.Message}).");
+                return new CaptureSessionResult(savedScreenshotCount, WasCanceled: false);
+            }
             finally
             {
+                // Every exit path (including save failures in right-click "continue" mode) must remove the topmost overlay.
+                overlay?.CloseIfOpen();
                 ActiveOverlayCancelService.Unregister();
                 OverlaySessionGate.Gate.Release();
             }
-        }
-
-        private Task<T> EnqueueAsync<T>(Func<T> work)
-        {
-            var completionSource = new TaskCompletionSource<T>();
-            if (!_dispatcherQueue.TryEnqueue(() =>
-            {
-                try
-                {
-                    completionSource.TrySetResult(work());
-                }
-                catch (Exception ex)
-                {
-                    completionSource.TrySetException(ex);
-                }
-            }))
-            {
-                completionSource.TrySetException(
-                    new InvalidOperationException("Failed to enqueue work on the dispatcher."));
-            }
-
-            return completionSource.Task;
-        }
-
-        private Task<T> EnqueueAsync<T>(Func<Task<T>> work)
-        {
-            var completionSource = new TaskCompletionSource<T>();
-            if (!_dispatcherQueue.TryEnqueue(async () =>
-            {
-                try
-                {
-                    completionSource.TrySetResult(await work());
-                }
-                catch (Exception ex)
-                {
-                    completionSource.TrySetException(ex);
-                }
-            }))
-            {
-                completionSource.TrySetException(
-                    new InvalidOperationException("Failed to enqueue work on the dispatcher."));
-            }
-
-            return completionSource.Task;
         }
 
         private static async Task CopyBitmapToClipboardAsync(byte[] pngBytes)

@@ -10,6 +10,12 @@ namespace helvety.screentools.Capture
 {
     internal sealed class ImageSaveService
     {
+        /// <summary>
+        /// Upper bound for enhanced (upscaled) output, about an 8K frame. Each processing buffer is 4 bytes per pixel,
+        /// so this keeps Optimized/Heavy at a few hundred MB instead of several GB on large multi-monitor selections.
+        /// </summary>
+        private const long MaxEnhancedOutputPixels = 7680L * 4320L;
+
         public async Task<SavedSelectionResult> SaveSelectionAsync(
             FreezeFrame freezeFrame,
             RectInt32 selection,
@@ -22,7 +28,7 @@ namespace helvety.screentools.Capture
                 throw new InvalidOperationException("Selection bounds are outside the captured frame.");
             }
 
-            var cropBuffer = new byte[clampedSelection.Width * clampedSelection.Height * 4];
+            var cropBuffer = new byte[checked(clampedSelection.Width * clampedSelection.Height * 4)];
             var sourceStartX = clampedSelection.X - freezeFrame.VirtualBounds.X;
             var sourceStartY = clampedSelection.Y - freezeFrame.VirtualBounds.Y;
 
@@ -44,7 +50,6 @@ namespace helvety.screentools.Capture
 #if DEBUG
             ScreenshotQualityBenchmarks.RecordSample(qualityMode, processedImage.Width, processedImage.Height, processingWatch.Elapsed, processedImage.Pixels);
 #endif
-            var outputPath = BuildOutputPath(outputFolderPath);
             using var stream = new InMemoryRandomAccessStream();
             var encoder = await BitmapEncoder.CreateAsync(BitmapEncoder.PngEncoderId, stream);
             encoder.SetPixelData(
@@ -67,7 +72,8 @@ namespace helvety.screentools.Capture
                 pngBytes = memory.ToArray();
             }
 
-            await File.WriteAllBytesAsync(outputPath, pngBytes);
+            var timestamp = DateTime.Now.ToString("yyMMdd_HHmm_ss_fff");
+            var outputPath = await NewFileWriter.WriteNewPngAsync(outputFolderPath, $"{timestamp}-HelvetyScreenshot", pngBytes);
             return new SavedSelectionResult(outputPath, pngBytes);
         }
 
@@ -78,25 +84,41 @@ namespace helvety.screentools.Capture
                 return new ProcessedImage(sourcePixels, width, height);
             }
 
-            return qualityMode switch
+            var requestedScale = qualityMode switch
             {
-                ScreenshotQualityMode.Optimized => ApplyOptimizedMode(sourcePixels, width, height),
-                ScreenshotQualityMode.Heavy => ApplyHeavyMode(sourcePixels, width, height),
-                _ => new ProcessedImage(sourcePixels, width, height)
+                ScreenshotQualityMode.Optimized => 2,
+                ScreenshotQualityMode.Heavy => 3,
+                _ => 1
             };
+
+            // Lower the upscale factor for huge selections; below 2x the enhancement is skipped entirely.
+            var scale = requestedScale;
+            while (scale > 1 && (long)width * height * scale * scale > MaxEnhancedOutputPixels)
+            {
+                scale--;
+            }
+
+            if (scale < 2)
+            {
+                return new ProcessedImage(sourcePixels, width, height);
+            }
+
+            return qualityMode == ScreenshotQualityMode.Heavy
+                ? ApplyHeavyMode(sourcePixels, width, height, scale)
+                : ApplyOptimizedMode(sourcePixels, width, height, scale);
         }
 
-        private static ProcessedImage ApplyOptimizedMode(byte[] sourcePixels, int width, int height)
+        private static ProcessedImage ApplyOptimizedMode(byte[] sourcePixels, int width, int height, int scale)
         {
-            var upscaledPixels = UpscaleBilinear(sourcePixels, width, height, 2, out var upscaledWidth, out var upscaledHeight);
+            var upscaledPixels = UpscaleBilinear(sourcePixels, width, height, scale, out var upscaledWidth, out var upscaledHeight);
             var sharpenedPixels = ApplyUnsharpMask(upscaledPixels, upscaledWidth, upscaledHeight, amount: 0.45f, radius: 1);
             ApplyGlobalContrast(sharpenedPixels, factor: 1.08f);
             return new ProcessedImage(sharpenedPixels, upscaledWidth, upscaledHeight);
         }
 
-        private static ProcessedImage ApplyHeavyMode(byte[] sourcePixels, int width, int height)
+        private static ProcessedImage ApplyHeavyMode(byte[] sourcePixels, int width, int height, int scale)
         {
-            var upscaledPixels = UpscaleBilinear(sourcePixels, width, height, 3, out var upscaledWidth, out var upscaledHeight);
+            var upscaledPixels = UpscaleBilinear(sourcePixels, width, height, scale, out var upscaledWidth, out var upscaledHeight);
             var denoisedPixels = BoxBlur(upscaledPixels, upscaledWidth, upscaledHeight, radius: 1);
             var sharpenedPixels = ApplyUnsharpMask(denoisedPixels, upscaledWidth, upscaledHeight, amount: 0.75f, radius: 2);
             ApplyGlobalContrast(sharpenedPixels, factor: 1.14f);
@@ -287,21 +309,6 @@ namespace helvety.screentools.Capture
             var x2 = Math.Min(selection.X + selection.Width, bounds.X + bounds.Width);
             var y2 = Math.Min(selection.Y + selection.Height, bounds.Y + bounds.Height);
             return new RectInt32(x1, y1, Math.Max(0, x2 - x1), Math.Max(0, y2 - y1));
-        }
-
-        private static string BuildOutputPath(string outputFolderPath)
-        {
-            var timestamp = DateTime.Now.ToString("yyMMdd_HHmm_ss_fff");
-            var baseName = $"{timestamp}-HelvetyScreenshot";
-            var candidatePath = Path.Combine(outputFolderPath, $"{baseName}.png");
-            var duplicateCounter = 1;
-            while (File.Exists(candidatePath))
-            {
-                candidatePath = Path.Combine(outputFolderPath, $"{baseName}_{duplicateCounter}.png");
-                duplicateCounter++;
-            }
-
-            return candidatePath;
         }
 
         private readonly record struct ProcessedImage(byte[] Pixels, int Width, int Height);

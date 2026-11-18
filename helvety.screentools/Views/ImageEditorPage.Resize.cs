@@ -189,8 +189,7 @@ namespace helvety.screentools.Views
             var isResized = _resizeScalePercent < ImageDownscaler.MaximumScalePercent;
             var suffix = isResized ? "_resized" : frame.Cropped ? "_crop" : "_edited";
             var label = isResized ? "Resized image saved" : frame.Cropped ? "Cropped image saved" : "Saved";
-            var outputPath = BuildOutputPath(_filePath, suffix);
-            await SaveNewImageAndCloseAsync(outputPath, pixels, width, height, label, copyToClipboard);
+            await SaveNewImageAndCloseAsync(suffix, pixels, width, height, label, copyToClipboard);
         }
 
         private async Task<(byte[] Pixels, int Width, int Height, bool Cropped)> CaptureExportFrameAsync()

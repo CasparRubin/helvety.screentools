@@ -42,12 +42,12 @@ namespace helvety.screentools.Capture
         private const double BorderFxTickMilliseconds = 70.0;
 
         private readonly FreezeFrame _freezeFrame;
-        private readonly WindowSnapHitTester _hitTester;
+        private readonly RectInt32[] _snapTargets;
         private readonly SnapBorderChromeController _snapBorderChrome;
         private readonly SolidColorBrush _crosshairBaseBrush = new(Color.FromArgb(255, 186, 92, 126));
         private readonly SolidColorBrush _crosshairAccentBrush = new(Color.FromArgb(255, 216, 27, 96));
         private readonly SolidColorBrush _crosshairAnimatedBrush = new(Color.FromArgb(255, 186, 92, 126));
-        private TaskCompletionSource<SelectionAction> _selectionCompletionSource = new();
+        private TaskCompletionSource<SelectionAction> _selectionCompletionSource = CreateSelectionCompletionSource();
         private readonly nint _windowHandle;
         private readonly DispatcherQueueTimer _colorDriftTimer;
         private readonly DispatcherQueueTimer _sessionToastTimer;
@@ -56,6 +56,8 @@ namespace helvety.screentools.Capture
         private Visual? _horizontalGuideVisual;
         private ScalarKeyFrameAnimation? _crosshairOpacityAnimation;
         private bool _isSessionStarted;
+        private bool _isClosed;
+        private bool _isWaitingForNextRun;
         private bool _isPointerDown;
         private bool _isDragging;
         private bool _showInstructionPanel;
@@ -77,10 +79,9 @@ namespace helvety.screentools.Capture
             nuint uIdSubclass,
             nuint dwRefData);
 
-        public SelectionOverlayWindow(FreezeFrame freezeFrame, WindowSnapHitTester hitTester, bool showInstructionPanel)
+        public SelectionOverlayWindow(FreezeFrame freezeFrame, bool showInstructionPanel)
         {
             _freezeFrame = freezeFrame;
-            _hitTester = hitTester;
             _showInstructionPanel = showInstructionPanel;
             InitializeComponent();
             _snapBorderChrome = new SnapBorderChromeController(
@@ -101,6 +102,7 @@ namespace helvety.screentools.Capture
             _sessionToastTimer.Tick += SessionToastTimer_Tick;
 
             _windowHandle = WindowNative.GetWindowHandle(this);
+            _snapTargets = WindowSnapHitTester.CaptureSnapTargets(_windowHandle);
             ConfigureOverlayWindow();
             RenderBackground();
             InitializeCompositionAnimations();
@@ -121,14 +123,27 @@ namespace helvety.screentools.Capture
             EnsureFocusedForKeyboard();
             RootGrid.Focus(FocusState.Programmatic);
 
-            if (_selectionCompletionSource.Task.IsCompleted)
-            {
-                _selectionCompletionSource = new TaskCompletionSource<SelectionAction>();
-            }
-
+            _isWaitingForNextRun = false;
             InitializeSnapAtCurrentCursor();
             EnsureArrowCursor();
             return await _selectionCompletionSource.Task;
+        }
+
+        internal bool IsClosed => _isClosed;
+
+        internal void CloseIfOpen()
+        {
+            if (!_isClosed)
+            {
+                _snapBorderChrome.StopSnapBorderAnimations();
+                Close();
+            }
+        }
+
+        private static TaskCompletionSource<SelectionAction> CreateSelectionCompletionSource()
+        {
+            // Continuations must not run inline inside pointer/key handlers before the overlay finishes its own bookkeeping.
+            return new TaskCompletionSource<SelectionAction>(TaskCreationOptions.RunContinuationsAsynchronously);
         }
 
         private void ConfigureOverlayWindow()
@@ -146,6 +161,14 @@ namespace helvety.screentools.Capture
             appWindow.MoveAndResize(_freezeFrame.VirtualBounds);
             EnforceBorderlessWindowStyles();
 
+            // Layout is in physical pixels; the Viewbox in XAML scales it onto the window at any DPI.
+            RootGrid.Width = _freezeFrame.VirtualBounds.Width;
+            RootGrid.Height = _freezeFrame.VirtualBounds.Height;
+            RootGrid.Loaded += (_, _) =>
+            {
+                PlaceOverlayChrome();
+                RootGrid.XamlRoot.Changed += (_, _) => PlaceOverlayChrome();
+            };
             OverlayCanvas.Width = _freezeFrame.VirtualBounds.Width;
             OverlayCanvas.Height = _freezeFrame.VirtualBounds.Height;
             UpdateCursorGuides(new Point(OverlayCanvas.Width / 2, OverlayCanvas.Height / 2));
@@ -283,11 +306,21 @@ namespace helvety.screentools.Capture
 
         public void UpdateInstructionStatus(string message)
         {
+            if (_isClosed)
+            {
+                return;
+            }
+
             InstructionStatusText.Text = message;
         }
 
         public void ShowSessionToast(string title, string detail)
         {
+            if (_isClosed)
+            {
+                return;
+            }
+
             SessionToastTitleText.Text = title;
             SessionToastDetailText.Text = detail;
             PlaceOverlayChrome();
@@ -352,7 +385,7 @@ namespace helvety.screentools.Capture
         {
             var screenX = _freezeFrame.VirtualBounds.X + (int)Math.Round(localPoint.X);
             var screenY = _freezeFrame.VirtualBounds.Y + (int)Math.Round(localPoint.Y);
-            if (!_hitTester.TryGetSnapBoundsAt(screenX, screenY, _windowHandle, out var bounds))
+            if (!WindowSnapHitTester.TryGetSnapBoundsAt(_snapTargets, screenX, screenY, out var bounds))
             {
                 _activeSnapBounds = null;
                 _snapBorderChrome.ResetDashSpeedToDefault();
@@ -574,21 +607,45 @@ namespace helvety.screentools.Capture
 
         private void PlaceOverlayChrome()
         {
+            // The canvas is in physical pixels; scale text chrome back up so it keeps its normal size above 100% DPI.
+            var scale = RootGrid.XamlRoot?.RasterizationScale ?? 1.0;
+            var margin = InstructionPanelMargin * scale;
+            ApplyChromeScale(InstructionPanel, scale);
+            ApplyChromeScale(SessionToastCard, scale);
+
             EnsureChromeMeasured(InstructionPanel);
-            var width = InstructionPanel.ActualWidth > 0 ? InstructionPanel.ActualWidth : InstructionPanel.DesiredSize.Width;
-            var height = InstructionPanel.ActualHeight > 0 ? InstructionPanel.ActualHeight : InstructionPanel.DesiredSize.Height;
-            var top = InstructionPanelMargin;
-            var right = Math.Max(InstructionPanelMargin, OverlayCanvas.Width - width - InstructionPanelMargin);
+            var width = (InstructionPanel.ActualWidth > 0 ? InstructionPanel.ActualWidth : InstructionPanel.DesiredSize.Width) * scale;
+            var height = (InstructionPanel.ActualHeight > 0 ? InstructionPanel.ActualHeight : InstructionPanel.DesiredSize.Height) * scale;
+            var top = margin;
+            var right = Math.Max(margin, OverlayCanvas.Width - width - margin);
             Canvas.SetLeft(InstructionPanel, right);
             Canvas.SetTop(InstructionPanel, top);
 
             EnsureChromeMeasured(SessionToastCard);
-            var toastWidth = SessionToastCard.ActualWidth > 0 ? SessionToastCard.ActualWidth : SessionToastCard.DesiredSize.Width;
-            var toastHeight = SessionToastCard.ActualHeight > 0 ? SessionToastCard.ActualHeight : SessionToastCard.DesiredSize.Height;
-            var toastTop = top + (_showInstructionPanel ? height + SessionToastTopSpacing : 0);
-            var toastLeft = Math.Max(InstructionPanelMargin, OverlayCanvas.Width - toastWidth - InstructionPanelMargin);
+            var toastWidth = (SessionToastCard.ActualWidth > 0 ? SessionToastCard.ActualWidth : SessionToastCard.DesiredSize.Width) * scale;
+            var toastHeight = (SessionToastCard.ActualHeight > 0 ? SessionToastCard.ActualHeight : SessionToastCard.DesiredSize.Height) * scale;
+            var toastTop = top + (_showInstructionPanel ? height + (SessionToastTopSpacing * scale) : 0);
+            var toastLeft = Math.Max(margin, OverlayCanvas.Width - toastWidth - margin);
             Canvas.SetLeft(SessionToastCard, toastLeft);
-            Canvas.SetTop(SessionToastCard, Math.Max(InstructionPanelMargin, Math.Min(toastTop, OverlayCanvas.Height - toastHeight - InstructionPanelMargin)));
+            Canvas.SetTop(SessionToastCard, Math.Max(margin, Math.Min(toastTop, OverlayCanvas.Height - toastHeight - margin)));
+        }
+
+        private static void ApplyChromeScale(UIElement element, double scale)
+        {
+            if (scale == 1.0)
+            {
+                element.RenderTransform = null;
+                return;
+            }
+
+            if (element.RenderTransform is not ScaleTransform transform)
+            {
+                transform = new ScaleTransform();
+                element.RenderTransform = transform;
+            }
+
+            transform.ScaleX = scale;
+            transform.ScaleY = scale;
         }
 
         private void HideSessionToast()
@@ -604,24 +661,35 @@ namespace helvety.screentools.Capture
 
         private void CompleteSelection(SelectionAction action)
         {
-            if (_selectionCompletionSource.Task.IsCompleted)
+            if (_isClosed)
             {
                 return;
             }
 
-            _selectionCompletionSource.TrySetResult(action);
+            if (_isWaitingForNextRun && action.Mode != SelectionCommitMode.Cancel)
+            {
+                // The previous right-click save is still running; only Escape is accepted until it finishes.
+                return;
+            }
+
             if (action.Mode == SelectionCommitMode.RightCommitContinue)
             {
+                _isWaitingForNextRun = true;
+                var completed = _selectionCompletionSource;
+                // Arm a fresh source right away so Escape while the save runs still cancels the session.
+                _selectionCompletionSource = CreateSelectionCompletionSource();
+                completed.TrySetResult(action);
                 PrepareForNextSelection();
                 return;
             }
 
-            _snapBorderChrome.StopSnapBorderAnimations();
-            Close();
+            _selectionCompletionSource.TrySetResult(action);
+            CloseIfOpen();
         }
 
         private void SelectionOverlayWindow_Closed(object sender, WindowEventArgs args)
         {
+            _isClosed = true;
             if (s_activeOverlayForEscape == this)
             {
                 s_activeOverlayForEscape = null;
@@ -687,12 +755,12 @@ namespace helvety.screentools.Capture
         private static extern bool SetWindowSubclass(
             nint hWnd,
             SubclassProcDelegate pfnSubclass,
-            uint uIdSubclass,
-            uint dwRefData);
+            nuint uIdSubclass,
+            nuint dwRefData);
 
         [DllImport("comctl32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
-        private static extern bool RemoveWindowSubclass(nint hWnd, SubclassProcDelegate pfnSubclass, uint uIdSubclass);
+        private static extern bool RemoveWindowSubclass(nint hWnd, SubclassProcDelegate pfnSubclass, nuint uIdSubclass);
 
         [DllImport("comctl32.dll", SetLastError = true)]
         private static extern nint DefSubclassProc(nint hWnd, uint msg, nint wParam, nint lParam);

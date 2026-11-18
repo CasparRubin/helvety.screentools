@@ -1,12 +1,18 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using System.Threading;
 
 namespace helvety.screentools.Capture
 {
+    /// <summary>
+    /// Global hotkey sequences via a low-level keyboard hook. The hook lives on its own message-loop thread so a busy
+    /// UI thread can never delay system-wide typing or exceed LowLevelHooksTimeout (which silently removes the hook).
+    /// </summary>
     internal sealed class HotkeyService : IDisposable
     {
         private const int WhKeyboardLl = 13;
+        private const uint WmQuit = 0x0012;
         private const uint WmKeydown = 0x0100;
         private const uint WmKeyup = 0x0101;
         private const uint WmSyskeydown = 0x0104;
@@ -25,7 +31,8 @@ namespace helvety.screentools.Capture
 
         private nint _keyboardHookHandle;
         private KeyboardHookProc? _keyboardHookProc;
-        private bool _isKeyboardHookInstalled;
+        private Thread? _hookThread;
+        private uint _hookThreadId;
         private HotkeyBinding? _captureBinding;
         private HotkeyBinding? _liveDrawBinding;
         private readonly object _stateLock = new();
@@ -33,30 +40,64 @@ namespace helvety.screentools.Capture
         private HotkeySequenceRuntimeState _captureState;
         private HotkeySequenceRuntimeState _liveDrawState;
 
+        /// <summary>Raised on the hook thread; subscribers must marshal to the UI thread.</summary>
         public event Action<HotkeySessionKind, string>? HotkeyPressed;
 
         public void Start()
         {
-            if (_isKeyboardHookInstalled)
+            if (_hookThread is not null)
             {
                 return;
             }
 
-            _keyboardHookProc = KeyboardHookCallback;
-            _keyboardHookHandle = SetWindowsHookEx(WhKeyboardLl, _keyboardHookProc, nint.Zero, 0);
-            _isKeyboardHookInstalled = _keyboardHookHandle != nint.Zero;
             SettingsService.SettingsChanged += SettingsService_SettingsChanged;
             ReloadConfiguration();
+
+            using var hookInstalled = new ManualResetEventSlim();
+            _hookThread = new Thread(() => RunHookThread(hookInstalled))
+            {
+                IsBackground = true,
+                Name = "Global hotkey hook"
+            };
+            _hookThread.Start();
+            hookInstalled.Wait();
         }
 
         public void Dispose()
         {
             SettingsService.SettingsChanged -= SettingsService_SettingsChanged;
-            if (_isKeyboardHookInstalled)
+            if (_hookThread is null)
             {
-                UnhookWindowsHookEx(_keyboardHookHandle);
-                _isKeyboardHookInstalled = false;
+                return;
             }
+
+            _ = PostThreadMessage(_hookThreadId, WmQuit, 0, 0);
+            _ = _hookThread.Join(TimeSpan.FromSeconds(1));
+            _hookThread = null;
+        }
+
+        private void RunHookThread(ManualResetEventSlim hookInstalled)
+        {
+            _hookThreadId = GetCurrentThreadId();
+            _keyboardHookProc = KeyboardHookCallback;
+            _keyboardHookHandle = SetWindowsHookEx(WhKeyboardLl, _keyboardHookProc, GetModuleHandle(null), 0);
+            var error = Marshal.GetLastWin32Error();
+            hookInstalled.Set();
+            if (_keyboardHookHandle == nint.Zero)
+            {
+                AppLog.Error($"Global hotkey hook could not be installed (Win32 error {error}).");
+                return;
+            }
+
+            // Low-level hook callbacks are delivered while this thread pumps messages.
+            while (GetMessage(out var message, nint.Zero, 0, 0) > 0)
+            {
+                _ = TranslateMessage(in message);
+                _ = DispatchMessage(in message);
+            }
+
+            _ = UnhookWindowsHookEx(_keyboardHookHandle);
+            _keyboardHookHandle = nint.Zero;
         }
 
         private void SettingsService_SettingsChanged()
@@ -383,6 +424,39 @@ namespace helvety.screentools.Capture
 
         [DllImport("user32.dll")]
         private static extern short GetAsyncKeyState(int vKey);
+
+        [DllImport("user32.dll")]
+        private static extern int GetMessage(out Msg lpMsg, nint hWnd, uint wMsgFilterMin, uint wMsgFilterMax);
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool TranslateMessage(in Msg lpMsg);
+
+        [DllImport("user32.dll")]
+        private static extern nint DispatchMessage(in Msg lpMsg);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool PostThreadMessage(uint idThread, uint msg, nuint wParam, nint lParam);
+
+        [DllImport("kernel32.dll")]
+        private static extern uint GetCurrentThreadId();
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+        private static extern nint GetModuleHandle(string? lpModuleName);
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct Msg
+        {
+            public nint Hwnd;
+            public uint Message;
+            public nuint WParam;
+            public nint LParam;
+            public uint Time;
+            public int PtX;
+            public int PtY;
+            public uint LPrivate;
+        }
 
         [StructLayout(LayoutKind.Sequential)]
         private struct KbdLlHookStruct

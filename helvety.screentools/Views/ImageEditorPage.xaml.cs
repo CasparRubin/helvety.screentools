@@ -1994,9 +1994,11 @@ namespace helvety.screentools.Views
             return buffer.ToArray();
         }
 
-        private async Task SaveNewImageAndCloseAsync(string outputPath, byte[] pixels, int width, int height, string successLabel, bool copyToClipboard)
+        private async Task SaveNewImageAndCloseAsync(string suffix, byte[] pixels, int width, int height, string successLabel, bool copyToClipboard)
         {
-            await SavePngAsync(outputPath, pixels, width, height);
+            var pngBytes = await EncodePngBytesAsync(pixels, width, height);
+            var directory = Path.GetDirectoryName(_filePath) ?? AppContext.BaseDirectory;
+            var outputPath = await NewFileWriter.WriteNewPngAsync(directory, $"{Path.GetFileNameWithoutExtension(_filePath)}{suffix}", pngBytes);
             if (copyToClipboard)
             {
                 await CopySavedImageToClipboardAsync(outputPath);
@@ -2017,12 +2019,6 @@ namespace helvety.screentools.Views
             package.SetBitmap(RandomAccessStreamReference.CreateFromFile(savedFile));
             Clipboard.SetContent(package);
             Clipboard.Flush();
-        }
-
-        private async Task SavePngAsync(string outputPath, byte[] pixels, int width, int height)
-        {
-            var pngBytes = await EncodePngBytesAsync(pixels, width, height);
-            await File.WriteAllBytesAsync(outputPath, pngBytes);
         }
 
         private static async Task<byte[]> EncodePngBytesAsync(byte[] pixels, int width, int height)
@@ -2061,21 +2057,6 @@ namespace helvety.screentools.Views
             }
 
             return output;
-        }
-
-        private static string BuildOutputPath(string sourcePath, string suffix)
-        {
-            var directory = Path.GetDirectoryName(sourcePath) ?? AppContext.BaseDirectory;
-            var nameWithoutExtension = Path.GetFileNameWithoutExtension(sourcePath);
-            var candidatePath = Path.Combine(directory, $"{nameWithoutExtension}{suffix}.png");
-            var counter = 1;
-            while (File.Exists(candidatePath))
-            {
-                candidatePath = Path.Combine(directory, $"{nameWithoutExtension}{suffix}_{counter}.png");
-                counter++;
-            }
-
-            return candidatePath;
         }
 
         private static int GetEffectiveCornerRadius(EditorRect region, int requestedRadius)

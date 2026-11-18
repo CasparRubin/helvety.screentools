@@ -150,6 +150,8 @@ namespace helvety.screentools.Capture
             if (_xamlSource is not null)
             {
                 _xamlSource.Content = null;
+                // DesktopWindowXamlSource is IClosable: dispose it before its parent HWND goes away or the island leaks.
+                _xamlSource.Dispose();
                 _xamlSource = null;
             }
 
