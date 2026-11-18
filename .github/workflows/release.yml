@@ -1,32 +1,59 @@
-name: Release
+name: Build and release
 
 on:
   push:
+    branches:
+      - main
     tags:
       - "v*"
+  pull_request:
 
+# Least privilege by default; only the release job may write (to create the GitHub Release).
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
     runs-on: windows-latest
     strategy:
       matrix:
-        platform: [x64, arm64]
         include:
           - platform: x64
             rid: win-x64
+          - platform: x86
+            rid: win-x86
           - platform: arm64
             rid: win-arm64
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v6
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           dotnet-version: 10.0.x
+
+      - name: Check version matches tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}".TrimStart('v')
+          [xml]$project = Get-Content helvety.screentools/helvety.screentools.csproj
+          [xml]$package = Get-Content helvety.screentools/Package.appxmanifest
+          [xml]$appManifest = Get-Content helvety.screentools/app.manifest
+          $versions = @{
+            'csproj ApplicationVersion' = ($project.Project.PropertyGroup.ApplicationVersion | Where-Object { $_ })
+            'csproj Version' = ($project.Project.PropertyGroup.Version | Where-Object { $_ })
+            'Package.appxmanifest Identity' = $package.Package.Identity.Version
+            'app.manifest assemblyIdentity' = $appManifest.assembly.assemblyIdentity.version
+          }
+          $mismatches = $versions.GetEnumerator() | Where-Object { $_.Value -ne $tag }
+          if ($mismatches) {
+            $mismatches | ForEach-Object { Write-Error "$($_.Key) is '$($_.Value)', tag is '$tag'." }
+            exit 1
+          }
 
       - name: Publish
         run: >
@@ -35,31 +62,50 @@ jobs:
           -p:Platform=${{ matrix.platform }}
           -p:RuntimeIdentifier=${{ matrix.rid }}
 
+      # Release ZIPs are unpackaged and trimmed; make sure the app actually starts (arm64 cannot run on this runner).
+      - name: Smoke test startup
+        if: matrix.platform != 'arm64'
+        shell: pwsh
+        run: |
+          $exe = "helvety.screentools/bin/Release/net10.0-windows10.0.19041.0/${{ matrix.rid }}/publish/helvety.screentools.exe"
+          $process = Start-Process -FilePath $exe -PassThru
+          Start-Sleep -Seconds 15
+          $process.Refresh()
+          if ($process.HasExited) {
+            Write-Error ("App exited during startup with code 0x{0:X8}." -f $process.ExitCode)
+            exit 1
+          }
+          Stop-Process -Id $process.Id -Force
+
       - name: Zip release
+        if: startsWith(github.ref, 'refs/tags/v')
         shell: pwsh
         run: |
           $publishDir = "helvety.screentools/bin/Release/net10.0-windows10.0.19041.0/${{ matrix.rid }}/publish"
-          $version = "${{ github.ref_name }}"
-          $zipName = "helvety-screentools-${version}-${{ matrix.rid }}.zip"
+          $zipName = "helvety-screentools-${{ github.ref_name }}-${{ matrix.rid }}.zip"
           Compress-Archive -Path "$publishDir/*" -DestinationPath $zipName
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v7
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-${{ matrix.rid }}
           path: "*.zip"
 
   release:
     needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           merge-multiple: true
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3.0.4
         with:
           generate_release_notes: true
           files: "*.zip"

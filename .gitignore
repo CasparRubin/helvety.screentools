@@ -25,3 +25,4 @@ helvety-screentools-*.zip
 
 # Dev MSIX signing keys (generate locally; see README)
 *.pfx
+*.cer
