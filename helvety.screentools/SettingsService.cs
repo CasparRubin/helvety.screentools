@@ -483,6 +483,8 @@ namespace helvety.screentools
             }
 
             ApplyDefaultSettings(values);
+            // Defaults point at the desktop captures folder; recreate it if it was deleted meanwhile.
+            _ = TryEnsureDefaultDesktopFolder(out _);
             SaveFolderPathChanged?.Invoke();
             EditorUiSettingsChanged?.Invoke();
             SettingsChanged?.Invoke();
@@ -798,6 +800,11 @@ namespace helvety.screentools
             return false;
         }
 
+        /// <summary>
+        /// Resolves the configured save folder. This runs on every settings change, so it only checks that the folder
+        /// exists; writability is verified when a folder is chosen (<see cref="TryValidateWritableFolder"/>) and a
+        /// failing save reports its own error.
+        /// </summary>
         internal static bool TryGetEffectiveSaveFolderPath(out string folderPath)
         {
             var settings = Load();
@@ -811,7 +818,7 @@ namespace helvety.screentools
                 ? settings.SaveFolderPath
                 : GetDefaultDesktopFolderPath();
 
-            if (TryValidateWritableFolder(candidatePath, out _))
+            if (Directory.Exists(candidatePath))
             {
                 folderPath = candidatePath;
                 return true;

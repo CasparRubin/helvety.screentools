@@ -116,6 +116,7 @@
                             x:Name="ImageFilesGridView"
                             IsItemClickEnabled="True"
                             ItemsSource="{Binding Source={StaticResource GroupedImageFilesViewSource}}"
+                            ContainerContentChanging="ImageFilesGridView_ContainerContentChanging"
                             ItemClick="ImageFilesGridView_ItemClick"
                             RightTapped="ImageFilesGridView_RightTapped"
                             SelectionMode="None">

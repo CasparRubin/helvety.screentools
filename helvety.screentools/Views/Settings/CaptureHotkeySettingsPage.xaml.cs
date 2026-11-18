@@ -28,7 +28,7 @@ namespace helvety.screentools.Views.Settings
         private uint _editorModifiers;
         private bool _isUpdatingCaptureToggle;
         private int _captureHotkeyEditorSuppress;
-        private HotkeyListenController? _listenController;
+        private readonly HotkeyListenController _listenController;
         private bool _isUpdatingScreenshotQualitySelection;
         private bool _isUpdatingOverlayInstructionSelection;
 
@@ -126,18 +126,9 @@ namespace helvety.screentools.Views.Settings
 
         private void CaptureHotkeySettingsPage_Unloaded(object sender, RoutedEventArgs e)
         {
-            SettingsService.SaveFolderPathChanged -= SettingsService_SaveFolderPathChanged;
-            SettingsService.SettingsChanged -= SettingsService_SettingsChanged;
-
-            if (_listenController is not null)
-            {
-                _listenController.NonModifierKeyCaptured -= ListenController_NonModifierKeyCaptured;
-                _listenController.EscapePressed -= ListenController_EscapePressed;
-                _listenController.Dispose();
-                _listenController = null;
-            }
-
-            Unloaded -= CaptureHotkeySettingsPage_Unloaded;
+            // The page is cached (NavigationCacheMode.Required) and reused, so keep its subscriptions;
+            // only make sure no keyboard hook stays installed while it is off screen.
+            StopStepCapture();
         }
 
         private void SettingsService_SaveFolderPathChanged()
@@ -528,12 +519,6 @@ namespace helvety.screentools.Views.Settings
 
         private bool TryApplyBinding(HotkeyBinding requestedBinding, bool persistSetting, out string statusMessage)
         {
-            if (persistSetting && (_listenController is null || !_listenController.IsInstalled))
-            {
-                statusMessage = "Keyboard hook failed to install.";
-                return false;
-            }
-
             _currentBinding = requestedBinding;
             RefreshCaptureCurrentShortcutVisual();
             if (persistSetting)
@@ -606,12 +591,6 @@ namespace helvety.screentools.Views.Settings
                 return;
             }
 
-            if (_listenController is null)
-            {
-                SetBindingStatus("Keyboard hook failed to install.");
-                return;
-            }
-
             _isCaptureMode = true;
             if (!_listenController.StartListen(stepIndex))
             {
@@ -629,7 +608,7 @@ namespace helvety.screentools.Views.Settings
         private void StopStepCapture()
         {
             _isCaptureMode = false;
-            _listenController?.StopListen();
+            _listenController.StopListen();
             ListeningInfoBar.IsOpen = false;
             UpdateFeatureAvailability();
         }

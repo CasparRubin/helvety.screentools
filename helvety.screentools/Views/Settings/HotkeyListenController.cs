@@ -6,6 +6,7 @@ namespace helvety.screentools.Views.Settings
 {
     /// <summary>
     /// Low-level keyboard hook for "Listen" steps in settings hotkey editors. One instance per owning page.
+    /// The hook is installed only while a step is listening and removed as soon as listening stops.
     /// </summary>
     internal sealed class HotkeyListenController : IDisposable
     {
@@ -20,33 +21,30 @@ namespace helvety.screentools.Views.Settings
         private const int VkRwin = 0x5C;
 
         private readonly DispatcherQueue _dispatcher;
+        private readonly KeyboardHookProc _keyboardHookProc;
         private nint _keyboardHookHandle;
-        private KeyboardHookProc _keyboardHookProc;
-        private bool _isInstalled;
         private bool _isCaptureMode;
         private int? _activeStepIndex;
 
         internal HotkeyListenController(DispatcherQueue dispatcher)
         {
             _dispatcher = dispatcher;
+            // Rooted for the controller's lifetime so the native hook never calls a collected delegate.
             _keyboardHookProc = KeyboardHookCallback;
-            // Lazy-install the hook: the settings page is constructed during navigation, and
-            // hook installation can be unstable on some systems. We only need the hook once
-            // the user clicks "Listen" for a step.
-            _keyboardHookHandle = nint.Zero;
-            _isInstalled = false;
         }
 
-        internal bool IsInstalled => _isInstalled;
-
+        /// <returns>False when the keyboard hook could not be installed.</returns>
         internal bool StartListen(int stepIndex)
         {
-            EnsureHookInstalled();
-            if (!_isInstalled)
+            if (_keyboardHookHandle == nint.Zero)
             {
-                _isCaptureMode = false;
-                _activeStepIndex = null;
-                return false;
+                _keyboardHookHandle = SetWindowsHookEx(WhKeyboardLl, _keyboardHookProc, GetModuleHandle(null), 0);
+                if (_keyboardHookHandle == nint.Zero)
+                {
+                    AppLog.Warn($"Hotkey listen hook could not be installed (Win32 error {Marshal.GetLastWin32Error()}).");
+                    StopListen();
+                    return false;
+                }
             }
 
             _isCaptureMode = true;
@@ -58,18 +56,11 @@ namespace helvety.screentools.Views.Settings
         {
             _isCaptureMode = false;
             _activeStepIndex = null;
-        }
-
-        private void EnsureHookInstalled()
-        {
-            if (_isInstalled)
+            if (_keyboardHookHandle != nint.Zero)
             {
-                return;
+                _ = UnhookWindowsHookEx(_keyboardHookHandle);
+                _keyboardHookHandle = nint.Zero;
             }
-
-            // SetWindowsHookEx returns 0 on failure; do not throw.
-            _keyboardHookHandle = SetWindowsHookEx(WhKeyboardLl, _keyboardHookProc, nint.Zero, 0);
-            _isInstalled = _keyboardHookHandle != nint.Zero;
         }
 
         internal event Action<int, uint>? NonModifierKeyCaptured;
@@ -127,13 +118,7 @@ namespace helvety.screentools.Views.Settings
 
         public void Dispose()
         {
-            if (_isInstalled)
-            {
-                UnhookWindowsHookEx(_keyboardHookHandle);
-                _isInstalled = false;
-            }
-
-            // Keep the callback delegate rooted; nothing else references it after dispose.
+            StopListen();
         }
 
         private delegate nint KeyboardHookProc(int nCode, nuint wParam, nint lParam);
@@ -147,6 +132,9 @@ namespace helvety.screentools.Views.Settings
 
         [DllImport("user32.dll")]
         private static extern nint CallNextHookEx(nint hhk, int nCode, nuint wParam, nint lParam);
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+        private static extern nint GetModuleHandle(string? lpModuleName);
 
         [StructLayout(LayoutKind.Sequential)]
         private struct KbdLlHookStruct

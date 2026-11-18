@@ -26,7 +26,7 @@ namespace helvety.screentools.Views.Settings
         private bool _isUpdatingLiveDrawLineThickness = true;
         private int _liveDrawHotkeyEditorSuppress;
         private bool _isCaptureMode;
-        private HotkeyListenController? _listenController;
+        private readonly HotkeyListenController _listenController;
 
         public LiveDrawSettingsPage()
         {
@@ -179,16 +179,9 @@ namespace helvety.screentools.Views.Settings
 
         private void LiveDrawSettingsPage_Unloaded(object sender, RoutedEventArgs e)
         {
-            SettingsService.SettingsChanged -= SettingsService_SettingsChanged;
-            if (_listenController is not null)
-            {
-                _listenController.NonModifierKeyCaptured -= ListenController_NonModifierKeyCaptured;
-                _listenController.EscapePressed -= ListenController_EscapePressed;
-                _listenController.Dispose();
-                _listenController = null;
-            }
-
-            Unloaded -= LiveDrawSettingsPage_Unloaded;
+            // The page is cached (NavigationCacheMode.Required) and reused, so keep its subscriptions;
+            // only make sure no keyboard hook stays installed while it is off screen.
+            StopStepCapture();
         }
 
         private void InitializeLiveDrawHotkeyUi()
@@ -433,23 +426,14 @@ namespace helvety.screentools.Views.Settings
 
         private void StartStepCapture(int stepIndex)
         {
-            if (_listenController is null)
-            {
-                SetLiveDrawBindingStatus("Keyboard hook failed to install.");
-                return;
-            }
-
-            _isCaptureMode = true;
-            if (_listenController.StartListen(stepIndex))
-            {
-                _isCaptureMode = true;
-            }
-            else
+            if (!_listenController.StartListen(stepIndex))
             {
                 _isCaptureMode = false;
                 SetLiveDrawBindingStatus("Keyboard hook failed to install.");
                 return;
             }
+
+            _isCaptureMode = true;
             ListeningInfoBar.Title = $"Live Draw — listening for step {stepIndex + 1}";
             ListeningInfoBar.Message = "Press a non-modifier key. Esc cancels.";
             ListeningInfoBar.IsOpen = true;
@@ -459,7 +443,7 @@ namespace helvety.screentools.Views.Settings
         private void StopStepCapture()
         {
             _isCaptureMode = false;
-            _listenController?.StopListen();
+            _listenController.StopListen();
             ListeningInfoBar.IsOpen = false;
             UpdateLiveDrawFeatureAvailability();
         }

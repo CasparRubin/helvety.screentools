@@ -54,6 +54,7 @@ namespace helvety.screentools.Views
         private readonly DispatcherQueueTimer _watcherRefreshTimer;
         /// <summary>GridView ItemClick also fires when the overlay delete button is pressed; skip opening the editor for that click.</summary>
         private bool _suppressNextGalleryItemClick;
+        private bool _isUnloaded;
 
         public ScreenToolsPage()
         {
@@ -222,6 +223,7 @@ namespace helvety.screentools.Views
 
         private void ScreenToolsPage_Unloaded(object sender, RoutedEventArgs e)
         {
+            _isUnloaded = true;
             _thumbnailLoadLifetimeCts?.Cancel();
             _thumbnailLoadLifetimeCts?.Dispose();
             _thumbnailLoadLifetimeCts = null;
@@ -293,6 +295,12 @@ namespace helvety.screentools.Views
 
         private void ApplyGalleryRefreshPlan(GalleryRefreshPlan plan)
         {
+            if (_isUnloaded)
+            {
+                // A refresh that finished after navigating away must not recreate the watcher or thumbnail lifetime.
+                return;
+            }
+
             var captureBindingText = SettingsService.TryGetEffectiveHotkey(out var captureHotkey) &&
                                      !string.IsNullOrWhiteSpace(captureHotkey.Display)
                 ? captureHotkey.Display
@@ -391,7 +399,6 @@ namespace helvety.screentools.Views
                             true,
                             file.LastWriteTimeUtc.Ticks,
                             file.Length);
-                        _ = LoadThumbnailAsync(item, token);
                     }
 
                     var bucket = ResolveGalleryDateBucket(file.LastWriteTime);
@@ -464,6 +471,25 @@ namespace helvety.screentools.Views
             public FileInfo[]? Files { get; }
         }
 
+        /// <summary>
+        /// Thumbnails are decoded lazily when a card is first realized (scrolled into view), so large folders do not
+        /// flood the dispatcher with decodes or hold previews for images that were never shown. Loaded thumbnails are
+        /// kept so refreshes after each capture do not flicker.
+        /// </summary>
+        private void ImageFilesGridView_ContainerContentChanging(ListViewBase sender, ContainerContentChangingEventArgs args)
+        {
+            if (args.Item is not GalleryFileItem item)
+            {
+                return;
+            }
+
+            if (!args.InRecycleQueue && item.Thumbnail is null && !item.IsThumbnailLoading && _thumbnailLoadLifetimeCts is { } lifetime)
+            {
+                item.IsThumbnailLoading = true;
+                _ = LoadThumbnailAsync(item, lifetime.Token);
+            }
+        }
+
         private async Task LoadThumbnailAsync(GalleryFileItem item, CancellationToken token)
         {
             try
@@ -484,6 +510,10 @@ namespace helvety.screentools.Views
             catch (Exception ex)
             {
                 AppLog.Warn($"[Gallery] Thumbnail load failed for '{item.Path}': {ex.Message}");
+            }
+            finally
+            {
+                item.IsThumbnailLoading = false;
             }
         }
 
@@ -723,7 +753,7 @@ namespace helvety.screentools.Views
                 transform.ScaledHeight = (uint)Math.Max(1, Math.Round(h * ratio));
             }
 
-            var softwareBitmap = await decoder.GetSoftwareBitmapAsync(
+            using var softwareBitmap = await decoder.GetSoftwareBitmapAsync(
                 BitmapPixelFormat.Bgra8,
                 BitmapAlphaMode.Premultiplied,
                 transform,
@@ -887,6 +917,7 @@ namespace helvety.screentools.Views
                 _saveFolderWatcher.Changed += SaveFolderWatcher_Changed;
                 _saveFolderWatcher.Deleted += SaveFolderWatcher_Changed;
                 _saveFolderWatcher.Renamed += SaveFolderWatcher_Renamed;
+                _saveFolderWatcher.Error += SaveFolderWatcher_Error;
                 _saveFolderWatcher.EnableRaisingEvents = true;
                 _watchedFolderPath = folderPath;
             }
@@ -905,6 +936,7 @@ namespace helvety.screentools.Views
                 _saveFolderWatcher.Changed -= SaveFolderWatcher_Changed;
                 _saveFolderWatcher.Deleted -= SaveFolderWatcher_Changed;
                 _saveFolderWatcher.Renamed -= SaveFolderWatcher_Renamed;
+                _saveFolderWatcher.Error -= SaveFolderWatcher_Error;
                 _saveFolderWatcher.Dispose();
                 _saveFolderWatcher = null;
             }
@@ -915,6 +947,25 @@ namespace helvety.screentools.Views
         private void SaveFolderWatcher_Changed(object sender, FileSystemEventArgs e)
         {
             QueueRefreshFromWatcherEvent(e.FullPath);
+        }
+
+        /// <summary>
+        /// A watcher stops raising events after a buffer overflow or when the folder goes away; drop it and rescan,
+        /// which recreates it if the folder is still there.
+        /// </summary>
+        private void SaveFolderWatcher_Error(object sender, ErrorEventArgs e)
+        {
+            AppLog.Warn("[Gallery] Save folder watcher failed; rescanning.", e.GetException());
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                if (_isUnloaded)
+                {
+                    return;
+                }
+
+                DisposeSaveFolderWatcher();
+                _ = RefreshPageAsync();
+            });
         }
 
         private void SaveFolderWatcher_Renamed(object sender, RenamedEventArgs e)
@@ -1061,6 +1112,9 @@ namespace helvety.screentools.Views
                 OnPropertyChanged();
             }
         }
+
+        /// <summary>UI-thread flag that prevents duplicate decodes while a thumbnail is loading.</summary>
+        internal bool IsThumbnailLoading { get; set; }
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
