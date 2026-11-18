@@ -4,12 +4,25 @@ using System.IO;
 using System.Linq;
 using Microsoft.UI.Xaml.Controls;
 using Windows.Foundation.Collections;
-using Windows.Storage;
 
 namespace helvety.screentools
 {
     internal static class SettingsService
     {
+        /// <summary>
+        /// Packaged builds keep the classic per-package LocalSettings (existing user data stays put).
+        /// Unpackaged builds (release ZIP) have no package identity, so they use the Windows App SDK
+        /// per-user store for unpackaged apps instead of crashing on <c>ApplicationData.Current</c>.
+        /// </summary>
+        private static readonly IPropertySet LocalSettingsValues = AppIdentity.IsPackaged
+            ? Windows.Storage.ApplicationData.Current.LocalSettings.Values
+            : UnpackagedApplicationData.LocalSettings.Values;
+
+        private static Microsoft.Windows.Storage.ApplicationData UnpackagedApplicationData =>
+            s_unpackagedApplicationData ??= Microsoft.Windows.Storage.ApplicationData.GetForUnpackaged("Helvety", "ScreenTools");
+
+        private static Microsoft.Windows.Storage.ApplicationData? s_unpackagedApplicationData;
+
         internal const int MaxHotkeySequenceLength = 5;
         private const uint DefaultHotkeyModifiers = 0x0004; // Shift
         /// <summary>Default persisted screenshot shortcut label (plus-separated); Settings shows the same chord as visual key pills.</summary>
@@ -186,7 +199,7 @@ namespace helvety.screentools
 
         internal static AppSettings Load()
         {
-            var values = ApplicationData.Current.LocalSettings.Values;
+            var values = LocalSettingsValues;
             EnsureSettingsVersion(values);
 
             var saveFolderPath = values.TryGetValue(SaveFolderPathKey, out var folderValue)
@@ -262,7 +275,7 @@ namespace helvety.screentools
 
         internal static void SaveHotkey(uint modifiers, IReadOnlyList<uint> sequence, string display)
         {
-            var values = ApplicationData.Current.LocalSettings.Values;
+            var values = LocalSettingsValues;
             EnsureSettingsVersion(values);
             var normalizedSequence = sequence.Where(key => key > 0).Take(MaxHotkeySequenceLength).ToArray();
 
@@ -279,7 +292,7 @@ namespace helvety.screentools
 
         internal static void SaveFolderPath(string folderPath)
         {
-            var values = ApplicationData.Current.LocalSettings.Values;
+            var values = LocalSettingsValues;
             EnsureSettingsVersion(values);
 
             if (values.TryGetValue(SaveFolderPathKey, out var existingValue) &&
@@ -300,7 +313,7 @@ namespace helvety.screentools
 
         internal static void ClearHotkey()
         {
-            var values = ApplicationData.Current.LocalSettings.Values;
+            var values = LocalSettingsValues;
             EnsureSettingsVersion(values);
 
             values.Remove(HotkeyModifiersKey);
@@ -313,7 +326,7 @@ namespace helvety.screentools
 
         internal static void ClearSaveFolderPath()
         {
-            var values = ApplicationData.Current.LocalSettings.Values;
+            var values = LocalSettingsValues;
             EnsureSettingsVersion(values);
 
             values.Remove(SaveFolderPathKey);
@@ -352,7 +365,7 @@ namespace helvety.screentools
 
         internal static EditorUiSettings LoadEditorUiSettings()
         {
-            var values = ApplicationData.Current.LocalSettings.Values;
+            var values = LocalSettingsValues;
             EnsureSettingsVersion(values);
 
             return new EditorUiSettings(
@@ -393,7 +406,7 @@ namespace helvety.screentools
 
         internal static LiveDrawDrawingSettings LoadLiveDrawDrawingSettings()
         {
-            var values = ApplicationData.Current.LocalSettings.Values;
+            var values = LocalSettingsValues;
             EnsureSettingsVersion(values);
             return new LiveDrawDrawingSettings(
                 ReadInt(values, LiveDrawMainStrokeThicknessKey, DefaultLiveDrawMainStrokeThickness, 1, 24),
@@ -419,7 +432,7 @@ namespace helvety.screentools
         /// </param>
         internal static void SaveEditorUiSettings(EditorUiSettings settings, bool notifyAppSettingsChanged = true)
         {
-            var values = ApplicationData.Current.LocalSettings.Values;
+            var values = LocalSettingsValues;
             EnsureSettingsVersion(values);
 
             values[EditorPrimaryColorKey] = settings.PrimaryColorHex;
@@ -462,7 +475,7 @@ namespace helvety.screentools
         /// </summary>
         internal static void ResetAllSettingsToDefaults()
         {
-            var values = ApplicationData.Current.LocalSettings.Values;
+            var values = LocalSettingsValues;
 
             foreach (var key in ManagedSettingKeys)
             {
@@ -510,7 +523,7 @@ namespace helvety.screentools
 
         internal static void SaveLiveDrawHotkey(uint modifiers, IReadOnlyList<uint> sequence, string display)
         {
-            var values = ApplicationData.Current.LocalSettings.Values;
+            var values = LocalSettingsValues;
             EnsureSettingsVersion(values);
             var normalizedSequence = sequence.Where(key => key > 0).Take(MaxHotkeySequenceLength).ToArray();
 
@@ -528,7 +541,7 @@ namespace helvety.screentools
 
         internal static void ClearLiveDrawHotkey()
         {
-            var values = ApplicationData.Current.LocalSettings.Values;
+            var values = LocalSettingsValues;
             EnsureSettingsVersion(values);
 
             values.Remove(LiveDrawHotkeyModifiersKey);
@@ -541,7 +554,7 @@ namespace helvety.screentools
 
         internal static LiveDrawShapeModifiers LoadLiveDrawShapeModifiers()
         {
-            var values = ApplicationData.Current.LocalSettings.Values;
+            var values = LocalSettingsValues;
             EnsureSettingsVersion(values);
             return ReadLiveDrawShapeModifiers(values);
         }
@@ -553,7 +566,7 @@ namespace helvety.screentools
                 return false;
             }
 
-            var values = ApplicationData.Current.LocalSettings.Values;
+            var values = LocalSettingsValues;
             EnsureSettingsVersion(values);
             WriteLiveDrawShapeModifiers(values, modifiers);
             SettingsChanged?.Invoke();
@@ -694,7 +707,7 @@ namespace helvety.screentools
 
         internal static bool IsLiveDrawHotkeyExplicitlyCleared()
         {
-            var values = ApplicationData.Current.LocalSettings.Values;
+            var values = LocalSettingsValues;
             EnsureSettingsVersion(values);
             return values.TryGetValue(LiveDrawHotkeyClearedKey, out var clearedValue) &&
                    clearedValue is bool c &&
@@ -703,7 +716,7 @@ namespace helvety.screentools
 
         internal static bool TryGetEffectiveLiveDrawHotkey(out HotkeySettings hotkey)
         {
-            var values = ApplicationData.Current.LocalSettings.Values;
+            var values = LocalSettingsValues;
             EnsureSettingsVersion(values);
 
             var isCleared = values.TryGetValue(LiveDrawHotkeyClearedKey, out var clearedValue) &&
@@ -810,7 +823,7 @@ namespace helvety.screentools
 
         internal static void InitializeSaveFolderOnStartup()
         {
-            var values = ApplicationData.Current.LocalSettings.Values;
+            var values = LocalSettingsValues;
             EnsureSettingsVersion(values);
 
             var isSaveFolderCleared = values.TryGetValue(SaveFolderClearedKey, out var saveFolderClearedValue) &&
@@ -1259,7 +1272,7 @@ namespace helvety.screentools
 
         private static void WriteSetting(string key, object value)
         {
-            var values = ApplicationData.Current.LocalSettings.Values;
+            var values = LocalSettingsValues;
             EnsureSettingsVersion(values);
             values[key] = value;
             SettingsChanged?.Invoke();

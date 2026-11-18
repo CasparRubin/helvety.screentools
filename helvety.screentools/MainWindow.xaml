@@ -4,6 +4,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="using:helvety.screentools"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
     Title="Helvety Screen Tools">
@@ -61,26 +62,26 @@
                 Margin="24,12,24,0"
                 Visibility="Collapsed">
                 <ItemsControl.ItemTemplate>
-                    <DataTemplate>
+                    <DataTemplate x:DataType="local:GlobalSetupIssue">
                         <InfoBar
                             Margin="0,0,0,12"
                             IsClosable="False"
                             IsOpen="True"
-                            Message="{Binding Message}"
-                            Severity="{Binding Severity}"
-                            Title="{Binding Title}">
+                            Message="{x:Bind Message}"
+                            Severity="{x:Bind Severity}"
+                            Title="{x:Bind Title}">
                             <InfoBar.Content>
                                 <HyperlinkButton
                                     HorizontalAlignment="Left"
                                     Click="GlobalIssueActionButton_Click"
-                                    Content="{Binding SecondaryActionText}"
-                                    Tag="{Binding SecondaryActionTag}" />
+                                    Content="{x:Bind SecondaryActionText}"
+                                    Tag="{x:Bind SecondaryActionTag}" />
                             </InfoBar.Content>
                             <InfoBar.ActionButton>
                                 <HyperlinkButton
                                     Click="GlobalIssueActionButton_Click"
-                                    Content="{Binding PrimaryActionText}"
-                                    Tag="{Binding PrimaryActionTag}" />
+                                    Content="{x:Bind PrimaryActionText}"
+                                    Tag="{x:Bind PrimaryActionTag}" />
                             </InfoBar.ActionButton>
                         </InfoBar>
                     </DataTemplate>

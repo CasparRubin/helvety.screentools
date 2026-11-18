@@ -1,7 +1,6 @@
 using Microsoft.UI.Xaml;
 using Microsoft.Windows.AppLifecycle;
 using System;
-using System.Diagnostics;
 using System.Threading.Tasks;
 using helvety.screentools.Capture;
 using helvety.screentools.Services;
@@ -23,7 +22,16 @@ namespace helvety.screentools
             InitializeComponent();
             UnhandledException += (_, e) =>
             {
-                Debug.WriteLine($"Unhandled UI exception: {e.Exception}");
+                // A tray-resident tool should survive a stray UI-thread exception (e.g. from an async void handler).
+                AppLog.Error("Unhandled UI exception.", e.Exception);
+                e.Handled = true;
+            };
+            AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+                AppLog.Error("Unhandled exception (terminating).", e.ExceptionObject as Exception);
+            TaskScheduler.UnobservedTaskException += (_, e) =>
+            {
+                AppLog.Error("Unobserved task exception.", e.Exception);
+                e.SetObserved();
             };
         }
 
@@ -35,7 +43,7 @@ namespace helvety.screentools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Save folder init failed: {ex}");
+                AppLog.Warn("Save folder init failed.", ex);
             }
 
             _window = new MainWindow();
@@ -74,7 +82,7 @@ namespace helvety.screentools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Tray icon unavailable: {ex}");
+                AppLog.Warn("Tray icon unavailable.", ex);
             }
         }
 
@@ -110,13 +118,22 @@ namespace helvety.screentools
                 _ => kind.ToString()
             };
             SessionStatusPublished?.Invoke($"{sessionLabel} hotkey {hotkeyDisplay} pressed.");
-            if (kind == HotkeySessionKind.Screenshot)
+            try
             {
-                await RunCaptureAsync();
-                return;
+                if (kind == HotkeySessionKind.Screenshot)
+                {
+                    await RunCaptureAsync();
+                }
+                else
+                {
+                    await RunLiveDrawAsync();
+                }
             }
-
-            await RunLiveDrawAsync();
+            catch (Exception ex)
+            {
+                AppLog.Error($"{sessionLabel} session failed.", ex);
+                SessionStatusPublished?.Invoke($"{sessionLabel} failed ({ex.Message}).");
+            }
         }
 
         private async Task RunCaptureAsync()
@@ -181,7 +198,7 @@ namespace helvety.screentools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Startup launch preference apply failed: {ex.Message}");
+                AppLog.Warn("Startup launch preference apply failed.", ex);
             }
         }
 

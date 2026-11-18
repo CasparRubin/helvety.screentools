@@ -170,7 +170,7 @@ namespace helvety.screentools.Views
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ScreenToolsPage] Post-screenshot gallery reload failed: {ex.Message}");
+                AppLog.Warn($"[Gallery] Post-screenshot gallery reload failed: {ex.Message}");
             }
         }
 
@@ -252,7 +252,7 @@ namespace helvety.screentools.Views
             {
                 // Fire-and-forget refreshes are triggered from navigation and timers; make sure refresh exceptions
                 // never crash the app (IO issues like permissions/unavailable folders are expected).
-                Debug.WriteLine($"[ScreenToolsPage] Gallery refresh failed: {ex}");
+                AppLog.Warn($"[Gallery] Gallery refresh failed: {ex}");
             }
         }
 
@@ -483,7 +483,7 @@ namespace helvety.screentools.Views
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ScreenToolsPage] Thumbnail load failed for '{item.Path}': {ex.Message}");
+                AppLog.Warn($"[Gallery] Thumbnail load failed for '{item.Path}': {ex.Message}");
             }
         }
 
@@ -507,7 +507,7 @@ namespace helvety.screentools.Views
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[ScreenToolsPage] UI-thread preview load failed for '{file.Path}': {ex.Message}");
+                    AppLog.Warn($"[Gallery] UI-thread preview load failed for '{file.Path}': {ex.Message}");
                     tcs.TrySetResult(null);
                 }
             }))
@@ -553,7 +553,7 @@ namespace helvety.screentools.Views
 
             if (!queued)
             {
-                Debug.WriteLine($"[ScreenToolsPage] DispatcherQueue enqueue failed for '{path}'.");
+                AppLog.Warn($"[Gallery] DispatcherQueue enqueue failed for '{path}'.");
                 completion.TrySetResult(null);
             }
 
@@ -578,12 +578,12 @@ namespace helvety.screentools.Views
 
         private static void LogPreviewFailure(string stage, StorageFile file, Exception ex)
         {
-            Debug.WriteLine($"[ScreenToolsPage] {stage} preview failed for '{file.Path}': {ex.Message}");
+            Debug.WriteLine($"[Gallery] {stage} preview failed for '{file.Path}': {ex.Message}");
         }
 
         private static void LogPreviewMiss(string stage, StorageFile file)
         {
-            Debug.WriteLine($"[ScreenToolsPage] {stage} preview unavailable for '{file.Path}'.");
+            Debug.WriteLine($"[Gallery] {stage} preview unavailable for '{file.Path}'.");
         }
 
         private static bool IsFileLocked(IOException ex)
@@ -892,7 +892,7 @@ namespace helvety.screentools.Views
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ScreenToolsPage] Failed to watch save folder '{folderPath}': {ex.Message}");
+                AppLog.Warn($"[Gallery] Failed to watch save folder '{folderPath}': {ex.Message}");
                 DisposeSaveFolderWatcher();
             }
         }
@@ -1005,7 +1005,7 @@ namespace helvety.screentools.Views
         Older
     }
 
-    internal sealed class GallerySectionGroup : ObservableCollection<GalleryFileItem>
+    internal sealed partial class GallerySectionGroup : ObservableCollection<GalleryFileItem>
     {
         public GallerySectionGroup(string title)
         {
@@ -1015,7 +1015,7 @@ namespace helvety.screentools.Views
         public string Title { get; }
     }
 
-    internal sealed class GalleryFileItem : INotifyPropertyChanged
+    internal sealed partial class GalleryFileItem : INotifyPropertyChanged
     {
         private ImageSource? _thumbnail;
 

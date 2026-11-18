@@ -8,21 +8,8 @@ namespace helvety.screentools.Services
     {
         internal const string StartupTaskId = "HelvetyScreenToolsStartup";
 
-        internal static bool IsSupported
-        {
-            get
-            {
-                try
-                {
-                    _ = Package.Current.Id;
-                    return true;
-                }
-                catch
-                {
-                    return false;
-                }
-            }
-        }
+        /// <summary>Startup tasks need MSIX package identity; unpackaged runs cannot register one.</summary>
+        internal static bool IsSupported => AppIdentity.IsPackaged;
 
         internal static async Task<StartupTaskState?> GetStateAsync()
         {

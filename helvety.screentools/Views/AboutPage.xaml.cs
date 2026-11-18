@@ -17,15 +17,13 @@ namespace helvety.screentools.Views
 
         private static string FormatAppVersion()
         {
-            try
+            if (AppIdentity.IsPackaged)
             {
                 var v = Package.Current.Id.Version;
                 return $"{v.Major}.{v.Minor}.{v.Build}.{v.Revision}";
             }
-            catch
-            {
-                return Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "—";
-            }
+
+            return Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "—";
         }
     }
 }

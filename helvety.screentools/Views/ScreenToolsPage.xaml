@@ -4,6 +4,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:views="using:helvety.screentools.Views"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
     <Page.Resources>
@@ -11,11 +12,11 @@
             x:Name="GroupedImageFilesViewSource"
             IsSourceGrouped="True" />
 
-        <DataTemplate x:Key="GalleryGroupHeaderTemplate">
+        <DataTemplate x:Key="GalleryGroupHeaderTemplate" x:DataType="views:GallerySectionGroup">
             <TextBlock
                 Margin="0,6,0,8"
                 Style="{StaticResource AppContentSectionTitleTextStyle}"
-                Text="{Binding Title}" />
+                Text="{x:Bind Title}" />
         </DataTemplate>
     </Page.Resources>
 
@@ -122,7 +123,7 @@
                                 <GroupStyle HeaderTemplate="{StaticResource GalleryGroupHeaderTemplate}" />
                             </GridView.GroupStyle>
                             <GridView.ItemTemplate>
-                                <DataTemplate>
+                                <DataTemplate x:DataType="views:GalleryFileItem">
                                     <Border
                                         Width="280"
                                         Height="220"
@@ -147,7 +148,7 @@
                                                         FontSize="34"
                                                         Text="🖼" />
                                                     <Image
-                                                        Source="{Binding Thumbnail}"
+                                                        Source="{x:Bind Thumbnail, Mode=OneWay}"
                                                         Stretch="UniformToFill" />
                                                     <Button
                                                         Width="32"
@@ -170,11 +171,11 @@
                                                 Spacing="{StaticResource AppSpacingTight}">
                                                 <TextBlock
                                                     Foreground="{ThemeResource TextFillColorPrimaryBrush}"
-                                                    Text="{Binding ImageDateLine}"
+                                                    Text="{x:Bind ImageDateLine}"
                                                     TextTrimming="CharacterEllipsis" />
                                                 <TextBlock
                                                     Style="{StaticResource AppContentCaptionTextStyle}"
-                                                    Text="{Binding ImageSizeLine}"
+                                                    Text="{x:Bind ImageSizeLine}"
                                                     TextTrimming="CharacterEllipsis" />
                                             </StackPanel>
                                         </Grid>

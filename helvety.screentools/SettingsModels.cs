@@ -97,7 +97,7 @@ namespace helvety.screentools
         None = 4
     }
 
-    internal sealed record GlobalSetupIssue(
+    internal sealed partial record GlobalSetupIssue(
         InfoBarSeverity Severity,
         string Title,
         string Message,

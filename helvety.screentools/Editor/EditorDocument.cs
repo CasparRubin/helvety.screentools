@@ -72,7 +72,7 @@ namespace helvety.screentools.Editor
         internal ObservableCollection<EditorLayer> Layers { get; }
     }
 
-    internal abstract class EditorLayer
+    internal abstract partial class EditorLayer
     {
         protected EditorLayer(string name, EditorLayerType layerType)
         {
@@ -103,7 +103,7 @@ namespace helvety.screentools.Editor
         internal abstract void MoveBy(double deltaX, double deltaY, int maxWidth, int maxHeight);
     }
 
-    internal sealed class TextLayer : EditorLayer
+    internal sealed partial class TextLayer : EditorLayer
     {
         private string _text;
         private double _x;
@@ -274,7 +274,7 @@ namespace helvety.screentools.Editor
         }
     }
 
-    internal sealed class BorderLayer : EditorLayer
+    internal sealed partial class BorderLayer : EditorLayer
     {
         internal BorderLayer(EditorRect region, int thickness, string colorHex)
             : base($"Border ({region.Width}x{region.Height})", EditorLayerType.Border)
@@ -324,7 +324,7 @@ namespace helvety.screentools.Editor
         }
     }
 
-    internal sealed class BlurLayer : EditorLayer
+    internal sealed partial class BlurLayer : EditorLayer
     {
         internal BlurLayer(EditorRect region, int radius)
             : base($"Blur ({region.Width}x{region.Height})", EditorLayerType.Blur)
@@ -365,7 +365,7 @@ namespace helvety.screentools.Editor
         }
     }
 
-    internal sealed class HighlightLayer : EditorLayer
+    internal sealed partial class HighlightLayer : EditorLayer
     {
         internal HighlightLayer(EditorRect region)
             : base($"Highlight ({region.Width}x{region.Height})", EditorLayerType.Highlight)
@@ -401,7 +401,7 @@ namespace helvety.screentools.Editor
         }
     }
 
-    internal sealed class ArrowLayer : EditorLayer
+    internal sealed partial class ArrowLayer : EditorLayer
     {
         internal const double StraightSnapPixels = 6.0;
         private const double StraightEpsilon = 0.5;
@@ -625,7 +625,7 @@ namespace helvety.screentools.Editor
 
     }
 
-    internal sealed class MagnifierLayer : EditorLayer
+    internal sealed partial class MagnifierLayer : EditorLayer
     {
         internal const double MinZoom = 1.5;
         internal const double MaxZoom = 4.0;
