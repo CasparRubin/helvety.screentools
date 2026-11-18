@@ -7,14 +7,23 @@ namespace helvety.screentools.Editor
     /// </summary>
     internal static class MagnifierContentBuilder
     {
+        /// <param name="pixelsVersion">Changes whenever <paramref name="sourcePixels"/> is recomposed.</param>
         internal static void UpdateLoupePixels(
             MagnifierLayer layer,
             byte[] sourcePixels,
             int sourceWidth,
-            int sourceHeight)
+            int sourceHeight,
+            long pixelsVersion)
         {
             var sourceRegion = ClampRegion(layer.SourceRegion, sourceWidth, sourceHeight);
             var loupe = layer.LoupeRegion;
+            var inputs = (sourceRegion, loupe, layer.Shape, pixelsVersion);
+            if (layer.LoupeInputs == inputs)
+            {
+                return;
+            }
+
+            layer.LoupeInputs = inputs;
             if (sourceRegion.IsEmpty || loupe.Width <= 0 || loupe.Height <= 0)
             {
                 layer.LoupePixels = null;

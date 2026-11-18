@@ -158,7 +158,11 @@ namespace helvety.screentools.Views
         private int _regionCornerRadius = DefaultRegionCornerRadius;
         private bool _performanceModeEnabled;
         private bool _gpuEffectsEnabled = true;
-        private bool _gpuEffectWarningShown;
+        private bool _gpuFailedThisSession;
+        private bool _isTornDown;
+        private bool _isExporting;
+        private long _workingPixelsVersion;
+        private Task _activeRecompose = Task.CompletedTask;
         private bool _deferPixelRecomposeUntilPointerRelease;
         private bool _deferVectorRecomposeUntilPointerRelease;
         private bool _suspendLayerChangeRecompose;
@@ -197,21 +201,40 @@ namespace helvety.screentools.Views
 
         private void ImageEditorPage_Unloaded(object sender, RoutedEventArgs e)
         {
+            Teardown();
+        }
+
+        /// <summary>
+        /// Releases event subscriptions, in-flight work and the large pixel buffers. Called when the editor window closes
+        /// (and again, harmlessly, from Unloaded) so the static settings event can never keep a closed editor alive.
+        /// Unsaved edits are discarded with the window, so the inline text editor is not committed here.
+        /// </summary>
+        internal void Teardown()
+        {
+            if (_isTornDown)
+            {
+                return;
+            }
+
+            _isTornDown = true;
+            SettingsService.EditorUiSettingsChanged -= SettingsService_EditorUiSettingsChanged;
             UnregisterEditorKeyboardAccelerators();
-            CommitInlineTextEditor();
             if (_document is not null)
             {
                 _document.Layers.CollectionChanged -= Layers_CollectionChanged;
             }
 
             _vectorCanvasHost.Clear(LayersCanvas);
-
             CancelResizeMeasure();
-            SettingsService.EditorUiSettingsChanged -= SettingsService_EditorUiSettingsChanged;
+            _composePipeline.Shutdown();
             Loaded -= ImageEditorPage_Loaded;
             Unloaded -= ImageEditorPage_Unloaded;
             EditorScrollViewer.SizeChanged -= EditorScrollViewer_SizeChanged;
             EditorScrollViewer.ViewChanged -= EditorScrollViewer_ViewChanged;
+            _originalPixels = null;
+            _workingPixels = null;
+            _baseBitmap = null;
+            BaseImage.Source = null;
         }
 
         private async void ImageEditorPage_Loaded(object sender, RoutedEventArgs e)
@@ -1075,8 +1098,15 @@ namespace helvety.screentools.Views
                     {
                         e.Handled = true;
                         var currentPoint = e.GetCurrentPoint(OverlayCanvas).Position;
-                        var dx = currentPoint.X - _lastPointerPoint.X;
-                        var dy = currentPoint.Y - _lastPointerPoint.Y;
+                        // Move in whole image pixels and keep the remainder, so slow drags at high zoom
+                        // (sub-pixel pointer steps) still move the layer instead of rounding to zero each time.
+                        var dx = Math.Round(currentPoint.X - _lastPointerPoint.X);
+                        var dy = Math.Round(currentPoint.Y - _lastPointerPoint.Y);
+                        if (dx == 0 && dy == 0)
+                        {
+                            return;
+                        }
+
                         if (_dragLayer is MagnifierLayer magnifierLayer && _magnifierDragPart != MagnifierPart.None)
                         {
                             if (_magnifierDragPart == MagnifierPart.Source)
@@ -1093,7 +1123,7 @@ namespace helvety.screentools.Views
                             _dragLayer!.MoveBy(dx, dy, _imageWidth, _imageHeight);
                         }
 
-                        _lastPointerPoint = currentPoint;
+                        _lastPointerPoint = new Point(_lastPointerPoint.X + dx, _lastPointerPoint.Y + dy);
                         if (plan.DeferPixelRecompose)
                         {
                             _deferPixelRecomposeUntilPointerRelease = true;
@@ -1963,9 +1993,31 @@ namespace helvety.screentools.Views
 
         private async Task ExecuteSaveAndCloseAsync(bool copyToClipboard)
         {
-            CommitInlineTextEditor();
-            await RecomposeAsync(includeAdorners: true, includePixelEffects: true);
-            await SaveExportFrameAndCloseAsync(copyToClipboard);
+            if (_isExporting)
+            {
+                return;
+            }
+
+            _isExporting = true;
+            try
+            {
+                CommitInlineTextEditor();
+                await RecomposeAsync(includeAdorners: true, includePixelEffects: true);
+                await SaveExportFrameAndCloseAsync(copyToClipboard);
+            }
+            finally
+            {
+                _isExporting = false;
+            }
+        }
+
+        /// <summary>Waits until no recompose is running or queued, so <c>_workingPixels</c> holds the final composed image.</summary>
+        private async Task EnsureComposedAsync()
+        {
+            while (_isBusy)
+            {
+                await _activeRecompose;
+            }
         }
 
         /// <summary>
@@ -1976,6 +2028,13 @@ namespace helvety.screentools.Views
         /// </summary>
         private async Task<byte[]> RenderCompositePixelsAsync()
         {
+            // A blur may still be composing (pixels are reset to the unblurred original first); never export that state.
+            await EnsureComposedAsync();
+            if (_isTornDown)
+            {
+                throw new InvalidOperationException("The editor was closed.");
+            }
+
             if (_document is not null &&
                 _workingPixels is not null &&
                 !_document.Layers.Any(layer => layer.IsVisible && layer.IsVectorOverlay))
@@ -1991,6 +2050,13 @@ namespace helvety.screentools.Views
             await renderTarget.RenderAsync(EditorSurfaceGrid, _imageWidth, _imageHeight);
             var buffer = await renderTarget.GetPixelsAsync();
             RebuildOverlayVisuals(includeAdorners: true);
+            if (renderTarget.PixelWidth != _imageWidth || renderTarget.PixelHeight != _imageHeight)
+            {
+                // XAML rasterization is capped by the GPU's maximum texture size (typically 16384 px per side).
+                throw new InvalidOperationException(
+                    $"The image is too large to export with text, arrows, borders or magnifiers ({_imageWidth}x{_imageHeight}).");
+            }
+
             return buffer.ToArray();
         }
 

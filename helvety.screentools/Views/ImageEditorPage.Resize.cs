@@ -114,6 +114,8 @@ namespace helvety.screentools.Views
         {
             _resizeMeasureGeneration++;
             _resizeMeasureDelayCts?.Cancel();
+            _resizeMeasureDelayCts?.Dispose();
+            _resizeMeasureDelayCts = null;
         }
 
         private void ScheduleResizeSizeMeasure()
@@ -125,6 +127,7 @@ namespace helvety.screentools.Views
 
             var generation = ++_resizeMeasureGeneration;
             _resizeMeasureDelayCts?.Cancel();
+            _resizeMeasureDelayCts?.Dispose();
             _resizeMeasureDelayCts = new CancellationTokenSource();
             var token = _resizeMeasureDelayCts.Token;
             ShowResizeMeasuring();

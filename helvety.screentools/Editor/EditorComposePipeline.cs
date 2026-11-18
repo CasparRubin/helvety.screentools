@@ -34,6 +34,14 @@ namespace helvety.screentools.Editor
             return Interlocked.Increment(ref _composeGeneration);
         }
 
+        /// <summary>Cancels in-flight GPU work; called when the editor window closes.</summary>
+        internal void Shutdown()
+        {
+            _gpuComposeCts?.Cancel();
+            _gpuComposeCts?.Dispose();
+            _gpuComposeCts = null;
+        }
+
         internal bool IsGenerationCurrent(long generation)
         {
             return generation == Volatile.Read(ref _composeGeneration);
@@ -48,16 +56,21 @@ namespace helvety.screentools.Editor
             var usedGpu = false;
             if (request.UseGpu)
             {
-                usedGpu = await _gpuImageEffectsRenderer.TryRenderAsync(
-                    request.SourcePixels,
-                    request.ImageWidth,
-                    request.ImageHeight,
-                    request.Layers,
-                    request.BlurInvertMode,
-                    request.HighlightDimPercent,
-                    request.HighlightInvertMode,
-                    request.DestinationPixels,
-                    cancellationToken).ConfigureAwait(true);
+                try
+                {
+                    usedGpu = await _gpuImageEffectsRenderer.TryRenderAsync(
+                        request.SourcePixels,
+                        request.ImageWidth,
+                        request.ImageHeight,
+                        request.Effects,
+                        request.DestinationPixels,
+                        cancellationToken).ConfigureAwait(true);
+                }
+                catch (OperationCanceledException)
+                {
+                    Interlocked.Increment(ref _staleComposeDiscardCount);
+                    return PixelComposeOutcome.Stale;
+                }
             }
 
             if (!IsGenerationCurrent(generation))
@@ -78,10 +91,7 @@ namespace helvety.screentools.Editor
                     request.SourcePixels,
                     request.ImageWidth,
                     request.ImageHeight,
-                    request.Layers,
-                    request.BlurInvertMode,
-                    request.HighlightDimPercent,
-                    request.HighlightInvertMode,
+                    request.Effects,
                     request.DestinationPixels);
             }
 
@@ -129,10 +139,7 @@ namespace helvety.screentools.Editor
         byte[] SourcePixels,
         int ImageWidth,
         int ImageHeight,
-        IReadOnlyList<EditorLayer> Layers,
-        bool BlurInvertMode,
-        int HighlightDimPercent,
-        bool HighlightInvertMode,
+        PixelEffects Effects,
         byte[] DestinationPixels,
         bool UseGpu);
 

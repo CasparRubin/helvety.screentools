@@ -76,21 +76,32 @@ namespace helvety.screentools.Views
             await _composePipeline.UploadToWriteableBitmapAsync(_workingPixels, _baseBitmap, composeGeneration);
         }
 
-        private async Task RecomposeAsync(bool includeAdorners = true, bool includePixelEffects = true)
+        /// <summary>
+        /// Requests a recompose. Returns a task that completes once this request (and anything queued behind it) has been
+        /// applied, so export paths can await it and never read a half-composed <c>_workingPixels</c> buffer.
+        /// </summary>
+        private Task RecomposeAsync(bool includeAdorners = true, bool includePixelEffects = true)
         {
-            if (_document is null || _originalPixels is null)
+            if (_isTornDown || _document is null || _originalPixels is null)
             {
-                return;
+                return Task.CompletedTask;
             }
 
             if (_isBusy)
             {
+                // The running loop picks this up before it completes.
                 _recomposeQueued = true;
                 _includeAdornersForQueuedRecompose |= includeAdorners;
                 _includePixelEffectsForQueuedRecompose |= includePixelEffects;
-                return;
+                return _activeRecompose;
             }
 
+            _activeRecompose = RunRecomposeLoopAsync(includeAdorners, includePixelEffects);
+            return _activeRecompose;
+        }
+
+        private async Task RunRecomposeLoopAsync(bool includeAdorners, bool includePixelEffects)
+        {
             _isBusy = true;
             try
             {
@@ -99,62 +110,14 @@ namespace helvety.screentools.Views
                 do
                 {
                     _recomposeQueued = false;
-                    _composeStopwatch.Restart();
-                    if (runIncludePixelEffects)
+                    try
                     {
-                        EnsureWorkingPixelsBuffer();
-                        var composeGeneration = _composePipeline.BeginPixelCompose();
-                        var composeOutcome = await _composePipeline.ComposePixelsAsync(
-                            new PixelComposeRequest(
-                                composeGeneration,
-                                _originalPixels!,
-                                _imageWidth,
-                                _imageHeight,
-                                _document.Layers,
-                                _blurInvertMode,
-                                _highlightDimPercent,
-                                _highlightInvertMode,
-                                _workingPixels!,
-                                _gpuEffectsEnabled));
-
-                        if (composeOutcome.IsStale)
-                        {
-                            continue;
-                        }
-
-                        if (composeOutcome.UsedCpuFallback && _gpuEffectsEnabled)
-                        {
-                            _gpuEffectsEnabled = false;
-                            if (!_gpuEffectWarningShown)
-                            {
-                                _gpuEffectWarningShown = true;
-                                var error = string.IsNullOrWhiteSpace(_composePipeline.LastGpuError)
-                                    ? "unknown error"
-                                    : _composePipeline.LastGpuError;
-                                InAppToastService.Show($"GPU rendering failed ({error}). CPU effects are used for this editing session.", InAppToastSeverity.Warning);
-                            }
-                        }
-
-                        await UpdateBaseImageAsync(composeGeneration);
+                        await RecomposeOnceAsync(runIncludeAdorners, runIncludePixelEffects);
                     }
-                    else
+                    catch (Exception ex)
                     {
-                        if (_workingPixels is null)
-                        {
-                            EnsureWorkingPixelsBuffer();
-                            var composeGeneration = _composePipeline.BeginPixelCompose();
-                            await UpdateBaseImageAsync(composeGeneration);
-                        }
-                    }
-
-                    RebuildOverlayVisuals(runIncludeAdorners);
-                    _composeStopwatch.Stop();
-                    _composeSampleCount++;
-                    _composeSampleTotalMs += _composeStopwatch.ElapsedMilliseconds;
-                    if (_composeSampleCount % 20 == 0)
-                    {
-                        var avgComposeMs = _composeSampleTotalMs / Math.Max(1, _composeSampleCount);
-                        Debug.WriteLine($"[ImageEditor] avg recompose {avgComposeMs}ms over {_composeSampleCount} runs");
+                        AppLog.Error("Editor recompose failed.", ex);
+                        InAppToastService.Show($"Updating the image failed ({ex.Message}).", InAppToastSeverity.Error);
                     }
 
                     runIncludeAdorners = _includeAdornersForQueuedRecompose;
@@ -162,11 +125,78 @@ namespace helvety.screentools.Views
                     _includeAdornersForQueuedRecompose = false;
                     _includePixelEffectsForQueuedRecompose = false;
                 }
-                while (_recomposeQueued);
+                while (_recomposeQueued && !_isTornDown);
             }
             finally
             {
                 _isBusy = false;
+            }
+        }
+
+        private async Task RecomposeOnceAsync(bool includeAdorners, bool includePixelEffects)
+        {
+            if (_isTornDown || _document is null || _originalPixels is null)
+            {
+                return;
+            }
+
+            _composeStopwatch.Restart();
+            if (includePixelEffects)
+            {
+                EnsureWorkingPixelsBuffer();
+                var composeGeneration = _composePipeline.BeginPixelCompose();
+                var useGpu = _gpuEffectsEnabled && !_gpuFailedThisSession;
+                var composeOutcome = await _composePipeline.ComposePixelsAsync(
+                    new PixelComposeRequest(
+                        composeGeneration,
+                        _originalPixels,
+                        _imageWidth,
+                        _imageHeight,
+                        // Snapshot on the UI thread: layers keep changing while the GPU renders on a worker thread.
+                        PixelEffects.Capture(
+                            _document.Layers,
+                            _imageWidth,
+                            _imageHeight,
+                            _blurInvertMode,
+                            _highlightDimPercent,
+                            _highlightInvertMode),
+                        _workingPixels!,
+                        useGpu));
+
+                if (_isTornDown)
+                {
+                    return;
+                }
+
+                if (!composeOutcome.IsStale)
+                {
+                    if (composeOutcome.UsedCpuFallback && !_gpuFailedThisSession)
+                    {
+                        // Session-only: never written to settings, so the next editor window tries the GPU again.
+                        _gpuFailedThisSession = true;
+                        var error = string.IsNullOrWhiteSpace(_composePipeline.LastGpuError)
+                            ? "unknown error"
+                            : _composePipeline.LastGpuError;
+                        InAppToastService.Show($"GPU rendering failed ({error}). CPU effects are used for this editing session.", InAppToastSeverity.Warning);
+                    }
+
+                    await UpdateBaseImageAsync(composeGeneration);
+                }
+            }
+            else if (_workingPixels is null)
+            {
+                EnsureWorkingPixelsBuffer();
+                await UpdateBaseImageAsync(_composePipeline.BeginPixelCompose());
+            }
+
+            RebuildOverlayVisuals(includeAdorners);
+            _composeStopwatch.Stop();
+            _composeSampleCount++;
+            _composeSampleTotalMs += _composeStopwatch.ElapsedMilliseconds;
+            if (_composeSampleCount % 20 == 0)
+            {
+                var avgComposeMs = _composeSampleTotalMs / Math.Max(1, _composeSampleCount);
+                Debug.WriteLine($"[ImageEditor] avg recompose {avgComposeMs}ms over {_composeSampleCount} runs");
             }
         }
 
@@ -183,6 +213,7 @@ namespace helvety.screentools.Views
             }
 
             Buffer.BlockCopy(_originalPixels, 0, _workingPixels, 0, _originalPixels.Length);
+            _workingPixelsVersion++;
         }
 
         private void RebuildOverlayVisuals(bool includeAdorners)
@@ -220,7 +251,8 @@ namespace helvety.screentools.Views
                         magnifierLayer,
                         _workingPixels,
                         _imageWidth,
-                        _imageHeight);
+                        _imageHeight,
+                        _workingPixelsVersion);
                 }
             }
         }

@@ -35,15 +35,17 @@ namespace helvety.screentools.Editor
 
             try
             {
+                var page = new ImageEditorPage(filePath);
                 var window = new Window
                 {
                     Title = $"Editor - {Path.GetFileName(filePath)}",
-                    Content = new ImageEditorPage(filePath)
+                    Content = page
                 };
 
                 window.Closed += (_, _) =>
                 {
                     OpenWindows.Remove(filePath);
+                    page.Teardown();
                 };
 
                 OpenWindows[filePath] = window;

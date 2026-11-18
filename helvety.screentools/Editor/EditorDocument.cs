@@ -684,6 +684,9 @@ namespace helvety.screentools.Editor
 
         internal int LoupePixelHeight { get; set; }
 
+        /// <summary>Inputs the current <see cref="LoupePixels"/> were built from; unchanged inputs skip the rebuild.</summary>
+        internal (EditorRect Source, EditorRect Loupe, MagnifierShape Shape, long PixelsVersion)? LoupeInputs { get; set; }
+
         internal override EditorRect GetBounds()
         {
             return Union(SourceRegion, LoupeRegion);

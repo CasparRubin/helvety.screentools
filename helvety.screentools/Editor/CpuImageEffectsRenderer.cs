@@ -1,71 +1,50 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 
 namespace helvety.screentools.Editor
 {
-    /// <summary>CPU fallback for blur and highlight when GPU rendering is unavailable.</summary>
+    /// <summary>
+    /// CPU fallback for blur and highlight when GPU rendering is unavailable. Follows the same semantics as
+    /// <see cref="GpuImageEffectsRenderer"/> (see <see cref="PixelEffects"/>), approximating Gaussian blur with box blurs.
+    /// </summary>
     internal static class CpuImageEffectsRenderer
     {
-        internal static void Apply(
-            byte[] sourcePixels,
-            int imageWidth,
-            int imageHeight,
-            IReadOnlyList<EditorLayer> layers,
-            bool blurInvertMode,
-            int highlightDimPercent,
-            bool highlightInvertMode,
-            byte[] destinationPixels)
+        private const int MaxRadius = 25;
+
+        internal static void Apply(byte[] sourcePixels, int imageWidth, int imageHeight, PixelEffects effects, byte[] destinationPixels)
         {
             Buffer.BlockCopy(sourcePixels, 0, destinationPixels, 0, sourcePixels.Length);
 
-            foreach (var blurLayer in layers.OfType<BlurLayer>().Where(layer => layer.IsVisible))
+            if (effects.Blurs.Count > 0)
             {
-                ApplyBlurRegion(
-                    destinationPixels,
-                    imageWidth,
-                    imageHeight,
-                    blurLayer,
-                    blurInvertMode);
+                if (effects.BlurInvertMode)
+                {
+                    ApplyInvertedBlur(destinationPixels, imageWidth, imageHeight, effects);
+                }
+                else
+                {
+                    foreach (var blur in effects.Blurs)
+                    {
+                        ApplyRegionBlur(destinationPixels, imageWidth, imageHeight, blur);
+                    }
+                }
             }
 
-            var dimFactor = 1f - (Math.Clamp(highlightDimPercent, 0, 80) / 100f);
-            if (dimFactor >= 1f)
+            if (effects.HasHighlightDim)
             {
-                return;
-            }
-
-            foreach (var highlightLayer in layers.OfType<HighlightLayer>().Where(layer => layer.IsVisible))
-            {
-                ApplyHighlightDim(
-                    destinationPixels,
-                    imageWidth,
-                    imageHeight,
-                    highlightLayer,
-                    dimFactor,
-                    highlightInvertMode);
+                ApplyHighlightDim(destinationPixels, imageWidth, imageHeight, effects);
             }
         }
 
-        private static void ApplyBlurRegion(
-            byte[] pixels,
-            int imageWidth,
-            int imageHeight,
-            BlurLayer blurLayer,
-            bool invertMode)
+        private static void ApplyRegionBlur(byte[] pixels, int imageWidth, int imageHeight, BlurEffect blur)
         {
-            var region = ClampRegion(blurLayer.Region, imageWidth, imageHeight);
-            if (region.IsEmpty)
-            {
-                return;
-            }
-
-            var radius = Math.Clamp(blurLayer.Radius, 1, 25);
-            var pad = radius * 2;
-            var x0 = Math.Max(0, region.X - pad);
-            var y0 = Math.Max(0, region.Y - pad);
-            var x1 = Math.Min(imageWidth, region.X + region.Width + pad);
-            var y1 = Math.Min(imageHeight, region.Y + region.Height + pad);
+            var radius = Math.Clamp(blur.Radius, 1, MaxRadius);
+            var feather = Math.Clamp(blur.Feather, 0f, PixelEffects.MaxFeather);
+            var pad = (radius * 2) + (int)MathF.Ceiling(feather * 2f);
+            var x0 = Math.Max(0, blur.Region.X - pad);
+            var y0 = Math.Max(0, blur.Region.Y - pad);
+            var x1 = Math.Min(imageWidth, blur.Region.X + blur.Region.Width + pad);
+            var y1 = Math.Min(imageHeight, blur.Region.Y + blur.Region.Height + pad);
             var roiWidth = x1 - x0;
             var roiHeight = y1 - y0;
             if (roiWidth <= 0 || roiHeight <= 0)
@@ -73,192 +52,151 @@ namespace helvety.screentools.Editor
                 return;
             }
 
-            var roiStride = roiWidth * 4;
-            var roi = new byte[roiStride * roiHeight];
-            CopyRegion(pixels, imageWidth, imageHeight, x0, y0, roi, roiWidth, roiHeight);
-
-            var passes = Math.Min(3, 1 + (radius / 8));
-            for (var pass = 0; pass < passes; pass++)
+            var roi = new byte[roiWidth * roiHeight * 4];
+            for (var y = 0; y < roiHeight; y++)
             {
-                BoxBlurHorizontal(roi, roiWidth, roiHeight, radius);
-                BoxBlurVertical(roi, roiWidth, roiHeight, radius);
+                Buffer.BlockCopy(pixels, (((y0 + y) * imageWidth) + x0) * 4, roi, y * roiWidth * 4, roiWidth * 4);
             }
 
-            BlendRegion(pixels, imageWidth, imageHeight, roi, roiWidth, roiHeight, x0, y0, region, invertMode);
+            BlurInPlace(roi, roiWidth, roiHeight, radius);
+
+            for (var y = 0; y < roiHeight; y++)
+            {
+                for (var x = 0; x < roiWidth; x++)
+                {
+                    var coverage = PixelEffects.Coverage(x0 + x, y0 + y, blur.Region, blur.CornerRadius, feather);
+                    if (coverage > 0f)
+                    {
+                        Blend(pixels, (((y0 + y) * imageWidth) + x0 + x) * 4, roi, ((y * roiWidth) + x) * 4, coverage);
+                    }
+                }
+            }
         }
 
-        private static void ApplyHighlightDim(
-            byte[] pixels,
-            int imageWidth,
-            int imageHeight,
-            HighlightLayer highlightLayer,
-            float dimFactor,
-            bool invertMode)
+        private static void ApplyInvertedBlur(byte[] pixels, int imageWidth, int imageHeight, PixelEffects effects)
         {
-            var region = ClampRegion(highlightLayer.Region, imageWidth, imageHeight);
-            if (region.IsEmpty)
-            {
-                return;
-            }
+            var radius = Math.Clamp(effects.Blurs.Max(blur => blur.Radius), 1, MaxRadius);
+            var feather = Math.Clamp(effects.Blurs.Max(blur => blur.Feather), 0f, PixelEffects.MaxFeather);
+            var blurred = (byte[])pixels.Clone();
+            BlurInPlace(blurred, imageWidth, imageHeight, radius);
 
-            var dimInside = !invertMode;
             for (var y = 0; y < imageHeight; y++)
             {
                 for (var x = 0; x < imageWidth; x++)
                 {
-                    var inside = x >= region.X && x < region.X + region.Width &&
-                                 y >= region.Y && y < region.Y + region.Height;
-                    if (inside != dimInside)
+                    var keepSharp = 0f;
+                    foreach (var blur in effects.Blurs)
+                    {
+                        keepSharp = MathF.Max(keepSharp, PixelEffects.Coverage(x, y, blur.Region, blur.CornerRadius, feather));
+                    }
+
+                    if (keepSharp < 1f)
+                    {
+                        var index = ((y * imageWidth) + x) * 4;
+                        Blend(pixels, index, blurred, index, 1f - keepSharp);
+                    }
+                }
+            }
+        }
+
+        private static void ApplyHighlightDim(byte[] pixels, int imageWidth, int imageHeight, PixelEffects effects)
+        {
+            var dimStrength = 1f - effects.HighlightDimFactor;
+            for (var y = 0; y < imageHeight; y++)
+            {
+                for (var x = 0; x < imageWidth; x++)
+                {
+                    var inside = 0f;
+                    foreach (var highlight in effects.Highlights)
+                    {
+                        inside = MathF.Max(inside, PixelEffects.Coverage(x, y, highlight.Region, highlight.CornerRadius, 0f));
+                    }
+
+                    var dimAmount = effects.HighlightInvertMode ? inside : 1f - inside;
+                    if (dimAmount <= 0f)
                     {
                         continue;
                     }
 
+                    // Premultiplied BGRA: scaling color channels darkens without changing coverage.
+                    var factor = 1f - (dimStrength * dimAmount);
                     var index = ((y * imageWidth) + x) * 4;
-                    pixels[index] = (byte)(pixels[index] * dimFactor);
-                    pixels[index + 1] = (byte)(pixels[index + 1] * dimFactor);
-                    pixels[index + 2] = (byte)(pixels[index + 2] * dimFactor);
+                    pixels[index] = (byte)(pixels[index] * factor);
+                    pixels[index + 1] = (byte)(pixels[index + 1] * factor);
+                    pixels[index + 2] = (byte)(pixels[index + 2] * factor);
                 }
             }
         }
 
-        private static void BlendRegion(
-            byte[] dest,
-            int imageWidth,
-            int imageHeight,
-            byte[] blurredRoi,
-            int roiWidth,
-            int roiHeight,
-            int roiX,
-            int roiY,
-            EditorRect maskRegion,
-            bool invertMode)
+        private static void Blend(byte[] destination, int destinationIndex, byte[] source, int sourceIndex, float amount)
         {
-            for (var y = 0; y < roiHeight; y++)
+            for (var channel = 0; channel < 4; channel++)
             {
-                var imageY = roiY + y;
-                if (imageY < 0 || imageY >= imageHeight)
-                {
-                    continue;
-                }
-
-                for (var x = 0; x < roiWidth; x++)
-                {
-                    var imageX = roiX + x;
-                    if (imageX < 0 || imageX >= imageWidth)
-                    {
-                        continue;
-                    }
-
-                    var insideMask = imageX >= maskRegion.X && imageX < maskRegion.X + maskRegion.Width &&
-                                     imageY >= maskRegion.Y && imageY < maskRegion.Y + maskRegion.Height;
-                    var applyBlur = invertMode ? !insideMask : insideMask;
-                    if (!applyBlur)
-                    {
-                        continue;
-                    }
-
-                    var destIndex = ((imageY * imageWidth) + imageX) * 4;
-                    var srcIndex = ((y * roiWidth) + x) * 4;
-                    dest[destIndex] = blurredRoi[srcIndex];
-                    dest[destIndex + 1] = blurredRoi[srcIndex + 1];
-                    dest[destIndex + 2] = blurredRoi[srcIndex + 2];
-                    dest[destIndex + 3] = blurredRoi[srcIndex + 3];
-                }
+                var from = destination[destinationIndex + channel];
+                var to = source[sourceIndex + channel];
+                destination[destinationIndex + channel] = (byte)(from + ((to - from) * amount) + 0.5f);
             }
         }
 
-        private static void CopyRegion(
-            byte[] source,
-            int imageWidth,
-            int imageHeight,
-            int x0,
-            int y0,
-            byte[] dest,
-            int destWidth,
-            int destHeight)
+        private static void BlurInPlace(byte[] pixels, int width, int height, int radius)
         {
-            for (var y = 0; y < destHeight; y++)
+            // Repeated box blurs approximate a Gaussian; all four channels keep premultiplied pixels valid.
+            var passes = Math.Min(3, 1 + (radius / 8));
+            var scratch = new byte[pixels.Length];
+            for (var pass = 0; pass < passes; pass++)
             {
-                var imageY = y0 + y;
-                if (imageY < 0 || imageY >= imageHeight)
-                {
-                    continue;
-                }
-
-                var srcRow = imageY * imageWidth * 4;
-                var destRow = y * destWidth * 4;
-                Buffer.BlockCopy(source, srcRow + (x0 * 4), dest, destRow, destWidth * 4);
+                BoxBlurHorizontal(pixels, scratch, width, height, radius);
+                BoxBlurVertical(pixels, scratch, width, height, radius);
             }
         }
 
-        private static void BoxBlurHorizontal(byte[] pixels, int width, int height, int radius)
+        private static void BoxBlurHorizontal(byte[] pixels, byte[] scratch, int width, int height, int radius)
         {
             var window = (radius * 2) + 1;
-            var temp = new byte[pixels.Length];
-            Buffer.BlockCopy(pixels, 0, temp, 0, pixels.Length);
-
+            Buffer.BlockCopy(pixels, 0, scratch, 0, pixels.Length);
             for (var y = 0; y < height; y++)
             {
                 var row = y * width * 4;
-                for (var channel = 0; channel < 3; channel++)
+                for (var channel = 0; channel < 4; channel++)
                 {
                     var sum = 0;
                     for (var x = -radius; x <= radius; x++)
                     {
-                        var clampedX = Math.Clamp(x, 0, width - 1);
-                        sum += temp[row + (clampedX * 4) + channel];
+                        sum += scratch[row + (Math.Clamp(x, 0, width - 1) * 4) + channel];
                     }
 
                     for (var x = 0; x < width; x++)
                     {
                         pixels[row + (x * 4) + channel] = (byte)(sum / window);
-                        var removeX = Math.Clamp(x - radius, 0, width - 1);
-                        var addX = Math.Clamp(x + radius + 1, 0, width - 1);
-                        sum -= temp[row + (removeX * 4) + channel];
-                        sum += temp[row + (addX * 4) + channel];
+                        sum -= scratch[row + (Math.Clamp(x - radius, 0, width - 1) * 4) + channel];
+                        sum += scratch[row + (Math.Clamp(x + radius + 1, 0, width - 1) * 4) + channel];
                     }
                 }
             }
         }
 
-        private static void BoxBlurVertical(byte[] pixels, int width, int height, int radius)
+        private static void BoxBlurVertical(byte[] pixels, byte[] scratch, int width, int height, int radius)
         {
             var window = (radius * 2) + 1;
-            var temp = new byte[pixels.Length];
-            Buffer.BlockCopy(pixels, 0, temp, 0, pixels.Length);
-
+            Buffer.BlockCopy(pixels, 0, scratch, 0, pixels.Length);
             for (var x = 0; x < width; x++)
             {
-                for (var channel = 0; channel < 3; channel++)
+                for (var channel = 0; channel < 4; channel++)
                 {
                     var sum = 0;
                     for (var y = -radius; y <= radius; y++)
                     {
-                        var clampedY = Math.Clamp(y, 0, height - 1);
-                        sum += temp[((clampedY * width) + x) * 4 + channel];
+                        sum += scratch[(((Math.Clamp(y, 0, height - 1) * width) + x) * 4) + channel];
                     }
 
                     for (var y = 0; y < height; y++)
                     {
-                        pixels[((y * width) + x) * 4 + channel] = (byte)(sum / window);
-                        var removeY = Math.Clamp(y - radius, 0, height - 1);
-                        var addY = Math.Clamp(y + radius + 1, 0, height - 1);
-                        sum -= temp[((removeY * width) + x) * 4 + channel];
-                        sum += temp[((addY * width) + x) * 4 + channel];
+                        pixels[(((y * width) + x) * 4) + channel] = (byte)(sum / window);
+                        sum -= scratch[(((Math.Clamp(y - radius, 0, height - 1) * width) + x) * 4) + channel];
+                        sum += scratch[(((Math.Clamp(y + radius + 1, 0, height - 1) * width) + x) * 4) + channel];
                     }
                 }
             }
-        }
-
-        private static EditorRect ClampRegion(EditorRect region, int imageWidth, int imageHeight)
-        {
-            var x = Math.Clamp(region.X, 0, Math.Max(0, imageWidth));
-            var y = Math.Clamp(region.Y, 0, Math.Max(0, imageHeight));
-            var maxWidth = Math.Max(0, imageWidth - x);
-            var maxHeight = Math.Max(0, imageHeight - y);
-            var width = Math.Clamp(region.Width, 0, maxWidth);
-            var height = Math.Clamp(region.Height, 0, maxHeight);
-            return new EditorRect(x, y, width, height);
         }
     }
 }
